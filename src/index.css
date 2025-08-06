@@ -1,0 +1,60 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    line-height: 1.6;
+  }
+  
+  * {
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    cursor: default !important;
+  }
+  
+  *:focus {
+    outline: none !important;
+  }
+  
+  button, a, [role="button"] {
+    cursor: pointer !important;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-dental-primary hover:bg-dental-secondary text-white font-semibold py-3 px-6 rounded-full transition-all duration-300 transform hover:scale-105 hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-primary-200;
+  }
+  
+  .btn-secondary {
+    @apply bg-dental-light border-2 border-dental-secondary text-dental-secondary hover:bg-dental-secondary hover:text-white font-semibold py-3 px-6 rounded-full transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-primary-200 cursor-pointer;
+  }
+  
+  .card-hover {
+    @apply transition-all duration-300 transform hover:scale-105 hover:shadow-xl;
+  }
+  
+  .hero-gradient {
+    background: linear-gradient(135deg, #faffaf 0%, #96c9f4 100%);
+  }
+  
+  .dental-shadow {
+    box-shadow: 0 10px 30px rgba(63, 162, 246, 0.15);
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
