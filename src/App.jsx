@@ -2,6 +2,8 @@ import React from 'react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import Navbar from './components/Navbar'
+import ProtectedRoute from './components/ProtectedRoute'
+import AdminProtectedRoute from './components/AdminProtectedRoute'
 import Home from './pages/Home'
 import About from './pages/About'
 import Contact from './pages/Contact'
@@ -21,6 +23,18 @@ import EmployeeLogin from './pages/auth/EmployeeLogin'
 // Dashboard pages
 import PatientDashboard from './pages/PatientDashboard'
 
+// Admin Components
+import AdminLayout from './components/admin/AdminLayout'
+import AdminDashboard from './pages/admin/AdminDashboard'
+import DoctorsManagement from './pages/admin/DoctorsManagement'
+import EmployeesManagement from './pages/admin/EmployeesManagement'
+import PatientRecords from './pages/admin/PatientRecords'
+import AppointmentsAnalytics from './pages/admin/AppointmentsAnalytics'
+import PayrollManagement from './pages/admin/PayrollManagement'
+import MedicineInventory from './pages/admin/MedicineInventory'
+import NotificationsCenter from './pages/admin/NotificationsCenter'
+import AdminSettings from './pages/admin/AdminSettings'
+
 function App() {
   return (
     <AuthProvider>
@@ -30,20 +44,80 @@ function App() {
           {/* Role selection page */}
           <Route path="/role-selection" element={<RoleSelection />} />
           
-          {/* Auth pages without navbar/footer */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPasswordOTP />} />
-          <Route path="/reset-password-token" element={<ResetPassword />} />
+          {/* Auth pages without navbar/footer - redirect to dashboard if already authenticated */}
+          <Route path="/login" element={
+            <ProtectedRoute requireAuth={false}>
+              <Login />
+            </ProtectedRoute>
+          } />
+          <Route path="/register" element={
+            <ProtectedRoute requireAuth={false}>
+              <Register />
+            </ProtectedRoute>
+          } />
+          <Route path="/forgot-password" element={
+            <ProtectedRoute requireAuth={false}>
+              <ForgotPassword />
+            </ProtectedRoute>
+          } />
+          <Route path="/reset-password" element={
+            <ProtectedRoute requireAuth={false}>
+              <ResetPasswordOTP />
+            </ProtectedRoute>
+          } />
+          <Route path="/reset-password-token" element={
+            <ProtectedRoute requireAuth={false}>
+              <ResetPassword />
+            </ProtectedRoute>
+          } />
 
           {/* Role-specific login pages */}
           <Route path="/login/doctor" element={<DoctorLogin />} />
           <Route path="/login/admin" element={<AdminLogin />} />
           <Route path="/login/employee" element={<EmployeeLogin />} />
 
-          {/* Dashboard pages */}
-          <Route path="/patient/dashboard" element={<PatientDashboard />} />
+          {/* Dashboard pages - require authentication */}
+          <Route path="/patient/dashboard" element={
+            <ProtectedRoute requireAuth={true}>
+              <PatientDashboard />
+            </ProtectedRoute>
+          } />
+
+          {/* Admin Dashboard Routes - Protected with admin authentication */}
+          <Route path="/admin" element={
+            <AdminProtectedRoute>
+              <AdminLayout />
+            </AdminProtectedRoute>
+          }>
+            <Route index element={<AdminDashboard />} />
+            <Route path="dashboard" element={<AdminDashboard />} />
+            <Route path="doctors" element={<DoctorsManagement />} />
+            <Route path="employees" element={<EmployeesManagement />} />
+            <Route path="patients" element={<PatientRecords />} />
+            <Route path="appointments" element={<AppointmentsAnalytics />} />
+            <Route path="payroll" element={<PayrollManagement />} />
+            <Route path="inventory" element={<MedicineInventory />} />
+            <Route path="notifications" element={<NotificationsCenter />} />
+            <Route path="settings" element={<AdminSettings />} />
+          </Route>
+
+          {/* Admin Dashboard Routes with Authentication (Commented out for testing) 
+          <Route path="/admin" element={
+            <ProtectedRoute requireAuth={true}>
+              <AdminLayout />
+            </ProtectedRoute>
+          }>
+            <Route path="dashboard" element={<AdminDashboard />} />
+            <Route path="doctors" element={<DoctorsManagement />} />
+            <Route path="employees" element={<EmployeesManagement />} />
+            <Route path="patients" element={<PatientRecords />} />
+            <Route path="appointments" element={<AppointmentsAnalytics />} />
+            <Route path="payroll" element={<PayrollManagement />} />
+            <Route path="inventory" element={<MedicineInventory />} />
+            <Route path="notifications" element={<NotificationsCenter />} />
+            <Route path="settings" element={<AdminSettings />} />
+          </Route>
+          */}
           
           {/* Main pages with navbar/footer */}
           <Route path="/*" element={

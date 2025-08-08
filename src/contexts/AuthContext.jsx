@@ -89,6 +89,11 @@ export const AuthProvider = ({ children }) => {
     apiService.logout()
     setUser(null)
     setIsAuthenticated(false)
+
+    // Clear browser history to prevent back navigation to protected pages
+    window.history.pushState(null, '', '/login')
+    window.history.pushState(null, '', '/login')
+    window.history.back()
   }
 
   const value = {

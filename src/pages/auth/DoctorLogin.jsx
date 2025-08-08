@@ -1,9 +1,13 @@
 import React, { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import axios from 'axios'
+import toast from 'react-hot-toast'
 import doctorLogo from '../../assets/images/doctor-logo.png'
 
 const DoctorLogin = () => {
+  const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false)
+  const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -14,10 +18,34 @@ const DoctorLogin = () => {
     setFormData(prev => ({ ...prev, [name]: value }))
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    console.log('Doctor login:', formData)
-    // Handle doctor login logic here
+    setLoading(true)
+
+    try {
+      const response = await axios.post('http://localhost:5000/api/auth/doctor/login', formData)
+
+      if (response.data.token) {
+        // Store token and doctor info
+        localStorage.setItem('doctorToken', response.data.token)
+        localStorage.setItem('doctorInfo', JSON.stringify(response.data.doctor))
+
+        toast.success(`Welcome back, Dr. ${response.data.doctor.firstName}!`)
+
+        // Redirect to doctor dashboard (you'll need to create this)
+        navigate('/doctor/dashboard')
+      }
+    } catch (error) {
+      console.error('Doctor login error:', error)
+
+      if (error.response?.data?.accountStatus === 'inactive') {
+        toast.error('Your account has been deactivated. Please contact the administrator.')
+      } else {
+        toast.error(error.response?.data?.message || 'Login failed. Please check your credentials.')
+      }
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -114,14 +142,19 @@ const DoctorLogin = () => {
             <div>
               <button
                 type="submit"
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-600 transition-all duration-300"
+                disabled={loading}
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-600 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span className="flex items-center">
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                          d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                  </svg>
-                  Sign in as Doctor
+                  {loading ? (
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                  ) : (
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                            d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                  )}
+                  {loading ? 'Signing in...' : 'Sign in as Doctor'}
                 </span>
               </button>
             </div>

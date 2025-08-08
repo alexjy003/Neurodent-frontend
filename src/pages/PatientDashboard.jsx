@@ -7,12 +7,16 @@ import ProfileManagement from '../components/ProfileManagement'
 import DoctorSearch from '../components/DoctorSearch'
 import AppointmentManagement from '../components/AppointmentManagement'
 import MedicalRecords from '../components/MedicalRecords'
+import usePreventBackNavigation from '../hooks/usePreventBackNavigation'
 import apiService from '../services/api'
 
 const PatientDashboard = () => {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { user, isAuthenticated, loading, checkAuthStatus, logout } = useAuth()
+
+  // Prevent back navigation to dashboard after logout
+  usePreventBackNavigation(isAuthenticated, '/login')
   const [activeTab, setActiveTab] = useState('overview')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
@@ -195,6 +199,10 @@ const PatientDashboard = () => {
                       </button>
                       <button
                         onClick={() => {
+                          // Clear browser history to prevent back navigation
+                          window.history.pushState(null, '', '/login')
+                          window.history.pushState(null, '', '/login')
+
                           logout()
                           navigate('/login', { replace: true })
                         }}

@@ -68,6 +68,19 @@ class ApiService {
 
   logout() {
     this.removeToken();
+
+    // Clear all localStorage data related to the app
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.startsWith('email_verified_') || key.includes('neurodent'))) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach(key => localStorage.removeItem(key));
+
+    // Clear sessionStorage
+    sessionStorage.clear();
   }
 
   getGoogleAuthUrl() {
