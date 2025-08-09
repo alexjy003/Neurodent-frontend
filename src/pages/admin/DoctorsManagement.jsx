@@ -139,6 +139,9 @@ const DoctorsManagement = () => {
   // Handle form input changes
   const handleInputChange = (e) => {
     const { name, value } = e.target
+    if (name === 'availability') {
+      console.log('Availability changed to:', value)
+    }
     setFormData(prev => ({
       ...prev,
       [name]: value
@@ -169,6 +172,8 @@ const DoctorsManagement = () => {
 
   // Open edit form with doctor data
   const handleEditDoctor = (doctor) => {
+    console.log('Editing doctor:', doctor)
+    console.log('Doctor availability:', doctor.availability)
     setEditingDoctor(doctor)
     setFormData({
       firstName: doctor.firstName,
@@ -187,7 +192,7 @@ const DoctorsManagement = () => {
 
     // Set existing image preview if available
     if (doctor.profileImage) {
-      setImagePreview(`http://localhost:5000${doctor.profileImage}`)
+      setImagePreview(doctor.profileImage)
     } else {
       setImagePreview(null)
     }
@@ -262,7 +267,11 @@ const DoctorsManagement = () => {
 
       // Add all form fields except password if it's empty
       Object.keys(formData).forEach(key => {
-        if (formData[key] && !(key === 'password' && formData[key] === '')) {
+        if (key === 'password' && formData[key] === '') {
+          // Skip empty password
+          return
+        }
+        if (formData[key] !== undefined && formData[key] !== null) {
           formDataToSend.append(key, formData[key])
         }
       })
@@ -273,6 +282,7 @@ const DoctorsManagement = () => {
       }
 
       console.log('Updating doctor data with image:', selectedImage ? 'Image included' : 'No new image')
+      console.log('Form data being sent:', Object.fromEntries(formDataToSend.entries()))
 
       const response = await axios.put(`http://localhost:5000/api/doctors/${editingDoctor._id}`, formDataToSend, {
         headers: {
@@ -469,7 +479,7 @@ const DoctorsManagement = () => {
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center space-x-3">
                     <img
-                      src={doctor.profileImage ? `http://localhost:5000${doctor.profileImage}` : `https://ui-avatars.com/api/?name=${doctor.firstName}+${doctor.lastName}&background=0d9488&color=fff`}
+                      src={doctor.profileImage || `https://ui-avatars.com/api/?name=${doctor.firstName}+${doctor.lastName}&background=0d9488&color=fff`}
                       alt={`${doctor.firstName} ${doctor.lastName}`}
                       className="w-12 h-12 rounded-full object-cover"
                     />
@@ -1093,7 +1103,7 @@ const DoctorsManagement = () => {
                 <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
                   {viewingDoctor.profileImage ? (
                     <img
-                      src={`http://localhost:5000${viewingDoctor.profileImage}`}
+                      src={viewingDoctor.profileImage}
                       alt={`${viewingDoctor.firstName} ${viewingDoctor.lastName}`}
                       className="w-full h-full object-cover"
                     />
