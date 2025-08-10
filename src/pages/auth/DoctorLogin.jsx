@@ -22,13 +22,23 @@ const DoctorLogin = () => {
     e.preventDefault()
     setLoading(true)
 
+    console.log('🔐 Doctor login attempt:', formData)
+
     try {
+      console.log('📡 Making API request to:', 'http://localhost:5000/api/auth/doctor/login')
       const response = await axios.post('http://localhost:5000/api/auth/doctor/login', formData)
+
+      console.log('✅ API Response:', response.data)
 
       if (response.data.token) {
         // Store token and doctor info
         localStorage.setItem('doctorToken', response.data.token)
         localStorage.setItem('doctorInfo', JSON.stringify(response.data.doctor))
+
+        console.log('💾 Stored in localStorage:', {
+          token: response.data.token.substring(0, 20) + '...',
+          doctor: response.data.doctor
+        })
 
         toast.success(`Welcome back, Dr. ${response.data.doctor.firstName}!`)
 
@@ -36,7 +46,8 @@ const DoctorLogin = () => {
         navigate('/doctor/dashboard')
       }
     } catch (error) {
-      console.error('Doctor login error:', error)
+      console.error('❌ Doctor login error:', error)
+      console.error('❌ Error response:', error.response?.data)
 
       if (error.response?.data?.accountStatus === 'inactive') {
         toast.error('Your account has been deactivated. Please contact the administrator.')

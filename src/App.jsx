@@ -4,6 +4,7 @@ import { AuthProvider } from './contexts/AuthContext'
 import Navbar from './components/Navbar'
 import ProtectedRoute from './components/ProtectedRoute'
 import AdminProtectedRoute from './components/AdminProtectedRoute'
+import DoctorProtectedRoute from './components/DoctorProtectedRoute'
 import Home from './pages/Home'
 import About from './pages/About'
 import Contact from './pages/Contact'
@@ -28,12 +29,21 @@ import AdminLayout from './components/admin/AdminLayout'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import DoctorsManagement from './pages/admin/DoctorsManagement'
 import EmployeesManagement from './pages/admin/EmployeesManagement'
-import PatientRecords from './pages/admin/PatientRecords'
+import AdminPatientRecords from './pages/admin/PatientRecords'
 import AppointmentsAnalytics from './pages/admin/AppointmentsAnalytics'
 import PayrollManagement from './pages/admin/PayrollManagement'
 import MedicineInventory from './pages/admin/MedicineInventory'
 import NotificationsCenter from './pages/admin/NotificationsCenter'
 import AdminSettings from './pages/admin/AdminSettings'
+
+// Doctor Components
+import DoctorLayout from './components/doctor/DoctorLayout'
+import DoctorDashboard from './pages/doctor/DoctorDashboard'
+import Appointments from './pages/doctor/Appointments'
+import DoctorPatientRecords from './pages/doctor/PatientRecords'
+import Prescriptions from './pages/doctor/Prescriptions'
+import TreatmentNotes from './pages/doctor/TreatmentNotes'
+import Schedule from './pages/doctor/Schedule'
 
 function App() {
   return (
@@ -72,6 +82,7 @@ function App() {
           } />
 
           {/* Role-specific login pages */}
+          <Route path="/doctor/login" element={<DoctorLogin />} />
           <Route path="/login/doctor" element={<DoctorLogin />} />
           <Route path="/login/admin" element={<AdminLogin />} />
           <Route path="/login/employee" element={<EmployeeLogin />} />
@@ -93,7 +104,7 @@ function App() {
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="doctors" element={<DoctorsManagement />} />
             <Route path="employees" element={<EmployeesManagement />} />
-            <Route path="patients" element={<PatientRecords />} />
+            <Route path="patients" element={<AdminPatientRecords />} />
             <Route path="appointments" element={<AppointmentsAnalytics />} />
             <Route path="payroll" element={<PayrollManagement />} />
             <Route path="inventory" element={<MedicineInventory />} />
@@ -101,7 +112,21 @@ function App() {
             <Route path="settings" element={<AdminSettings />} />
           </Route>
 
-          {/* Admin Dashboard Routes with Authentication (Commented out for testing) 
+          {/* Doctor Dashboard Routes - Protected with doctor authentication */}
+          <Route path="/doctor" element={
+            <DoctorProtectedRoute>
+              <DoctorLayout />
+            </DoctorProtectedRoute>
+          }>
+            <Route path="dashboard" element={<DoctorDashboard />} />
+            <Route path="appointments" element={<Appointments />} />
+            <Route path="patient-records" element={<DoctorPatientRecords />} />
+            <Route path="prescriptions" element={<Prescriptions />} />
+            <Route path="treatment-notes" element={<TreatmentNotes />} />
+            <Route path="schedule" element={<Schedule />} />
+          </Route>
+
+          {/* Admin Dashboard Routes with Authentication (Commented out for testing)
           <Route path="/admin" element={
             <ProtectedRoute requireAuth={true}>
               <AdminLayout />
@@ -110,7 +135,7 @@ function App() {
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="doctors" element={<DoctorsManagement />} />
             <Route path="employees" element={<EmployeesManagement />} />
-            <Route path="patients" element={<PatientRecords />} />
+            <Route path="patients" element={<AdminPatientRecords />} />
             <Route path="appointments" element={<AppointmentsAnalytics />} />
             <Route path="payroll" element={<PayrollManagement />} />
             <Route path="inventory" element={<MedicineInventory />} />
