@@ -16,7 +16,7 @@ const PatientDashboard = () => {
   const { user, isAuthenticated, loading, checkAuthStatus, logout } = useAuth()
 
   // Prevent back navigation to dashboard after logout
-  usePreventBackNavigation(isAuthenticated, '/login')
+  usePreventBackNavigation(!isAuthenticated, '/login')
   const [activeTab, setActiveTab] = useState('overview')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
@@ -199,12 +199,24 @@ const PatientDashboard = () => {
                       </button>
                       <button
                         onClick={() => {
+                          // Close the user menu first
+                          setUserMenuOpen(false)
+
                           // Clear browser history to prevent back navigation
                           window.history.pushState(null, '', '/login')
                           window.history.pushState(null, '', '/login')
+                          window.history.pushState(null, '', '/login')
 
+                          // Logout and clear all session data
                           logout()
+
+                          // Force navigation to login with replace to prevent back navigation
                           navigate('/login', { replace: true })
+
+                          // Additional security: reload the page to clear any cached state
+                          setTimeout(() => {
+                            window.location.replace('/login')
+                          }, 100)
                         }}
                         className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center"
                       >

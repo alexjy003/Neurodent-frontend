@@ -86,14 +86,29 @@ export const AuthProvider = ({ children }) => {
   }
 
   const logout = () => {
+    console.log('🚪 Logging out user...')
+
+    // Clear API service data and tokens
     apiService.logout()
+
+    // Clear auth context state
     setUser(null)
     setIsAuthenticated(false)
+
+    // Clear any additional localStorage items
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    localStorage.removeItem('patientInfo')
+
+    // Clear session storage as well
+    sessionStorage.clear()
 
     // Clear browser history to prevent back navigation to protected pages
     window.history.pushState(null, '', '/login')
     window.history.pushState(null, '', '/login')
-    window.history.back()
+    window.history.pushState(null, '', '/login')
+
+    console.log('✅ Logout completed')
   }
 
   const value = {

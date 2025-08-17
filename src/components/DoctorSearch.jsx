@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import axios from 'axios'
 
 const DoctorSearch = () => {
   const [searchQuery, setSearchQuery] = useState('')
@@ -10,80 +11,78 @@ const DoctorSearch = () => {
     experience: ''
   })
   const [selectedDoctor, setSelectedDoctor] = useState(null)
+  const [doctors, setDoctors] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
-  // Mock data - in real app, this would come from API
-  const doctors = [
-    {
-      id: 1,
-      name: 'Dr. Sarah Johnson',
-      specialization: 'General Dentistry',
-      rating: 4.9,
-      experience: 12,
-      location: 'Downtown Clinic',
-      image: '/api/placeholder/80/80',
-      availability: 'Available Today',
-      nextSlot: '2024-01-15 10:00 AM',
-      about: 'Experienced general dentist specializing in preventive care and cosmetic dentistry.',
-      qualifications: ['DDS from Harvard School of Dental Medicine', 'Board Certified'],
-      languages: ['English', 'Spanish'],
-      services: ['Cleanings', 'Fillings', 'Whitening', 'Crowns']
-    },
-    {
-      id: 2,
-      name: 'Dr. Michael Chen',
-      specialization: 'Orthodontics',
-      rating: 4.8,
-      experience: 8,
-      location: 'Uptown Center',
-      image: '/api/placeholder/80/80',
-      availability: 'Available Tomorrow',
-      nextSlot: '2024-01-16 2:00 PM',
-      about: 'Orthodontist specializing in Invisalign and traditional braces.',
-      qualifications: ['DDS from UCLA', 'Orthodontics Residency'],
-      languages: ['English', 'Mandarin'],
-      services: ['Braces', 'Invisalign', 'Retainers']
-    },
-    {
-      id: 3,
-      name: 'Dr. Emily Rodriguez',
-      specialization: 'Pediatric Dentistry',
-      rating: 4.7,
-      experience: 6,
-      location: 'Family Dental Center',
-      image: '/api/placeholder/80/80',
-      availability: 'Available Next Week',
-      nextSlot: '2024-01-20 11:00 AM',
-      about: 'Pediatric dentist focused on making dental visits fun and comfortable for children.',
-      qualifications: ['DDS from NYU', 'Pediatric Dentistry Residency'],
-      languages: ['English', 'Spanish'],
-      services: ['Cleanings', 'Fluoride Treatments', 'Sealants']
-    },
-    {
-      id: 4,
-      name: 'Dr. Robert Smith',
-      specialization: 'Oral Surgery',
-      rating: 4.6,
-      experience: 15,
-      location: 'Surgical Center',
-      image: '/api/placeholder/80/80',
-      availability: 'Limited Availability',
-      nextSlot: '2024-01-25 9:00 AM',
-      about: 'Oral and maxillofacial surgeon specializing in complex extractions and implants.',
-      qualifications: ['DDS from Penn', 'Oral Surgery Residency'],
-      languages: ['English'],
-      services: ['Extractions', 'Implants', 'Jaw Surgery']
+  // Fetch doctors from backend
+  const fetchDoctors = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const response = await axios.get('http://localhost:5000/api/doctors')
+      if (response.data.success) {
+        // Transform the data to match the expected format
+        const transformedDoctors = response.data.data.doctors.map(doctor => ({
+          id: doctor._id,
+          name: `Dr. ${doctor.firstName} ${doctor.lastName}`,
+          specialization: doctor.specialization,
+          rating: 4.5 + Math.random() * 0.5, // Generate random rating between 4.5-5.0
+          experience: parseInt(doctor.experience) || 5,
+          location: 'Neurodent Clinic', // Default location
+          image: doctor.profileImage || `https://ui-avatars.com/api/?name=${doctor.firstName}+${doctor.lastName}&background=0d9488&color=fff`,
+          availability: doctor.availability === 'active' ? 'Available Today' : 'Limited Availability',
+          nextSlot: getNextAvailableSlot(),
+          about: doctor.bio || `Experienced ${doctor.specialization.toLowerCase()} specialist providing quality dental care.`,
+          qualifications: [`${doctor.position}`, `Specialization in ${doctor.specialization}`],
+          languages: ['English'],
+          services: getServicesForSpecialization(doctor.specialization),
+          position: doctor.position,
+          phone: doctor.phone,
+          email: doctor.email,
+          gender: doctor.gender,
+          dateOfBirth: doctor.dateOfBirth
+        }))
+        console.log('Transformed doctors:', transformedDoctors)
+        setDoctors(transformedDoctors)
+      }
+    } catch (error) {
+      console.error('Error fetching doctors:', error)
+      setError('Failed to load doctors. Please try again later.')
+    } finally {
+      setLoading(false)
     }
-  ]
+  }
 
-  const specializations = [
-    'General Dentistry',
-    'Orthodontics',
-    'Pediatric Dentistry',
-    'Oral Surgery',
-    'Periodontology',
-    'Endodontics',
-    'Prosthodontics'
-  ]
+  // Helper function to get next available slot
+  const getNextAvailableSlot = () => {
+    const tomorrow = new Date()
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    const hours = 9 + Math.floor(Math.random() * 8) // Random hour between 9 AM and 5 PM
+    const minutes = Math.random() > 0.5 ? '00' : '30'
+    return `${tomorrow.toISOString().split('T')[0]} ${hours}:${minutes} ${hours >= 12 ? 'PM' : 'AM'}`
+  }
+
+  // Helper function to get services based on specialization
+  const getServicesForSpecialization = (specialization) => {
+    const serviceMap = {
+      'General Dentistry': ['Cleanings', 'Fillings', 'Whitening', 'Crowns'],
+      'Orthodontics': ['Braces', 'Invisalign', 'Retainers'],
+      'Pediatric Dentistry': ['Cleanings', 'Fluoride Treatments', 'Sealants'],
+      'Oral Surgery': ['Extractions', 'Implants', 'Jaw Surgery'],
+      'Periodontology': ['Gum Treatment', 'Deep Cleaning', 'Gum Surgery'],
+      'Endodontics': ['Root Canal', 'Pulp Treatment', 'Tooth Pain'],
+      'Prosthodontics': ['Dentures', 'Bridges', 'Implants']
+    }
+    return serviceMap[specialization] || ['General Dental Care', 'Consultations', 'Examinations']
+  }
+
+  useEffect(() => {
+    fetchDoctors()
+  }, [])
+
+  // Get unique specializations from doctors data
+  const specializations = [...new Set(doctors.map(doctor => doctor.specialization))].sort()
 
   const handleFilterChange = (filterType, value) => {
     setFilters(prev => ({
@@ -239,18 +238,78 @@ const DoctorSearch = () => {
         {/* Results count */}
         <div className="flex items-center justify-between">
           <p className="text-sm text-gray-600">
-            Showing {filteredDoctors.length} of {doctors.length} doctors
+            {loading ? 'Loading doctors...' : `Showing ${filteredDoctors.length} of ${doctors.length} doctors`}
           </p>
         </div>
       </div>
 
+      {/* Loading State */}
+      {loading && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12">
+          <div className="flex flex-col items-center justify-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-dental-primary mb-4"></div>
+            <p className="text-gray-600">Loading doctors...</p>
+          </div>
+        </div>
+      )}
+
+      {/* Error State */}
+      {error && (
+        <div className="bg-white rounded-lg shadow-sm border border-red-200 p-6">
+          <div className="flex items-center justify-center text-center">
+            <div className="text-red-600">
+              <svg className="w-12 h-12 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <h3 className="text-lg font-semibold mb-2">Error Loading Doctors</h3>
+              <p className="text-gray-600 mb-4">{error}</p>
+              <button
+                onClick={fetchDoctors}
+                className="px-4 py-2 bg-dental-primary text-white rounded-md hover:bg-dental-primary-dark transition-colors duration-200"
+              >
+                Try Again
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* No Results State */}
+      {!loading && !error && filteredDoctors.length === 0 && doctors.length > 0 && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12">
+          <div className="text-center">
+            <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No doctors found</h3>
+            <p className="text-gray-600 mb-4">Try adjusting your search criteria or filters</p>
+            <button
+              onClick={clearFilters}
+              className="px-4 py-2 bg-dental-primary text-white rounded-md hover:bg-dental-primary-dark transition-colors duration-200"
+            >
+              Clear Filters
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Doctor Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {!loading && !error && filteredDoctors.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {filteredDoctors.map((doctor) => (
           <div key={doctor.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200">
             <div className="flex items-start space-x-4">
               <div className="flex-shrink-0">
-                <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center">
+                <img
+                  src={doctor.image}
+                  alt={doctor.name}
+                  className="w-20 h-20 rounded-full object-cover border-2 border-gray-200"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.nextSibling.style.display = 'flex';
+                  }}
+                />
+                <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center" style={{display: 'none'}}>
                   <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
@@ -312,21 +371,6 @@ const DoctorSearch = () => {
             </div>
           </div>
         ))}
-      </div>
-
-      {filteredDoctors.length === 0 && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-          <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No doctors found</h3>
-          <p className="text-gray-600 mb-4">Try adjusting your search criteria or filters</p>
-          <button
-            onClick={clearFilters}
-            className="px-4 py-2 bg-dental-primary text-white rounded-md text-sm font-medium hover:bg-dental-accent transition-colors duration-200"
-          >
-            Clear All Filters
-          </button>
         </div>
       )}
 
@@ -339,10 +383,21 @@ const DoctorSearch = () => {
             <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
               <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div className="flex items-center mb-4">
-                  <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mr-4">
-                    <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
+                  <div className="mr-4">
+                    <img
+                      src={selectedDoctor.image}
+                      alt={selectedDoctor.name}
+                      className="w-16 h-16 rounded-full object-cover border-2 border-gray-200"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.nextSibling.style.display = 'flex';
+                      }}
+                    />
+                    <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center" style={{display: 'none'}}>
+                      <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                    </div>
                   </div>
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">{selectedDoctor.name}</h3>

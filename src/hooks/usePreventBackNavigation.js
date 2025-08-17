@@ -6,25 +6,33 @@ const usePreventBackNavigation = (shouldPrevent = true, redirectTo = '/login') =
   const location = useLocation()
 
   useEffect(() => {
-    if (!shouldPrevent) return
+    if (!shouldPrevent) {
+      console.log('🔓 Back navigation allowed')
+      return
+    }
+
+    console.log('🔒 Setting up back navigation prevention')
 
     // Push a dummy state to prevent back navigation
     const pushDummyState = () => {
-      window.history.pushState(null, '', location.pathname)
+      window.history.pushState(null, '', redirectTo)
     }
 
     // Handle browser back/forward button
     const handlePopState = (event) => {
       if (shouldPrevent) {
+        console.log('🚫 Preventing back navigation, redirecting to:', redirectTo)
+
         // Prevent the back navigation
         event.preventDefault()
-        
-        // Push the current state again
-        window.history.pushState(null, '', location.pathname)
-        
-        // Optionally redirect to a specific page
+
+        // Push multiple states to make it harder to go back
+        window.history.pushState(null, '', redirectTo)
+        window.history.pushState(null, '', redirectTo)
+
+        // Force redirect to the specified page
         if (redirectTo) {
-          navigate(redirectTo, { replace: true })
+          window.location.replace(redirectTo)
         }
       }
     }
@@ -32,7 +40,12 @@ const usePreventBackNavigation = (shouldPrevent = true, redirectTo = '/login') =
     // Handle page visibility change (when user comes back to tab)
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && shouldPrevent) {
+        console.log('👁️ Page became visible, checking navigation prevention')
         pushDummyState()
+        // If user shouldn't be here, redirect them
+        if (redirectTo && window.location.pathname !== redirectTo) {
+          window.location.replace(redirectTo)
+        }
       }
     }
 
@@ -53,6 +66,7 @@ const usePreventBackNavigation = (shouldPrevent = true, redirectTo = '/login') =
 
     // Cleanup
     return () => {
+      console.log('🧹 Cleaning up navigation prevention')
       window.removeEventListener('popstate', handlePopState)
       window.removeEventListener('beforeunload', handleBeforeUnload)
       document.removeEventListener('visibilitychange', handleVisibilityChange)

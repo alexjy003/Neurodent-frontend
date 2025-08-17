@@ -9,26 +9,45 @@ const ProtectedRoute = ({ children, requireAuth = true }) => {
   useEffect(() => {
     // Prevent back navigation to protected pages when not authenticated
     const handlePopState = (event) => {
-      if (requireAuth && !isAuthenticated) {
+      if (requireAuth && !isAuthenticated && !loading) {
+        console.log('🚫 Preventing back navigation to protected route')
+        // Prevent the default back navigation
+        event.preventDefault()
+
         // Push current state again to prevent going back
-        window.history.pushState(null, '', location.pathname)
-        // Redirect to login
+        window.history.pushState(null, '', '/login')
+        window.history.pushState(null, '', '/login')
+
+        // Force redirect to login
         window.location.replace('/login')
       }
     }
 
-    // Add event listener for browser back/forward buttons
-    window.addEventListener('popstate', handlePopState)
+    // Handle page visibility change (when user comes back to tab)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && requireAuth && !isAuthenticated && !loading) {
+        console.log('🚫 Page became visible but user not authenticated, redirecting...')
+        window.location.replace('/login')
+      }
+    }
 
-    // Push current state to prevent back navigation
-    if (requireAuth && isAuthenticated) {
-      window.history.pushState(null, '', location.pathname)
+    // Only add listeners when not loading
+    if (!loading) {
+      // Add event listener for browser back/forward buttons
+      window.addEventListener('popstate', handlePopState)
+      document.addEventListener('visibilitychange', handleVisibilityChange)
+
+      // Push current state to prevent back navigation when authenticated
+      if (requireAuth && isAuthenticated) {
+        window.history.pushState(null, '', location.pathname)
+      }
     }
 
     return () => {
       window.removeEventListener('popstate', handlePopState)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [isAuthenticated, requireAuth, location.pathname])
+  }, [isAuthenticated, requireAuth, location.pathname, loading])
 
   // Show loading spinner while checking authentication
   if (loading) {
