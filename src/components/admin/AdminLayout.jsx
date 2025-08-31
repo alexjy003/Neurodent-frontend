@@ -35,7 +35,7 @@ const AdminLayout = () => {
   const navigation = [
     { name: 'Dashboard Overview', href: '/admin/dashboard', icon: LayoutDashboard },
     { name: 'Doctors Management', href: '/admin/doctors', icon: UserCheck },
-    { name: 'Employees', href: '/admin/employees', icon: Users },
+    { name: 'Pharmacist Management', href: '/admin/employees', icon: Users },
     { name: 'Patient Records', href: '/admin/patients', icon: Users },
     { name: 'Appointments & Analytics', href: '/admin/appointments', icon: Calendar },
     { name: 'Payroll', href: '/admin/payroll', icon: DollarSign },
@@ -51,7 +51,7 @@ const AdminLayout = () => {
       <Toaster position="top-right" />
       
       {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 flex flex-col`}>
+      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out lg:translate-x-0 flex flex-col`}>
         <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 bg-gradient-to-br from-teal-500 to-blue-600 rounded-lg flex items-center justify-center">
@@ -99,8 +99,8 @@ const AdminLayout = () => {
       {/* Main content */}
       <div className="flex-1 flex flex-col lg:ml-64">
         {/* Top navigation */}
-        <div className="fixed top-0 right-0 left-0 lg:left-64 z-40 bg-white shadow-sm border-b border-gray-200">
-          <div className="flex items-center justify-between h-16 px-6">
+        <div className="fixed top-0 right-0 left-64 z-40 bg-white shadow-sm border-b border-gray-200">
+          <div className="flex items-center justify-between h-16 pl-0 pr-2">
             <div className="flex items-center space-x-4">
               <button
                 onClick={() => setSidebarOpen(true)}
@@ -172,8 +172,10 @@ const AdminLayout = () => {
         </div>
 
         {/* Page content */}
-        <main className="flex-1 pt-16 p-6 overflow-auto">
-          <Outlet />
+        <main className="flex-1 pt-16 pl-0 pr-2 py-2 overflow-auto w-full">
+          <div className="w-full">
+            <Outlet />
+          </div>
         </main>
       </div>
 

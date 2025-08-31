@@ -139,9 +139,9 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full">
       {/* Welcome Header */}
-      <div className="bg-gradient-to-r from-teal-500 to-blue-600 rounded-2xl p-8 text-white">
+      <div className="bg-gradient-to-r from-teal-500 to-blue-600 rounded-2xl p-6 text-white">
         <h1 className="text-3xl font-bold mb-2">Welcome to Neurodent Admin Dashboard</h1>
         <p className="text-teal-100">Manage your dental clinic operations efficiently</p>
       </div>

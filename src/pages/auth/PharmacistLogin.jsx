@@ -1,9 +1,12 @@
 import React, { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import employeesLogo from '../../assets/images/employees-logo.png'
+import toast from 'react-hot-toast'
 
-const EmployeeLogin = () => {
+const PharmacistLogin = () => {
   const [showPassword, setShowPassword] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const navigate = useNavigate()
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -14,10 +17,26 @@ const EmployeeLogin = () => {
     setFormData(prev => ({ ...prev, [name]: value }))
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    console.log('Employee login:', formData)
-    // Handle employee login logic here
+    setLoading(true)
+    
+    try {
+      // Simulate login process
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
+      // For demo purposes, accept any credentials
+      localStorage.setItem('pharmacistToken', 'demo-token')
+      localStorage.setItem('userRole', 'pharmacist')
+      localStorage.setItem('userName', 'Sarah Johnson')
+      
+      toast.success('Login successful! Welcome to the Pharmacist Dashboard')
+      navigate('/pharmacist/dashboard')
+    } catch (error) {
+      toast.error('Login failed. Please try again.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -28,16 +47,16 @@ const EmployeeLogin = () => {
           <div className="w-16 h-16 rounded-full overflow-hidden shadow-lg border-4 border-yellow-600">
             <img 
               src={employeesLogo} 
-              alt="Employees Logo" 
+              alt="Pharmacist Logo" 
               className="w-full h-full object-cover"
             />
           </div>
         </div>
         <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">
-          Employee Portal Login
+          Pharmacist Portal Login
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
-          For Receptionists and Pharmacists
+          For Pharmacists
         </p>
       </div>
 
@@ -60,7 +79,7 @@ const EmployeeLogin = () => {
                   value={formData.email}
                   onChange={handleInputChange}
                   className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-yellow-600 focus:border-yellow-600 sm:text-sm"
-                  placeholder="employee@neurodent.com"
+                  placeholder="pharmacist@neurodent.com"
                 />
               </div>
             </div>
@@ -114,35 +133,33 @@ const EmployeeLogin = () => {
             <div>
               <button
                 type="submit"
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-600 transition-all duration-300"
+                disabled={loading}
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-600 transition-all duration-300 disabled:opacity-50"
               >
                 <span className="flex items-center">
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                          d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2-2v2m8 0V6a2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2V8a2 2 0 012-2V6" />
-                  </svg>
-                  Sign in as Employee
+                  {loading ? (
+                    <div className="w-5 h-5 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                            d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2-2v2m8 0V6a2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2V8a2 2 0 012-2V6" />
+                    </svg>
+                  )}
+                  {loading ? 'Signing in...' : 'Sign in as Pharmacist'}
                 </span>
               </button>
             </div>
           </form>
 
           {/* Role Info */}
-          <div className="mt-6 grid grid-cols-2 gap-4 text-center">
-            <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+          <div className="mt-6 flex justify-center">
+            <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200 text-center">
               <div className="flex flex-col items-center">
-                <svg className="w-6 h-6 text-yellow-600 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a1 1 0 011-1h6a1 1 0 011 1v4m-9 0h10a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V9a2 2 0 012-2z" />
-                </svg>
-                <p className="text-xs font-medium text-yellow-800">Receptionist</p>
-              </div>
-            </div>
-            <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-              <div className="flex flex-col items-center">
-                <svg className="w-6 h-6 text-yellow-600 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-8 h-8 text-yellow-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
                 </svg>
-                <p className="text-xs font-medium text-yellow-800">Pharmacist</p>
+                <p className="text-sm font-medium text-yellow-800">Pharmacist Portal</p>
+                <p className="text-xs text-yellow-700 mt-1">Medication management and dispensing</p>
               </div>
             </div>
           </div>
@@ -157,7 +174,7 @@ const EmployeeLogin = () => {
               </div>
               <div className="ml-3">
                 <p className="text-sm text-yellow-800">
-                  <strong>For Staff Members:</strong> Your employee account is managed by the admin. 
+                  <strong>For Staff Members:</strong> Your pharmacist account is managed by the admin. 
                   Contact your supervisor if you need assistance with login credentials.
                 </p>
               </div>
@@ -183,4 +200,4 @@ const EmployeeLogin = () => {
   )
 }
 
-export default EmployeeLogin
+export default PharmacistLogin

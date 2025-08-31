@@ -5,6 +5,7 @@ import Navbar from './components/Navbar'
 import ProtectedRoute from './components/ProtectedRoute'
 import AdminProtectedRoute from './components/AdminProtectedRoute'
 import DoctorProtectedRoute from './components/DoctorProtectedRoute'
+import PharmacistProtectedRoute from './components/PharmacistProtectedRoute'
 import Home from './pages/Home'
 import About from './pages/About'
 import Contact from './pages/Contact'
@@ -19,7 +20,7 @@ import Footer from './components/Footer'
 import RoleSelection from './pages/RoleSelection'
 import DoctorLogin from './pages/auth/DoctorLogin'
 import AdminLogin from './pages/auth/AdminLogin'
-import EmployeeLogin from './pages/auth/EmployeeLogin'
+import PharmacistLogin from './pages/auth/PharmacistLogin'
 
 // Dashboard pages
 import PatientDashboard from './pages/PatientDashboard'
@@ -44,6 +45,15 @@ import DoctorPatientRecords from './pages/doctor/PatientRecords'
 import Prescriptions from './pages/doctor/Prescriptions'
 import TreatmentNotes from './pages/doctor/TreatmentNotes'
 import Schedule from './pages/doctor/Schedule'
+
+// Pharmacist Components
+import PharmacistLayout from './components/pharmacist/PharmacistLayout'
+import PharmacistDashboard from './pages/pharmacist/PharmacistDashboard'
+import InventoryManagement from './pages/pharmacist/InventoryManagement'
+import PrescriptionManagement from './pages/pharmacist/PrescriptionManagement'
+import MedicineLogs from './pages/pharmacist/MedicineLogs'
+import PharmacistNotifications from './pages/pharmacist/PharmacistNotifications'
+import PharmacistProfile from './pages/pharmacist/PharmacistProfile'
 
 function App() {
   return (
@@ -85,7 +95,7 @@ function App() {
           <Route path="/doctor/login" element={<DoctorLogin />} />
           <Route path="/login/doctor" element={<DoctorLogin />} />
           <Route path="/login/admin" element={<AdminLogin />} />
-          <Route path="/login/employee" element={<EmployeeLogin />} />
+          <Route path="/login/pharmacist" element={<PharmacistLogin />} />
 
           {/* Dashboard pages - require authentication */}
           <Route path="/patient/dashboard" element={
@@ -124,6 +134,20 @@ function App() {
             <Route path="prescriptions" element={<Prescriptions />} />
             <Route path="treatment-notes" element={<TreatmentNotes />} />
             <Route path="schedule" element={<Schedule />} />
+          </Route>
+
+          {/* Pharmacist Dashboard Routes - Protected with pharmacist authentication */}
+          <Route path="/pharmacist" element={
+            <PharmacistProtectedRoute>
+              <PharmacistLayout />
+            </PharmacistProtectedRoute>
+          }>
+            <Route path="dashboard" element={<PharmacistDashboard />} />
+            <Route path="inventory" element={<InventoryManagement />} />
+            <Route path="prescriptions" element={<PrescriptionManagement />} />
+            <Route path="logs" element={<MedicineLogs />} />
+            <Route path="notifications" element={<PharmacistNotifications />} />
+            <Route path="profile" element={<PharmacistProfile />} />
           </Route>
 
           {/* Admin Dashboard Routes with Authentication (Commented out for testing)

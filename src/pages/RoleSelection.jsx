@@ -48,13 +48,13 @@ const RoleSelection = () => {
     },
 
     {
-      id: 'employee',
-      title: 'Employee',
-      description: 'Receptionist and pharmacist access for daily operations',
+      id: 'pharmacist',
+      title: 'Pharmacist',
+      description: 'Pharmacist access for daily operations and medication management',
       icon: (
         <img 
           src={employeesLogo} 
-          alt="Employees Logo" 
+          alt="Pharmacist Logo" 
           className="w-12 h-12 object-cover rounded-full"
         />
       ),
@@ -63,7 +63,7 @@ const RoleSelection = () => {
       hoverGradient: 'hover:from-yellow-500 hover:to-yellow-800',
       buttonBg: 'bg-gradient-to-r from-yellow-500 to-yellow-700',
       buttonHover: 'hover:from-yellow-600 hover:to-yellow-800',
-      loginPath: '/login/employee',
+      loginPath: '/login/pharmacist',
       hasRegister: false
     }
   ]
