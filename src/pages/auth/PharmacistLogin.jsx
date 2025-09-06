@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import employeesLogo from '../../assets/images/employees-logo.png'
 import toast from 'react-hot-toast'
+import pharmacistAPI from '../../services/pharmacistAPI'
 
 const PharmacistLogin = () => {
   const [showPassword, setShowPassword] = useState(false)
@@ -22,18 +23,19 @@ const PharmacistLogin = () => {
     setLoading(true)
     
     try {
-      // Simulate login process
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      const response = await pharmacistAPI.login(formData)
       
-      // For demo purposes, accept any credentials
-      localStorage.setItem('pharmacistToken', 'demo-token')
-      localStorage.setItem('userRole', 'pharmacist')
-      localStorage.setItem('userName', 'Sarah Johnson')
-      
-      toast.success('Login successful! Welcome to the Pharmacist Dashboard')
-      navigate('/pharmacist/dashboard')
+      if (response.success) {
+        toast.success(`Welcome back, ${response.data.pharmacist.firstName}!`)
+        navigate('/pharmacist/dashboard')
+      }
     } catch (error) {
-      toast.error('Login failed. Please try again.')
+      console.error('Login error:', error)
+      if (error.response?.data?.message) {
+        toast.error(error.response.data.message)
+      } else {
+        toast.error('Login failed. Please check your credentials and try again.')
+      }
     } finally {
       setLoading(false)
     }

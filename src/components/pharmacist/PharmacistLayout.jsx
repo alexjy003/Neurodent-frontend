@@ -14,14 +14,55 @@ import {
   ChevronDown
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import pharmacistAPI from '../../services/pharmacistAPI'
 
 const PharmacistLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
   const [notificationCount, setNotificationCount] = useState(3)
+  const [pharmacistData, setPharmacistData] = useState(null)
+  const [loading, setLoading] = useState(true)
   const location = useLocation()
   const navigate = useNavigate()
   const dropdownRef = useRef(null)
+
+  // Load pharmacist data on component mount
+  useEffect(() => {
+    const loadPharmacistData = async () => {
+      try {
+        // First try to get data from localStorage
+        const storedData = pharmacistAPI.getStoredPharmacistData()
+        if (storedData) {
+          setPharmacistData(storedData)
+        }
+
+        // Then fetch fresh data from API
+        if (pharmacistAPI.isAuthenticated()) {
+          const response = await pharmacistAPI.getProfile()
+          if (response.success) {
+            setPharmacistData(response.data.pharmacist)
+            localStorage.setItem('pharmacistData', JSON.stringify(response.data.pharmacist))
+          }
+        } else {
+          // Not authenticated, redirect to login
+          navigate('/login/pharmacist')
+          return
+        }
+      } catch (error) {
+        console.error('Error loading pharmacist data:', error)
+        if (error.response?.status === 401) {
+          // Token is invalid, redirect to login
+          pharmacistAPI.logout()
+          navigate('/login/pharmacist')
+          toast.error('Your session has expired. Please login again.')
+        }
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadPharmacistData()
+  }, [])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -78,10 +119,27 @@ const PharmacistLayout = () => {
 
   const handleLogout = () => {
     // Clear authentication data
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
+    pharmacistAPI.logout()
     toast.success('Logged out successfully')
     navigate('/login/pharmacist')
+  }
+
+  // Show loading state while data is being fetched
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-[#C33764] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading pharmacist dashboard...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // If no pharmacist data, redirect to login
+  if (!pharmacistData) {
+    navigate('/login/pharmacist')
+    return null
   }
 
   return (
@@ -159,12 +217,22 @@ const PharmacistLayout = () => {
         {/* Sidebar Footer */}
         <div className="border-t border-gray-200 p-4 flex-shrink-0">
           <div className="flex items-center mb-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-[#C33764] to-[#1d2671] rounded-full flex items-center justify-center">
-              <User className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 bg-gradient-to-r from-[#C33764] to-[#1d2671] rounded-full flex items-center justify-center overflow-hidden">
+              {pharmacistData.profileImage ? (
+                <img 
+                  src={pharmacistData.profileImage} 
+                  alt={`${pharmacistData.firstName} ${pharmacistData.lastName}`}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <User className="w-5 h-5 text-white" />
+              )}
             </div>
             <div className="ml-3">
-              <p className="text-base font-medium text-gray-700">Sarah Johnson</p>
-              <p className="text-sm text-gray-500">Pharmacist</p>
+              <p className="text-base font-medium text-gray-700">
+                {pharmacistData.firstName} {pharmacistData.lastName}
+              </p>
+              <p className="text-sm text-gray-500">{pharmacistData.specialization}</p>
             </div>
           </div>
           <button
@@ -225,12 +293,22 @@ const PharmacistLayout = () => {
                     onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
                     className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 transition-colors"
                   >
-                    <div className="w-8 h-8 bg-gradient-to-r from-[#C33764] to-[#1d2671] rounded-full flex items-center justify-center">
-                      <User className="w-4 h-4 text-white" />
+                    <div className="w-8 h-8 bg-gradient-to-r from-[#C33764] to-[#1d2671] rounded-full flex items-center justify-center overflow-hidden">
+                      {pharmacistData.profileImage ? (
+                        <img 
+                          src={pharmacistData.profileImage} 
+                          alt={`${pharmacistData.firstName} ${pharmacistData.lastName}`}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <User className="w-4 h-4 text-white" />
+                      )}
                     </div>
                     <div className="hidden sm:block text-left">
-                      <p className="text-sm font-medium text-gray-700">Sarah Johnson</p>
-                      <p className="text-xs text-gray-500">Pharmacist</p>
+                      <p className="text-sm font-medium text-gray-700">
+                        {pharmacistData.firstName} {pharmacistData.lastName}
+                      </p>
+                      <p className="text-xs text-gray-500">{pharmacistData.specialization}</p>
                     </div>
                     <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${profileDropdownOpen ? 'rotate-180' : ''}`} />
                   </button>

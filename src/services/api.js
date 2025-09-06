@@ -19,24 +19,77 @@ class ApiService {
     const url = `${API_BASE_URL}${endpoint}`;
     const config = {
       headers: {
-        'Content-Type': 'application/json',
         ...(this.token && { Authorization: `Bearer ${this.token}` }),
       },
       ...options,
     };
 
-    if (config.body && typeof config.body === 'object') {
-      config.body = JSON.stringify(config.body);
+    // Only set Content-Type for non-FormData requests
+    if (!(config.body instanceof FormData)) {
+      config.headers['Content-Type'] = 'application/json';
+      
+      if (config.body && typeof config.body === 'object') {
+        config.body = JSON.stringify(config.body);
+      }
     }
 
     const response = await fetch(url, config);
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.message || 'Something went wrong');
+      const error = new Error(data.message || 'Something went wrong');
+      error.response = { data }; // Preserve the response structure for error handling
+      throw error;
     }
 
     return data;
+  }
+
+  // HTTP methods
+  async get(endpoint, options = {}) {
+    return this.request(endpoint, { method: 'GET', ...options });
+  }
+
+  async post(endpoint, body, options = {}) {
+    const config = { method: 'POST', ...options };
+    
+    // Handle FormData differently - don't set Content-Type for FormData
+    if (body instanceof FormData) {
+      config.body = body;
+      // Remove Content-Type header for FormData to let browser set it with boundary
+      if (config.headers && config.headers['Content-Type']) {
+        delete config.headers['Content-Type'];
+      }
+    } else {
+      config.body = body;
+    }
+    
+    return this.request(endpoint, config);
+  }
+
+  async put(endpoint, body, options = {}) {
+    const config = { method: 'PUT', ...options };
+    
+    // Handle FormData differently - don't set Content-Type for FormData
+    if (body instanceof FormData) {
+      config.body = body;
+      // Remove Content-Type header for FormData to let browser set it with boundary
+      if (config.headers && config.headers['Content-Type']) {
+        delete config.headers['Content-Type'];
+      }
+    } else {
+      config.body = body;
+    }
+    
+    return this.request(endpoint, config);
+  }
+
+  async patch(endpoint, body, options = {}) {
+    return this.request(endpoint, { method: 'PATCH', body, ...options });
+  }
+
+  async delete(endpoint, options = {}) {
+    return this.request(endpoint, { method: 'DELETE', ...options });
   }
 
   // Auth methods
