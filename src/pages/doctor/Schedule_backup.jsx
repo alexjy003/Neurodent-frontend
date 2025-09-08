@@ -25,50 +25,13 @@ const Schedule = () => {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [totalHours, setTotalHours] = useState(0)
   const [error, setError] = useState('')
-  const [deletingSlotId, setDeletingSlotId] = useState(null)
-  const [successMessage, setSuccessMessage] = useState('')
 
   const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-
-  // Function to determine slot type based on time
-  const getSlotTypeByTime = (startTime, endTime) => {
-    const startHour = timeUtils.formatTo24Hour(startTime).split(':')[0]
-    const endHour = timeUtils.formatTo24Hour(endTime).split(':')[0]
-    const start = parseInt(startHour)
-    const end = parseInt(endHour)
-    
-    // Determine type based on time ranges
-    if (start >= 9 && end <= 12) {
-      return 'Morning Consultations'
-    } else if (start >= 12 && end <= 17) {
-      return 'Afternoon Procedures'
-    } else if (start >= 17 && end <= 20) {
-      return 'Evening Consultations'
-    } else if (start >= 9 && end >= 17) {
-      return 'Full Day Clinic'
-    } else if (start >= 9 && end <= 14) {
-      return 'Morning Session'
-    } else if (start >= 13 && end <= 17) {
-      return 'Extended Afternoon'
-    } else {
-      return 'Full Day Clinic' // Default fallback
-    }
-  }
 
   // Load schedule data from backend
   useEffect(() => {
     loadCurrentWeekSchedule()
   }, [currentWeek])
-
-  // Auto-clear success messages after 3 seconds
-  useEffect(() => {
-    if (successMessage) {
-      const timer = setTimeout(() => {
-        setSuccessMessage('')
-      }, 3000)
-      return () => clearTimeout(timer)
-    }
-  }, [successMessage])
 
   const loadCurrentWeekSchedule = async () => {
     try {
@@ -104,39 +67,7 @@ const Schedule = () => {
 
   const isPastDate = (date) => {
     const today = new Date()
-    const dateToCheck = new Date(date)
-    
-    // If it's a past date, always return true
-    if (dateToCheck < today.setHours(0, 0, 0, 0)) {
-      return true
-    }
-    
-    // If it's today, check if it's after 5 PM
-    if (dateToCheck.toDateString() === today.toDateString()) {
-      const currentHour = new Date().getHours()
-      return currentHour >= 17 // 5 PM or later
-    }
-    
-    return false
-  }
-
-  const canEditDate = (date) => {
-    const today = new Date()
-    const dateToCheck = new Date(date)
-    
-    // Can't edit past dates
-    if (dateToCheck < today.setHours(0, 0, 0, 0)) {
-      return false
-    }
-    
-    // For today, can only edit if it's before 5 PM
-    if (dateToCheck.toDateString() === today.toDateString()) {
-      const currentHour = new Date().getHours()
-      return currentHour < 17 // Before 5 PM
-    }
-    
-    // Can edit future dates
-    return true
+    return date < today.setHours(0, 0, 0, 0)
   }
 
   const weekDates = React.useMemo(() => {
@@ -169,41 +100,16 @@ const Schedule = () => {
   }
 
   const editDay = (dayName) => {
-    // Get the date for the day being edited
-    const dayIndex = daysOfWeek.findIndex(d => d === dayName)
-    const dayDate = weekDates[dayIndex]
-    
-    // Check if the date can be edited
-    if (!canEditDate(dayDate)) {
-      const today = new Date()
-      const isToday = dayDate.toDateString() === today.toDateString()
-      const currentHour = new Date().getHours()
-      
-      if (isToday && currentHour >= 17) {
-        alert('Cannot edit today\'s schedule after 5 PM. Please schedule for tomorrow or later.')
-      } else {
-        alert('Cannot edit past schedules. Please select a future date.')
-      }
-      return
-    }
-    
     const daySchedule = schedule[dayName.toLowerCase()] || []
     
-    // Convert to editable format with 12-hour times and correct types
-    const editableSlots = daySchedule.map((slot, index) => {
-      const startTime = timeUtils.formatTo12Hour(slot.startTime)
-      const endTime = timeUtils.formatTo12Hour(slot.endTime)
-      const correctType = getSlotTypeByTime(startTime, endTime)
-      
-      return {
-        id: Date.now() + index, // For React keys and local operations
-        _id: slot._id, // Preserve MongoDB _id for backend operations
-        startTime,
-        endTime,
-        type: correctType, // Use time-based type instead of stored type
-        label: correctType
-      }
-    })
+    // Convert to editable format with 12-hour times
+    const editableSlots = daySchedule.map((slot, index) => ({
+      id: Date.now() + index,
+      startTime: timeUtils.formatTo12Hour(slot.startTime),
+      endTime: timeUtils.formatTo12Hour(slot.endTime),
+      type: slot.type || slot.label || 'Consultation',
+      label: slot.label || slot.type || 'Consultation'
+    }))
     
     setEditingDay(dayName)
     setTempTimeSlots(editableSlots.length > 0 ? editableSlots : [{
@@ -230,9 +136,9 @@ const Schedule = () => {
       const startTime24 = timeUtils.formatTo24Hour(slot.startTime)
       const endTime24 = timeUtils.formatTo24Hour(slot.endTime)
       
-      // Check business hours (9 AM to 8 PM)
-      if (startTime24 < '09:00' || endTime24 > '20:00') {
-        return { valid: false, message: 'Schedule must be within business hours (9 AM - 8 PM)' }
+      // Check business hours (9 AM to 5 PM)
+      if (startTime24 < '09:00' || endTime24 > '17:00') {
+        return { valid: false, message: 'Schedule must be within business hours (9 AM - 5 PM)' }
       }
       
       if (startTime24 >= endTime24) {
@@ -272,43 +178,22 @@ const Schedule = () => {
         slots: formattedSlots
       }
 
-      console.log('Updating local schedule data for', editingDay, ':', scheduleData);
+      const response = await apiService.updateDaySchedule(editingDay.toLowerCase(), scheduleData)
       
-      // Only update local state - don't save to database until "Save Schedule" is clicked
-      setSchedule(prev => ({
-        ...prev,
-        [editingDay.toLowerCase()]: formattedSlots
-      }))
-      
-      setEditingDay(null)
-      setTempTimeSlots([])
-      setHasUnsavedChanges(true)  // Mark as having unsaved changes for overall save
-      
-      // Calculate new total hours locally
-      const newSchedule = {
-        ...schedule,
-        [editingDay.toLowerCase()]: formattedSlots
+      if (response.success) {
+        // Update local state
+        setSchedule(prev => ({
+          ...prev,
+          [editingDay.toLowerCase()]: formattedSlots
+        }))
+        
+        setEditingDay(null)
+        setTempTimeSlots([])
+        setHasUnsavedChanges(true)  // Mark as having unsaved changes for overall save
+        
+        // Reload to get updated total hours
+        await loadCurrentWeekSchedule()
       }
-      
-      // Calculate total hours from all days
-      let totalMinutes = 0
-      Object.values(newSchedule).forEach(daySlots => {
-        if (Array.isArray(daySlots)) {
-          daySlots.forEach(slot => {
-            if (slot.type !== 'Day Off' && slot.startTime && slot.endTime) {
-              const start = timeUtils.formatTo24Hour(slot.startTime)
-              const end = timeUtils.formatTo24Hour(slot.endTime)
-              const startMinutes = parseInt(start.split(':')[0]) * 60 + parseInt(start.split(':')[1])
-              const endMinutes = parseInt(end.split(':')[0]) * 60 + parseInt(end.split(':')[1])
-              if (endMinutes > startMinutes) {
-                totalMinutes += (endMinutes - startMinutes)
-              }
-            }
-          })
-        }
-      })
-      
-      setTotalHours(Math.round(totalMinutes / 60 * 100) / 100)
       
     } catch (error) {
       console.error('Error saving day schedule:', error)
@@ -325,16 +210,12 @@ const Schedule = () => {
   }
 
   const addTimeSlot = () => {
-    const startTime = '9:00 AM'
-    const endTime = '12:00 PM'
-    const slotType = getSlotTypeByTime(startTime, endTime)
-    
     const newSlot = {
       id: Date.now() + Math.random(),
-      startTime,
-      endTime,
-      type: slotType,
-      label: slotType
+      startTime: '9:00 AM',
+      endTime: '12:00 PM',
+      type: 'Morning Consultations',
+      label: 'Morning Consultations'
     }
     setTempTimeSlots([...tempTimeSlots, newSlot])
     setHasUnsavedChanges(true)
@@ -342,77 +223,16 @@ const Schedule = () => {
 
   const updateTimeSlot = (id, field, value) => {
     setTempTimeSlots(prev =>
-      prev.map(slot => {
-        if (slot.id === id) {
-          const updatedSlot = { ...slot, [field]: value }
-          
-          // Auto-update slot type when time changes
-          if (field === 'startTime' || field === 'endTime') {
-            const newType = getSlotTypeByTime(
-              field === 'startTime' ? value : updatedSlot.startTime,
-              field === 'endTime' ? value : updatedSlot.endTime
-            )
-            updatedSlot.type = newType
-            updatedSlot.label = newType
-          }
-          
-          return updatedSlot
-        }
-        return slot
-      })
+      prev.map(slot =>
+        slot.id === id ? { ...slot, [field]: value } : slot
+      )
     )
     setHasUnsavedChanges(true)
   }
 
-  const removeTimeSlot = async (id) => {
-    try {
-      const slotToRemove = tempTimeSlots.find(slot => slot.id === id);
-      
-      if (!slotToRemove) {
-        setError('Time slot not found');
-        return;
-      }
-
-      // Check if this is an existing slot (has a real MongoDB _id) or a new local slot
-      const isExistingSlot = slotToRemove._id && slotToRemove._id !== slotToRemove.id;
-      
-      if (isExistingSlot) {
-        // This is an existing slot in the database - delete from backend
-        console.log('Deleting existing slot from backend:', slotToRemove._id, 'from day:', editingDay);
-        
-        setError(''); // Clear any previous errors
-        
-        const response = await apiService.deleteTimeSlot(editingDay.toLowerCase(), slotToRemove._id);
-        
-        if (response.success) {
-          // Remove from local state
-          setTempTimeSlots(prev => prev.filter(slot => slot.id !== id));
-          
-          // Update the main schedule state with the updated data from backend
-          if (response.data?.schedule?.weeklySchedule) {
-            setSchedule(response.data.schedule.weeklySchedule);
-            setTotalHours(response.data.schedule.totalHours || 0);
-          }
-          
-          setHasUnsavedChanges(false); // Data is now saved
-          
-          console.log('Time slot deleted successfully from backend');
-        }
-      } else {
-        // This is a new local slot - just remove from tempTimeSlots
-        console.log('Removing new local slot:', id);
-        setTempTimeSlots(prev => prev.filter(slot => slot.id !== id));
-        setHasUnsavedChanges(true);
-      }
-      
-    } catch (error) {
-      console.error('Error deleting time slot:', error);
-      if (error.response?.data?.message) {
-        setError(`Error: ${error.response.data.message}`);
-      } else {
-        setError('Failed to delete time slot. Please try again.');
-      }
-    }
+  const removeTimeSlot = (id) => {
+    setTempTimeSlots(prev => prev.filter(slot => slot.id !== id))
+    setHasUnsavedChanges(true)
   }
 
   const markDayOff = () => {
@@ -435,52 +255,28 @@ const Schedule = () => {
       }
       
       setError('')
+      console.log('Save button clicked, starting save process...');
       
-      // Calculate week start date more carefully
-      const today = new Date()
-      const currentDayOfWeek = today.getDay() // 0 = Sunday, 1 = Monday, etc.
-      const daysFromMonday = currentDayOfWeek === 0 ? 6 : currentDayOfWeek - 1 // Convert to Monday-based week
-      const currentWeekStart = new Date(today)
-      currentWeekStart.setDate(today.getDate() - daysFromMonday)
-      currentWeekStart.setHours(0, 0, 0, 0)
-      
-      // Calculate offset weeks from current week
-      const currentWeekTime = currentWeekStart.getTime()
-      const selectedWeekTime = currentWeek.getTime()
-      const weekDiff = Math.round((selectedWeekTime - currentWeekTime) / (7 * 24 * 60 * 60 * 1000))
-      
-      // Calculate the target week start
-      const weekStart = new Date(currentWeekStart)
-      weekStart.setDate(currentWeekStart.getDate() + (weekDiff * 7))
-
-      console.log('Debug date calculations:');
-      console.log('Today:', today.toISOString());
-      console.log('Current week start:', currentWeekStart.toISOString());
-      console.log('Selected week (currentWeek):', currentWeek.toISOString());
-      console.log('Week difference:', weekDiff);
-      console.log('Target week start:', weekStart.toISOString());
+      const weekStart = scheduleUtils.getCurrentWeekStart()
+      weekStart.setDate(weekStart.getDate() + (Math.floor((currentWeek.getTime() - weekStart.getTime()) / (7 * 24 * 60 * 60 * 1000)) * 7))
 
       const scheduleData = {
         weekStartDate: scheduleUtils.formatDateForAPI(weekStart),
-        weeklySchedule: schedule
+        weeklySchedule: schedule,
+        notes: ''
       }
 
       console.log('Sending schedule data:', scheduleData);
+
       const response = await apiService.updateWeekSchedule(scheduleData);
+      console.log('Schedule save response:', response);
       
       setHasUnsavedChanges(false);
       alert('Schedule saved successfully!');
       
     } catch (error) {
       console.error('Error saving schedule:', error);
-      console.error('Error details:', error.response);
-      if (error.response?.data?.message) {
-        setError(`Server Error: ${error.response.data.message}`);
-      } else if (error.message) {
-        setError(`Network Error: ${error.message}`);
-      } else {
-        setError('Failed to save schedule. Please try again.');
-      }
+      setError('Failed to save schedule. Please try again.');
     }
   }
 
@@ -519,14 +315,6 @@ const Schedule = () => {
                 Total weekly hours: {totalHours}
               </p>
             )}
-            <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-              <div className="flex items-center">
-                <AlertCircle className="w-4 h-4 text-amber-600 mr-2" />
-                <p className="text-sm text-amber-800">
-                  <strong>Note:</strong> Today's schedule can only be edited before 5:00 PM. Past schedules cannot be modified.
-                </p>
-              </div>
-            </div>
           </div>
         </div>
         
@@ -547,15 +335,6 @@ const Schedule = () => {
           <div className="flex">
             <AlertCircle className="w-5 h-5 text-red-600 mr-2 flex-shrink-0 mt-0.5" />
             <p className="text-red-800 text-sm">{error}</p>
-          </div>
-        </div>
-      )}
-
-      {successMessage && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <div className="flex">
-            <CheckCircle className="w-5 h-5 text-green-600 mr-2 flex-shrink-0 mt-0.5" />
-            <p className="text-green-800 text-sm">{successMessage}</p>
           </div>
         </div>
       )}
@@ -589,7 +368,6 @@ const Schedule = () => {
               const daySchedule = schedule[dayName.toLowerCase()] || []
               const isEditing = editingDay === dayName
               const isPast = isPastDate(dayDate)
-              const canEdit = canEditDate(dayDate)
 
               return (
                 <div
@@ -610,13 +388,8 @@ const Schedule = () => {
                       }`}>
                         {formatDate(dayDate)}
                       </p>
-                      {!canEdit && (
-                        <p className="text-xs text-red-500 mt-1">
-                          {isPast ? 'Past date' : 'Schedule locked after 5 PM'}
-                        </p>
-                      )}
                     </div>
-                    {canEdit && !isEditing && (
+                    {!isPast && !isEditing && (
                       <button
                         onClick={() => editDay(dayName)}
                         className="p-1 hover:bg-gray-100 rounded transition-colors"
@@ -631,60 +404,50 @@ const Schedule = () => {
                       {tempTimeSlots.map((slot) => (
                         <div key={slot.id} className="space-y-2 p-3 bg-gray-50 rounded-lg">
                           <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-gray-700">
-                              Time Slot
-                            </span>
+                            <input
+                              type="text"
+                              value={slot.type}
+                              onChange={(e) => {
+                                updateTimeSlot(slot.id, 'type', e.target.value)
+                                updateTimeSlot(slot.id, 'label', e.target.value)
+                              }}
+                              placeholder="e.g., Morning Consultations"
+                              className="text-sm font-medium border border-gray-300 rounded px-2 py-1 flex-1 mr-2"
+                            />
                             <button
                               onClick={() => removeTimeSlot(slot.id)}
-                              disabled={deletingSlotId === slot.id}
-                              className={`${
-                                deletingSlotId === slot.id 
-                                  ? 'text-gray-400 cursor-not-allowed' 
-                                  : 'text-red-600 hover:text-red-800'
-                              }`}
+                              className="text-red-600 hover:text-red-800"
                             >
-                              {deletingSlotId === slot.id ? (
-                                <div className="w-4 h-4 border-2 border-gray-300 border-t-red-600 rounded-full animate-spin"></div>
-                              ) : (
-                                <Trash2 className="w-4 h-4" />
-                              )}
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
                           {slot.type !== 'Day Off' && (
-                            <>
-                              <div className="grid grid-cols-2 gap-2">
-                                <div>
-                                  <label className="text-xs text-gray-600">Start Time</label>
-                                  <select
-                                    value={slot.startTime}
-                                    onChange={(e) => updateTimeSlot(slot.id, 'startTime', e.target.value)}
-                                    className="w-full text-sm border border-gray-300 rounded px-2 py-1"
-                                  >
-                                    {timeUtils.getBusinessHours().map(time => (
-                                      <option key={time} value={time}>{time}</option>
-                                    ))}
-                                  </select>
-                                </div>
-                                <div>
-                                  <label className="text-xs text-gray-600">End Time</label>
-                                  <select
-                                    value={slot.endTime}
-                                    onChange={(e) => updateTimeSlot(slot.id, 'endTime', e.target.value)}
-                                    className="w-full text-sm border border-gray-300 rounded px-2 py-1"
-                                  >
-                                    {timeUtils.getBusinessHours().map(time => (
-                                      <option key={time} value={time}>{time}</option>
-                                    ))}
-                                  </select>
-                                </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="text-xs text-gray-600">Start Time</label>
+                                <select
+                                  value={slot.startTime}
+                                  onChange={(e) => updateTimeSlot(slot.id, 'startTime', e.target.value)}
+                                  className="w-full text-sm border border-gray-300 rounded px-2 py-1"
+                                >
+                                  {timeUtils.getBusinessHours().map(time => (
+                                    <option key={time} value={time}>{time}</option>
+                                  ))}
+                                </select>
                               </div>
-                              <div className="mt-2">
-                                <label className="text-xs text-gray-600">Slot Type (Auto-assigned)</label>
-                                <div className="text-sm font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                                  {slot.type}
-                                </div>
+                              <div>
+                                <label className="text-xs text-gray-600">End Time</label>
+                                <select
+                                  value={slot.endTime}
+                                  onChange={(e) => updateTimeSlot(slot.id, 'endTime', e.target.value)}
+                                  className="w-full text-sm border border-gray-300 rounded px-2 py-1"
+                                >
+                                  {timeUtils.getBusinessHours().map(time => (
+                                    <option key={time} value={time}>{time}</option>
+                                  ))}
+                                </select>
                               </div>
-                            </>
+                            </div>
                           )}
                         </div>
                       ))}

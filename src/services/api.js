@@ -2,7 +2,14 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000
 
 class ApiService {
   constructor() {
-    this.token = localStorage.getItem('token');
+    this.token = this.getToken();
+  }
+
+  getToken() {
+    // Check for different token types based on context
+    return localStorage.getItem('doctorToken') || 
+           localStorage.getItem('pharmacistToken') || 
+           localStorage.getItem('token');
   }
 
   setToken(token) {
@@ -10,16 +17,32 @@ class ApiService {
     localStorage.setItem('token', token);
   }
 
+  setDoctorToken(token) {
+    this.token = token;
+    localStorage.setItem('doctorToken', token);
+  }
+
+  setPharmacistToken(token) {
+    this.token = token;
+    localStorage.setItem('pharmacistToken', token);
+  }
+
   removeToken() {
     this.token = null;
     localStorage.removeItem('token');
+    localStorage.removeItem('doctorToken');
+    localStorage.removeItem('pharmacistToken');
   }
 
   async request(endpoint, options = {}) {
     const url = `${API_BASE_URL}${endpoint}`;
+    
+    // Get the most current token
+    const currentToken = this.getToken();
+    
     const config = {
       headers: {
-        ...(this.token && { Authorization: `Bearer ${this.token}` }),
+        ...(currentToken && { Authorization: `Bearer ${currentToken}` }),
       },
       ...options,
     };
@@ -37,8 +60,8 @@ class ApiService {
     const data = await response.json();
 
     if (!response.ok) {
-      const error = new Error(data.message || 'Something went wrong');
-      error.response = { data }; // Preserve the response structure for error handling
+      const error = new Error(data.message || `HTTP ${response.status}: ${response.statusText}`);
+      error.response = { data, status: response.status }; // Preserve the response structure for error handling
       throw error;
     }
 
@@ -254,6 +277,35 @@ class ApiService {
     }
 
     return data;
+  }
+
+  // Schedule Management Methods
+  async getCurrentWeekSchedule() {
+    return this.get('/schedules/current-week');
+  }
+
+  async getWeekSchedule(startDate) {
+    return this.get(`/schedules/week/${startDate}`);
+  }
+
+  async updateWeekSchedule(scheduleData) {
+    return this.put('/schedules/week', scheduleData);
+  }
+
+  async updateDaySchedule(day, scheduleData) {
+    return this.put(`/schedules/day/${day}`, scheduleData);
+  }
+
+  async getScheduleHistory(page = 1, limit = 10) {
+    return this.get(`/schedules/history?page=${page}&limit=${limit}`);
+  }
+
+  async deleteTimeSlot(day, slotId) {
+    return this.delete(`/schedules/slot/${day}/${slotId}`);
+  }
+
+  async deleteSchedule(scheduleId) {
+    return this.delete(`/schedules/${scheduleId}`);
   }
 }
 
