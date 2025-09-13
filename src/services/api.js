@@ -7,7 +7,8 @@ class ApiService {
 
   getToken() {
     // Check for different token types based on context
-    return localStorage.getItem('doctorToken') || 
+    return localStorage.getItem('adminToken') ||
+           localStorage.getItem('doctorToken') || 
            localStorage.getItem('pharmacistToken') || 
            localStorage.getItem('token');
   }
@@ -15,6 +16,11 @@ class ApiService {
   setToken(token) {
     this.token = token;
     localStorage.setItem('token', token);
+  }
+
+  setAdminToken(token) {
+    this.token = token;
+    localStorage.setItem('adminToken', token);
   }
 
   setDoctorToken(token) {
@@ -30,6 +36,7 @@ class ApiService {
   removeToken() {
     this.token = null;
     localStorage.removeItem('token');
+    localStorage.removeItem('adminToken');
     localStorage.removeItem('doctorToken');
     localStorage.removeItem('pharmacistToken');
   }
@@ -300,8 +307,11 @@ class ApiService {
     return this.get(`/schedules/history?page=${page}&limit=${limit}`);
   }
 
-  async deleteTimeSlot(day, slotId) {
-    return this.delete(`/schedules/slot/${day}/${slotId}`);
+  async deleteTimeSlot(day, slotId, weekStartDate = null) {
+    const url = weekStartDate 
+      ? `/schedules/slot/${day}/${slotId}?weekStartDate=${weekStartDate}`
+      : `/schedules/slot/${day}/${slotId}`;
+    return this.delete(url);
   }
 
   async deleteSchedule(scheduleId) {

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import axios from 'axios'
+import { getAdminToken } from '../../utils/adminAuth'
 
 const DoctorsManagement = () => {
   const [doctors, setDoctors] = useState([])
@@ -51,6 +52,26 @@ const DoctorsManagement = () => {
     availability: 'active'
   })
 
+  // Helper function to get axios config with admin authentication
+  const getAuthConfig = (isFormData = false) => {
+    const adminToken = getAdminToken()
+    if (!adminToken) {
+      throw new Error('Admin authentication required')
+    }
+    
+    const config = {
+      headers: {
+        'Authorization': `Bearer ${adminToken}`
+      }
+    }
+    
+    if (!isFormData) {
+      config.headers['Content-Type'] = 'application/json'
+    }
+    
+    return config
+  }
+
   const specializations = [
     'General Dentistry',
     'Orthodontics',
@@ -75,13 +96,30 @@ const DoctorsManagement = () => {
   const fetchDoctors = async () => {
     try {
       setLoading(true)
-      const response = await axios.get('http://localhost:5000/api/doctors')
+      const adminToken = getAdminToken()
+      
+      if (!adminToken) {
+        toast.error('Admin authentication required')
+        return
+      }
+
+      const response = await axios.get('http://localhost:5000/api/doctors', {
+        headers: {
+          'Authorization': `Bearer ${adminToken}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      
       if (response.data.success) {
         setDoctors(response.data.data.doctors)
       }
     } catch (error) {
       console.error('Error fetching doctors:', error)
-      toast.error('Failed to fetch doctors')
+      if (error.response?.status === 401) {
+        toast.error('Admin authentication expired. Please login again.')
+      } else {
+        toast.error('Failed to fetch doctors')
+      }
     } finally {
       setLoading(false)
     }
@@ -231,7 +269,9 @@ const DoctorsManagement = () => {
       console.log('Sending doctor data with image:', selectedImage ? 'Image included' : 'No image')
 
       const response = await axios.post('http://localhost:5000/api/doctors', formDataToSend, {
+        ...getAuthConfig(true),
         headers: {
+          ...getAuthConfig(true).headers,
           'Content-Type': 'multipart/form-data'
         }
       })
@@ -285,7 +325,9 @@ const DoctorsManagement = () => {
       console.log('Form data being sent:', Object.fromEntries(formDataToSend.entries()))
 
       const response = await axios.put(`http://localhost:5000/api/doctors/${editingDoctor._id}`, formDataToSend, {
+        ...getAuthConfig(true),
         headers: {
+          ...getAuthConfig(true).headers,
           'Content-Type': 'multipart/form-data'
         }
       })
@@ -318,7 +360,7 @@ const DoctorsManagement = () => {
 
     if (userInput === 'DELETE') {
       try {
-        const response = await axios.delete(`http://localhost:5000/api/doctors/${doctor._id}`)
+        const response = await axios.delete(`http://localhost:5000/api/doctors/${doctor._id}`, getAuthConfig())
         if (response.data.success) {
           toast.success(`Dr. ${doctor.firstName} ${doctor.lastName} deleted successfully!`)
           fetchDoctors() // Refresh the doctors list
@@ -334,7 +376,7 @@ const DoctorsManagement = () => {
 
   const toggleDoctorStatus = async (id) => {
     try {
-      const response = await axios.patch(`http://localhost:5000/api/doctors/${id}/availability`)
+      const response = await axios.patch(`http://localhost:5000/api/doctors/${id}/availability`, {}, getAuthConfig())
       if (response.data.success) {
         toast.success('Doctor status updated!')
         fetchDoctors() // Refresh the doctors list

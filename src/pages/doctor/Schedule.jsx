@@ -17,7 +17,16 @@ import apiService from '../../services/api'
 import { timeUtils, scheduleUtils } from '../../utils/scheduleUtils'
 
 const Schedule = () => {
-  const [currentWeek, setCurrentWeek] = useState(new Date())
+  // Initialize currentWeek to the start of this week (Monday)
+  const [currentWeek, setCurrentWeek] = useState(() => {
+    const today = new Date()
+    const day = today.getDay()
+    const diff = today.getDate() - day + (day === 0 ? -6 : 1) // Monday-based week
+    const weekStart = new Date(today)
+    weekStart.setDate(diff)
+    weekStart.setHours(0, 0, 0, 0)
+    return weekStart
+  })
   const [schedule, setSchedule] = useState({})
   const [loading, setLoading] = useState(true)
   const [editingDay, setEditingDay] = useState(null)
@@ -30,29 +39,138 @@ const Schedule = () => {
 
   const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
+  // Function to get available time options for a specific day
+  const getAvailableTimeOptions = (dayName) => {
+    const allTimes = timeUtils.getBusinessHours()
+    
+    // Block all scheduling on Sundays (clinic holiday)
+    if (dayName === 'Sunday') {
+      return []
+    }
+    
+    // Get the date for the day being edited
+    const dayIndex = daysOfWeek.findIndex(d => d === dayName)
+    const dayDate = weekDates[dayIndex]
+    const today = new Date()
+    
+    // If this is today, filter out past times
+    if (dayDate.toDateString() === today.toDateString()) {
+      const currentTime = new Date()
+      const currentHour = currentTime.getHours()
+      const currentMinute = currentTime.getMinutes()
+      
+      return allTimes.filter(time => {
+        const time24 = timeUtils.formatTo24Hour(time)
+        const [timeHour, timeMinute] = time24.split(':').map(Number)
+        
+        // Filter out times that are in the past (with only 5-minute buffer)
+        const timeInMinutes = timeHour * 60 + timeMinute
+        const currentInMinutes = currentHour * 60 + currentMinute + 5 // 5 minute buffer
+        
+        return timeInMinutes > currentInMinutes
+      })
+    }
+    
+    // For future dates, return all business hours
+    return allTimes
+  }
+
+  // Function to check if a time option should be disabled
+  const isTimeOptionDisabled = (time, dayName) => {
+    // Block all scheduling on Sundays (clinic holiday)
+    if (dayName === 'Sunday') {
+      return true
+    }
+    
+    const dayIndex = daysOfWeek.findIndex(d => d === dayName)
+    const dayDate = weekDates[dayIndex]
+    const today = new Date()
+    
+    // If this is today, disable past times
+    if (dayDate.toDateString() === today.toDateString()) {
+      const currentTime = new Date()
+      const currentHour = currentTime.getHours()
+      const currentMinute = currentTime.getMinutes()
+      
+      const time24 = timeUtils.formatTo24Hour(time)
+      const [timeHour, timeMinute] = time24.split(':').map(Number)
+      
+      // Disable times that are in the past (with only 5-minute buffer)
+      const timeInMinutes = timeHour * 60 + timeMinute
+      const currentInMinutes = currentHour * 60 + currentMinute + 5 // 5 minute buffer
+      
+      return timeInMinutes <= currentInMinutes
+    }
+    
+    // For future dates, don't disable any times
+    return false
+  }
+
   // Function to determine slot type based on time
   const getSlotTypeByTime = (startTime, endTime) => {
-    const startHour = timeUtils.formatTo24Hour(startTime).split(':')[0]
-    const endHour = timeUtils.formatTo24Hour(endTime).split(':')[0]
-    const start = parseInt(startHour)
-    const end = parseInt(endHour)
+    const startTime24 = timeUtils.formatTo24Hour(startTime)
+    const endTime24 = timeUtils.formatTo24Hour(endTime)
+    const [startHour, startMinute] = startTime24.split(':').map(Number)
+    const [endHour, endMinute] = endTime24.split(':').map(Number)
     
-    // Determine type based on time ranges
-    if (start >= 9 && end <= 12) {
+    // Convert to minutes for more precise calculations
+    const startMinutes = startHour * 60 + startMinute
+    const endMinutes = endHour * 60 + endMinute
+    const duration = endMinutes - startMinutes
+    
+    // Define time boundaries in minutes
+    const morningStart = 9 * 60    // 9:00 AM
+    const noonTime = 12 * 60       // 12:00 PM
+    const afternoonEnd = 17 * 60   // 5:00 PM
+    const eveningEnd = 20 * 60     // 8:00 PM
+    
+    // Pure Morning (9 AM - 12 PM)
+    if (startMinutes >= morningStart && endMinutes <= noonTime) {
       return 'Morning Consultations'
-    } else if (start >= 12 && end <= 17) {
-      return 'Afternoon Procedures'
-    } else if (start >= 17 && end <= 20) {
-      return 'Evening Consultations'
-    } else if (start >= 9 && end >= 17) {
-      return 'Full Day Clinic'
-    } else if (start >= 9 && end <= 14) {
-      return 'Morning Session'
-    } else if (start >= 13 && end <= 17) {
-      return 'Extended Afternoon'
-    } else {
-      return 'Full Day Clinic' // Default fallback
     }
+    
+    // Pure Afternoon (12 PM - 5 PM)
+    if (startMinutes >= noonTime && endMinutes <= afternoonEnd) {
+      if (duration >= 180) { // 3+ hours
+        return 'Extended Afternoon'
+      } else {
+        return 'Afternoon Procedures'
+      }
+    }
+    
+    // Pure Evening (5 PM - 8 PM)
+    if (startMinutes >= afternoonEnd && endMinutes <= eveningEnd) {
+      return 'Evening Consultations'
+    }
+    
+    // Morning extending into Afternoon (9 AM - after 12 PM but before 5 PM)
+    if (startMinutes >= morningStart && startMinutes < noonTime && endMinutes > noonTime && endMinutes <= afternoonEnd) {
+      if (duration >= 300) { // 5+ hours
+        return 'Extended Morning Session'
+      } else {
+        return 'Morning to Afternoon'
+      }
+    }
+    
+    // Afternoon extending into Evening (12 PM - after 5 PM)
+    if (startMinutes >= noonTime && startMinutes < afternoonEnd && endMinutes > afternoonEnd && endMinutes <= eveningEnd) {
+      return 'Afternoon to Evening'
+    }
+    
+    // Full Day Sessions (6+ hours covering multiple periods)
+    if (duration >= 360) { // 6+ hours
+      if (startMinutes <= morningStart + 30 && endMinutes >= afternoonEnd - 30) { // Allow 30min buffer
+        return 'Full Day Clinic'
+      }
+    }
+    
+    // Very long sessions spanning morning to evening
+    if (startMinutes >= morningStart && startMinutes < noonTime && endMinutes > afternoonEnd) {
+      return 'Extended Day Session'
+    }
+    
+    // Default fallback for unusual combinations
+    return 'Custom Session'
   }
 
   // Load schedule data from backend
@@ -75,9 +193,11 @@ const Schedule = () => {
       setLoading(true)
       setError('')
       
-      const weekStart = scheduleUtils.getCurrentWeekStart()
-      weekStart.setDate(weekStart.getDate() + (Math.floor((currentWeek.getTime() - weekStart.getTime()) / (7 * 24 * 60 * 60 * 1000)) * 7))
+      // Use the currentWeek state directly as it's already the week start
+      const weekStart = new Date(currentWeek)
+      weekStart.setHours(0, 0, 0, 0)
 
+      console.log('Loading schedule for week starting:', weekStart.toISOString());
       const response = await apiService.getWeekSchedule(scheduleUtils.formatDateForAPI(weekStart))
       
       if (response.success && response.data.schedule) {
@@ -153,9 +273,10 @@ const Schedule = () => {
   }, [currentWeek])
 
   const navigateWeek = (direction) => {
-    const newDate = new Date(currentWeek)
-    newDate.setDate(currentWeek.getDate() + (direction * 7))
-    setCurrentWeek(newDate)
+    const newWeekStart = new Date(currentWeek)
+    newWeekStart.setDate(currentWeek.getDate() + (direction * 7))
+    newWeekStart.setHours(0, 0, 0, 0)
+    setCurrentWeek(newWeekStart)
   }
 
   const formatDate = (date) => {
@@ -169,6 +290,12 @@ const Schedule = () => {
   }
 
   const editDay = (dayName) => {
+    // Block editing on Sundays (clinic holiday)
+    if (dayName === 'Sunday') {
+      alert('Clinic is closed on Sundays. No scheduling is allowed on Sundays.')
+      return
+    }
+    
     // Get the date for the day being edited
     const dayIndex = daysOfWeek.findIndex(d => d === dayName)
     const dayDate = weekDates[dayIndex]
@@ -189,19 +316,18 @@ const Schedule = () => {
     
     const daySchedule = schedule[dayName.toLowerCase()] || []
     
-    // Convert to editable format with 12-hour times and correct types
+    // Convert to editable format with 12-hour times (no auto slot types)
     const editableSlots = daySchedule.map((slot, index) => {
       const startTime = timeUtils.formatTo12Hour(slot.startTime)
       const endTime = timeUtils.formatTo12Hour(slot.endTime)
-      const correctType = getSlotTypeByTime(startTime, endTime)
       
       return {
         id: Date.now() + index, // For React keys and local operations
         _id: slot._id, // Preserve MongoDB _id for backend operations
         startTime,
         endTime,
-        type: correctType, // Use time-based type instead of stored type
-        label: correctType
+        type: slot.type || 'Available', // Use stored type or default
+        label: slot.label || 'Available'
       }
     })
     
@@ -209,9 +335,9 @@ const Schedule = () => {
     setTempTimeSlots(editableSlots.length > 0 ? editableSlots : [{
       id: Date.now(),
       startTime: '9:00 AM',
-      endTime: '12:00 PM',
-      type: 'Morning Consultations',
-      label: 'Morning Consultations'
+      endTime: '10:00 AM',
+      type: 'Available',
+      label: 'Available'
     }])
   }
 
@@ -221,11 +347,16 @@ const Schedule = () => {
   }
 
   const isValidTimeSlot = (slot) => {
-    if (!slot.startTime || !slot.endTime || !slot.type.trim()) {
-      return { valid: false, message: 'All fields are required' }
+    if (!slot.startTime || !slot.endTime) {
+      return { valid: false, message: 'Start time and end time are required' }
     }
 
     if (slot.type !== 'Day Off') {
+      // Block scheduling on Sundays
+      if (editingDay === 'Sunday') {
+        return { valid: false, message: 'Clinic is closed on Sundays - no scheduling allowed' }
+      }
+      
       // Convert to 24-hour format for validation
       const startTime24 = timeUtils.formatTo24Hour(slot.startTime)
       const endTime24 = timeUtils.formatTo24Hour(slot.endTime)
@@ -237,6 +368,32 @@ const Schedule = () => {
       
       if (startTime24 >= endTime24) {
         return { valid: false, message: 'End time must be after start time' }
+      }
+      
+      // Check if times are in the past for today only with minimal buffer
+      if (editingDay) {
+        const dayIndex = daysOfWeek.findIndex(d => d === editingDay)
+        if (dayIndex !== -1) {
+          const dayDate = weekDates[dayIndex]
+          const today = new Date()
+          
+          // Only apply past time check if this is today
+          if (dayDate.toDateString() === today.toDateString()) {
+            const currentTime = new Date()
+            const currentHour = currentTime.getHours()
+            const currentMinute = currentTime.getMinutes()
+            
+            const [startHour, startMinute] = startTime24.split(':').map(Number)
+            
+            const startInMinutes = startHour * 60 + startMinute
+            const currentInMinutes = currentHour * 60 + currentMinute + 5 // Only 5 minute buffer
+            
+            // Only check start time - if start time is okay, allow the scheduling
+            if (startInMinutes <= currentInMinutes) {
+              return { valid: false, message: `Start time cannot be in the past (current time: ${currentHour}:${currentMinute.toString().padStart(2, '0')})` }
+            }
+          }
+        }
       }
     }
 
@@ -263,8 +420,8 @@ const Schedule = () => {
       const formattedSlots = tempTimeSlots.map(slot => ({
         startTime: timeUtils.formatTo24Hour(slot.startTime),
         endTime: timeUtils.formatTo24Hour(slot.endTime),
-        type: slot.type,
-        label: slot.label
+        type: 'Available', // Simple type for all slots
+        label: 'Available'
       }))
 
       const scheduleData = {
@@ -290,16 +447,22 @@ const Schedule = () => {
         [editingDay.toLowerCase()]: formattedSlots
       }
       
-      // Calculate total hours from all days
+      // Calculate total hours from all days using proper 24-hour format
       let totalMinutes = 0
       Object.values(newSchedule).forEach(daySlots => {
         if (Array.isArray(daySlots)) {
           daySlots.forEach(slot => {
             if (slot.type !== 'Day Off' && slot.startTime && slot.endTime) {
-              const start = timeUtils.formatTo24Hour(slot.startTime)
-              const end = timeUtils.formatTo24Hour(slot.endTime)
-              const startMinutes = parseInt(start.split(':')[0]) * 60 + parseInt(start.split(':')[1])
-              const endMinutes = parseInt(end.split(':')[0]) * 60 + parseInt(end.split(':')[1])
+              // Ensure we're working with 24-hour format
+              const start24 = slot.startTime.includes('M') ? timeUtils.formatTo24Hour(slot.startTime) : slot.startTime
+              const end24 = slot.endTime.includes('M') ? timeUtils.formatTo24Hour(slot.endTime) : slot.endTime
+              
+              const [startHour, startMinute] = start24.split(':').map(Number)
+              const [endHour, endMinute] = end24.split(':').map(Number)
+              
+              const startMinutes = startHour * 60 + startMinute
+              const endMinutes = endHour * 60 + endMinute
+              
               if (endMinutes > startMinutes) {
                 totalMinutes += (endMinutes - startMinutes)
               }
@@ -325,16 +488,25 @@ const Schedule = () => {
   }
 
   const addTimeSlot = () => {
-    const startTime = '9:00 AM'
-    const endTime = '12:00 PM'
-    const slotType = getSlotTypeByTime(startTime, endTime)
+    // Get available times for the current day being edited
+    const availableTimes = getAvailableTimeOptions(editingDay)
+    
+    // Use the first available time, or default if no restrictions
+    const startTime = availableTimes.length > 0 ? availableTimes[0] : '9:00 AM'
+    
+    // Default end time 1 hour later
+    const startTime24 = timeUtils.formatTo24Hour(startTime)
+    const [startHour, startMinute] = startTime24.split(':').map(Number)
+    const endHour = Math.min(startHour + 1, 20) // 1 hour later or 8 PM max
+    const endTime24 = `${endHour.toString().padStart(2, '0')}:${startMinute.toString().padStart(2, '0')}`
+    const endTime = timeUtils.formatTo12Hour(endTime24)
     
     const newSlot = {
       id: Date.now() + Math.random(),
       startTime,
       endTime,
-      type: slotType,
-      label: slotType
+      type: 'Available',
+      label: 'Available'
     }
     setTempTimeSlots([...tempTimeSlots, newSlot])
     setHasUnsavedChanges(true)
@@ -345,17 +517,7 @@ const Schedule = () => {
       prev.map(slot => {
         if (slot.id === id) {
           const updatedSlot = { ...slot, [field]: value }
-          
-          // Auto-update slot type when time changes
-          if (field === 'startTime' || field === 'endTime') {
-            const newType = getSlotTypeByTime(
-              field === 'startTime' ? value : updatedSlot.startTime,
-              field === 'endTime' ? value : updatedSlot.endTime
-            )
-            updatedSlot.type = newType
-            updatedSlot.label = newType
-          }
-          
+          // No auto-update of slot type - keep it simple
           return updatedSlot
         }
         return slot
@@ -382,7 +544,12 @@ const Schedule = () => {
         
         setError(''); // Clear any previous errors
         
-        const response = await apiService.deleteTimeSlot(editingDay.toLowerCase(), slotToRemove._id);
+        // Pass the current week being viewed to the API
+        const weekStart = new Date(currentWeek)
+        weekStart.setHours(0, 0, 0, 0)
+        const weekStartFormatted = scheduleUtils.formatDateForAPI(weekStart)
+        
+        const response = await apiService.deleteTimeSlot(editingDay.toLowerCase(), slotToRemove._id, weekStartFormatted);
         
         if (response.success) {
           // Remove from local state
@@ -436,29 +603,14 @@ const Schedule = () => {
       
       setError('')
       
-      // Calculate week start date more carefully
-      const today = new Date()
-      const currentDayOfWeek = today.getDay() // 0 = Sunday, 1 = Monday, etc.
-      const daysFromMonday = currentDayOfWeek === 0 ? 6 : currentDayOfWeek - 1 // Convert to Monday-based week
-      const currentWeekStart = new Date(today)
-      currentWeekStart.setDate(today.getDate() - daysFromMonday)
-      currentWeekStart.setHours(0, 0, 0, 0)
-      
-      // Calculate offset weeks from current week
-      const currentWeekTime = currentWeekStart.getTime()
-      const selectedWeekTime = currentWeek.getTime()
-      const weekDiff = Math.round((selectedWeekTime - currentWeekTime) / (7 * 24 * 60 * 60 * 1000))
-      
-      // Calculate the target week start
-      const weekStart = new Date(currentWeekStart)
-      weekStart.setDate(currentWeekStart.getDate() + (weekDiff * 7))
+      // Use the currentWeek state directly as it's already the week start
+      const weekStart = new Date(currentWeek)
+      weekStart.setHours(0, 0, 0, 0)
 
       console.log('Debug date calculations:');
-      console.log('Today:', today.toISOString());
-      console.log('Current week start:', currentWeekStart.toISOString());
-      console.log('Selected week (currentWeek):', currentWeek.toISOString());
-      console.log('Week difference:', weekDiff);
-      console.log('Target week start:', weekStart.toISOString());
+      console.log('Current week state:', currentWeek.toISOString());
+      console.log('Week start for save:', weekStart.toISOString());
+      console.log('Formatted for API:', scheduleUtils.formatDateForAPI(weekStart));
 
       const scheduleData = {
         weekStartDate: scheduleUtils.formatDateForAPI(weekStart),
@@ -615,8 +767,13 @@ const Schedule = () => {
                           {isPast ? 'Past date' : 'Schedule locked after 5 PM'}
                         </p>
                       )}
+                      {dayName === 'Sunday' && (
+                        <p className="text-xs text-red-500 mt-1">
+                          Clinic Holiday
+                        </p>
+                      )}
                     </div>
-                    {canEdit && !isEditing && (
+                    {canEdit && !isEditing && dayName !== 'Sunday' && (
                       <button
                         onClick={() => editDay(dayName)}
                         className="p-1 hover:bg-gray-100 rounded transition-colors"
@@ -660,8 +817,18 @@ const Schedule = () => {
                                     onChange={(e) => updateTimeSlot(slot.id, 'startTime', e.target.value)}
                                     className="w-full text-sm border border-gray-300 rounded px-2 py-1"
                                   >
-                                    {timeUtils.getBusinessHours().map(time => (
-                                      <option key={time} value={time}>{time}</option>
+                                    {getAvailableTimeOptions(editingDay).map(time => (
+                                      <option 
+                                        key={time} 
+                                        value={time}
+                                        disabled={isTimeOptionDisabled(time, editingDay)}
+                                        style={{
+                                          color: isTimeOptionDisabled(time, editingDay) ? '#9CA3AF' : 'inherit',
+                                          backgroundColor: isTimeOptionDisabled(time, editingDay) ? '#F3F4F6' : 'inherit'
+                                        }}
+                                      >
+                                        {time} {isTimeOptionDisabled(time, editingDay) ? '(Past)' : ''}
+                                      </option>
                                     ))}
                                   </select>
                                 </div>
@@ -672,16 +839,20 @@ const Schedule = () => {
                                     onChange={(e) => updateTimeSlot(slot.id, 'endTime', e.target.value)}
                                     className="w-full text-sm border border-gray-300 rounded px-2 py-1"
                                   >
-                                    {timeUtils.getBusinessHours().map(time => (
-                                      <option key={time} value={time}>{time}</option>
+                                    {getAvailableTimeOptions(editingDay).map(time => (
+                                      <option 
+                                        key={time} 
+                                        value={time}
+                                        disabled={isTimeOptionDisabled(time, editingDay)}
+                                        style={{
+                                          color: isTimeOptionDisabled(time, editingDay) ? '#9CA3AF' : 'inherit',
+                                          backgroundColor: isTimeOptionDisabled(time, editingDay) ? '#F3F4F6' : 'inherit'
+                                        }}
+                                      >
+                                        {time} {isTimeOptionDisabled(time, editingDay) ? '(Past)' : ''}
+                                      </option>
                                     ))}
                                   </select>
-                                </div>
-                              </div>
-                              <div className="mt-2">
-                                <label className="text-xs text-gray-600">Slot Type (Auto-assigned)</label>
-                                <div className="text-sm font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                                  {slot.type}
                                 </div>
                               </div>
                             </>
@@ -724,7 +895,12 @@ const Schedule = () => {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {daySchedule.length === 0 ? (
+                      {dayName === 'Sunday' ? (
+                        <div className="text-center py-4">
+                          <p className="text-sm text-red-600 font-medium">🏥 Clinic Holiday</p>
+                          <p className="text-xs text-gray-500 mt-1">Closed on Sundays</p>
+                        </div>
+                      ) : daySchedule.length === 0 ? (
                         <p className={`text-sm text-center py-4 ${
                           isPast ? 'text-gray-400' : 'text-gray-500'
                         }`}>
@@ -734,16 +910,16 @@ const Schedule = () => {
                         daySchedule.map((slot, index) => (
                           <div
                             key={index}
-                            className={`p-2 rounded text-sm ${getSlotTypeColor(slot.type)}`}
+                            className="p-2 rounded text-sm bg-blue-50 border-blue-200 text-blue-800"
                           >
                             <div className="flex items-center justify-between">
                               <div className="flex items-center">
-                                {getSlotTypeIcon(slot.type)}
-                                <span className="ml-2 font-medium">{slot.type || slot.label}</span>
+                                <CheckCircle className="w-4 h-4 text-green-600" />
+                                <span className="ml-2 font-medium">Available</span>
                               </div>
                             </div>
                             {slot.type !== 'Day Off' && (
-                              <div className="text-xs mt-1 opacity-75">
+                              <div className="text-xs mt-1 opacity-75 font-medium">
                                 {timeUtils.formatTo12Hour(slot.startTime)} - {timeUtils.formatTo12Hour(slot.endTime)}
                               </div>
                             )}

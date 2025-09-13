@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
+import AppointmentBookingModal from './AppointmentBookingModal'
 
 const DoctorSearch = () => {
   const [searchQuery, setSearchQuery] = useState('')
@@ -14,6 +15,12 @@ const DoctorSearch = () => {
   const [doctors, setDoctors] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  
+  // Appointment booking state
+  const [bookingModalOpen, setBookingModalOpen] = useState(false)
+  const [doctorToBook, setDoctorToBook] = useState(null)
+  const [bookingMessage, setBookingMessage] = useState('')
+  const [messageType, setMessageType] = useState('')
 
   // Fetch doctors from backend
   const fetchDoctors = async () => {
@@ -25,6 +32,7 @@ const DoctorSearch = () => {
         // Transform the data to match the expected format
         const transformedDoctors = response.data.data.doctors.map(doctor => ({
           id: doctor._id,
+          _id: doctor._id, // Keep original _id for API calls
           name: `Dr. ${doctor.firstName} ${doctor.lastName}`,
           specialization: doctor.specialization,
           rating: 4.5 + Math.random() * 0.5, // Generate random rating between 4.5-5.0
@@ -41,7 +49,9 @@ const DoctorSearch = () => {
           phone: doctor.phone,
           email: doctor.email,
           gender: doctor.gender,
-          dateOfBirth: doctor.dateOfBirth
+          dateOfBirth: doctor.dateOfBirth,
+          firstName: doctor.firstName,
+          lastName: doctor.lastName
         }))
         console.log('Transformed doctors:', transformedDoctors)
         setDoctors(transformedDoctors)
@@ -100,6 +110,32 @@ const DoctorSearch = () => {
       experience: ''
     })
     setSearchQuery('')
+  }
+
+  // Appointment booking functions
+  const handleBookAppointment = (doctor) => {
+    setDoctorToBook(doctor)
+    setBookingModalOpen(true)
+    setBookingMessage('')
+    setMessageType('')
+  }
+
+  const handleBookingSuccess = (appointment) => {
+    setBookingMessage(`Appointment booked successfully with ${appointment.doctorName}!`)
+    setMessageType('success')
+    setBookingModalOpen(false)
+    setDoctorToBook(null)
+    
+    // Clear message after 5 seconds
+    setTimeout(() => {
+      setBookingMessage('')
+      setMessageType('')
+    }, 5000)
+  }
+
+  const handleBookingModalClose = () => {
+    setBookingModalOpen(false)
+    setDoctorToBook(null)
   }
 
   const filteredDoctors = doctors.filter(doctor => {
@@ -355,15 +391,28 @@ const DoctorSearch = () => {
                     <p className="text-sm text-gray-600">Next available</p>
                     <p className="text-sm font-medium text-gray-900">{doctor.nextSlot}</p>
                   </div>
-                  <div className="flex space-x-2">
+                  <div className="flex space-x-3">
                     <button
                       onClick={() => setSelectedDoctor(doctor)}
-                      className="px-4 py-2 border border-dental-primary text-dental-primary rounded-md text-sm font-medium hover:bg-dental-primary hover:text-white transition-colors duration-200"
+                      className="px-4 py-2 border-2 border-blue-500 text-blue-600 rounded-lg text-sm font-medium hover:bg-blue-50 hover:border-blue-600 hover:text-blue-700 transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md"
                     >
-                      View Profile
+                      <div className="flex items-center space-x-2">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        <span>View Profile</span>
+                      </div>
                     </button>
-                    <button className="px-4 py-2 bg-dental-primary text-white rounded-md text-sm font-medium hover:bg-dental-accent transition-colors duration-200">
-                      Book Appointment
+                    <button
+                      onClick={() => handleBookAppointment(doctor)}
+                      className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg text-sm font-medium hover:from-blue-700 hover:to-blue-800 transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a1 1 0 011-1h6a1 1 0 011 1v4m4 0V7a1 1 0 00-1-1H5a1 1 0 00-1 1v0m16 0v10a2 2 0 01-2 2H6a2 2 0 01-2-2V7h16z" />
+                        </svg>
+                        <span>Book Appointment</span>
+                      </div>
                     </button>
                   </div>
                 </div>
@@ -376,93 +425,238 @@ const DoctorSearch = () => {
 
       {/* Doctor Profile Modal */}
       {selectedDoctor && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setSelectedDoctor(null)}></div>
-            
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                <div className="flex items-center mb-4">
-                  <div className="mr-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div 
+            className="fixed inset-0 bg-gray-900 bg-opacity-50 backdrop-blur-sm transition-opacity" 
+            onClick={() => setSelectedDoctor(null)}
+          ></div>
+          
+          <div className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto mx-auto my-8 z-10">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-6 rounded-t-2xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div className="relative">
                     <img
                       src={selectedDoctor.image}
                       alt={selectedDoctor.name}
-                      className="w-16 h-16 rounded-full object-cover border-2 border-gray-200"
+                      className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-lg"
                       onError={(e) => {
                         e.target.style.display = 'none';
                         e.target.nextSibling.style.display = 'flex';
                       }}
                     />
-                    <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center" style={{display: 'none'}}>
-                      <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center border-4 border-white shadow-lg" style={{display: 'none'}}>
+                      <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                       </svg>
                     </div>
+                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-400 rounded-full border-2 border-white"></div>
                   </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">{selectedDoctor.name}</h3>
-                    <p className="text-dental-primary font-medium">{selectedDoctor.specialization}</p>
+                  <div className="text-white">
+                    <h3 className="text-2xl font-bold">{selectedDoctor.name}</h3>
+                    <p className="text-blue-100 font-medium text-lg">{selectedDoctor.specialization}</p>
+                    <div className="flex items-center mt-2 space-x-4">
+                      <div className="flex items-center">
+                        {getRatingStars(selectedDoctor.rating)}
+                        <span className="ml-2 text-blue-100">{selectedDoctor.rating}</span>
+                      </div>
+                      <span className="text-blue-100">{selectedDoctor.experience} years exp.</span>
+                    </div>
                   </div>
                 </div>
+                <button
+                  onClick={() => setSelectedDoctor(null)}
+                  className="text-white hover:text-gray-200 text-3xl font-bold p-2 rounded-full hover:bg-white hover:bg-opacity-20 transition-all duration-200 leading-none"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
 
-                <div className="space-y-4">
-                  <div>
-                    <h4 className="font-medium text-gray-900 mb-2">About</h4>
-                    <p className="text-sm text-gray-600">{selectedDoctor.about}</p>
-                  </div>
-                  
-                  <div>
-                    <h4 className="font-medium text-gray-900 mb-2">Qualifications</h4>
-                    <ul className="text-sm text-gray-600 space-y-1">
-                      {selectedDoctor.qualifications.map((qual, index) => (
-                        <li key={index}>• {qual}</li>
-                      ))}
-                    </ul>
-                  </div>
-                  
-                  <div>
-                    <h4 className="font-medium text-gray-900 mb-2">Languages</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedDoctor.languages.map((lang, index) => (
-                        <span key={index} className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-800">
-                          {lang}
-                        </span>
-                      ))}
+            {/* Content */}
+            <div className="px-6 py-6 space-y-6">
+              {/* Contact Info */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26c.67.36 1.45.36 2.12 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Email</p>
+                      <p className="font-medium text-gray-900">{selectedDoctor.email}</p>
                     </div>
                   </div>
-                  
-                  <div>
-                    <h4 className="font-medium text-gray-900 mb-2">Services</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedDoctor.services.map((service, index) => (
-                        <span key={index} className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-dental-light text-dental-primary">
-                          {service}
-                        </span>
-                      ))}
+                </div>
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Phone</p>
+                      <p className="font-medium text-gray-900">{selectedDoctor.phone}</p>
                     </div>
                   </div>
+                </div>
+              </div>
+
+              {/* About */}
+              <div>
+                <h4 className="flex items-center font-semibold text-gray-900 mb-3">
+                  <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  About
+                </h4>
+                <p className="text-gray-600 leading-relaxed">{selectedDoctor.about}</p>
+              </div>
+              
+              {/* Qualifications */}
+              <div>
+                <h4 className="flex items-center font-semibold text-gray-900 mb-3">
+                  <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+                  </svg>
+                  Qualifications
+                </h4>
+                <div className="space-y-2">
+                  {selectedDoctor.qualifications.map((qual, index) => (
+                    <div key={index} className="flex items-center space-x-3">
+                      <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+                      <span className="text-gray-600">{qual}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
               
-              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                <button
-                  type="button"
-                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-dental-primary text-base font-medium text-white hover:bg-dental-accent focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-dental-primary sm:ml-3 sm:w-auto sm:text-sm"
-                >
-                  Book Appointment
-                </button>
-                <button
-                  type="button"
-                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-dental-primary sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-                  onClick={() => setSelectedDoctor(null)}
-                >
-                  Close
-                </button>
+              {/* Languages */}
+              <div>
+                <h4 className="flex items-center font-semibold text-gray-900 mb-3">
+                  <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+                  </svg>
+                  Languages
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {selectedDoctor.languages.map((lang, index) => (
+                    <span key={index} className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                      {lang}
+                    </span>
+                  ))}
+                </div>
               </div>
+              
+              {/* Services */}
+              <div>
+                <h4 className="flex items-center font-semibold text-gray-900 mb-3">
+                  <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                  </svg>
+                  Services Offered
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {selectedDoctor.services.map((service, index) => (
+                    <span key={index} className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                      {service}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Availability */}
+              <div className="bg-blue-50 rounded-xl p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-1">Next Available Slot</h4>
+                    <p className="text-blue-600 font-medium">{selectedDoctor.nextSlot}</p>
+                  </div>
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                    selectedDoctor.availability === 'Available Today' ? 'bg-green-100 text-green-800' :
+                    selectedDoctor.availability === 'Available Tomorrow' ? 'bg-blue-100 text-blue-800' :
+                    'bg-yellow-100 text-yellow-800'
+                  }`}>
+                    {selectedDoctor.availability}
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            {/* Footer Actions */}
+            <div className="bg-gray-50 px-6 py-4 flex justify-end space-x-3 rounded-b-2xl">
+              <button
+                type="button"
+                className="px-6 py-2 border-2 border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-100 hover:border-gray-400 transition-all duration-200"
+                onClick={() => setSelectedDoctor(null)}
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedDoctor(null)
+                  handleBookAppointment(selectedDoctor)
+                }}
+                className="px-6 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg font-medium hover:from-blue-700 hover:to-blue-800 transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg"
+              >
+                <div className="flex items-center space-x-2">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a1 1 0 011-1h6a1 1 0 011 1v4m4 0V7a1 1 0 00-1-1H5a1 1 0 00-1 1v0m16 0v10a2 2 0 01-2 2H6a2 2 0 01-2-2V7h16z" />
+                  </svg>
+                  <span>Book Appointment</span>
+                </div>
+              </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Booking Success Message */}
+      {bookingMessage && (
+        <div className={`fixed top-4 right-4 z-50 max-w-md w-full ${
+          messageType === 'success' 
+            ? 'bg-green-100 border border-green-400 text-green-700' 
+            : 'bg-red-100 border border-red-400 text-red-700'
+        } px-4 py-3 rounded shadow-lg`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              {messageType === 'success' ? (
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              )}
+              <span className="text-sm font-medium">{bookingMessage}</span>
+            </div>
+            <button
+              onClick={() => {
+                setBookingMessage('')
+                setMessageType('')
+              }}
+              className="ml-2 text-lg font-bold leading-none hover:opacity-70"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Appointment Booking Modal */}
+      <AppointmentBookingModal
+        isOpen={bookingModalOpen}
+        onClose={handleBookingModalClose}
+        doctor={doctorToBook}
+        onSuccess={handleBookingSuccess}
+      />
     </div>
   )
 }
