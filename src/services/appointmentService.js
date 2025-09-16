@@ -10,7 +10,7 @@ class AppointmentService {
   async getDoctorAvailableSlots(doctorId, date) {
     try {
       console.log(`Fetching slots for doctor ${doctorId} on ${date}`);
-      const response = await apiService.request('GET', `/appointments/doctor/${doctorId}/slots/${date}`);
+      const response = await apiService.get(`/appointments/doctor/${doctorId}/slots/${date}`);
       return response;
     } catch (error) {
       console.error('Error fetching doctor slots:', error);
@@ -26,7 +26,7 @@ class AppointmentService {
   async bookAppointment(appointmentData) {
     try {
       console.log('Booking appointment:', appointmentData);
-      const response = await apiService.request('POST', '/appointments/book', appointmentData);
+      const response = await apiService.post('/appointments/book', appointmentData);
       return response;
     } catch (error) {
       console.error('Error booking appointment:', error);
@@ -43,7 +43,7 @@ class AppointmentService {
     try {
       const queryString = new URLSearchParams(params).toString();
       const url = `/appointments/my-appointments${queryString ? `?${queryString}` : ''}`;
-      const response = await apiService.request('GET', url);
+      const response = await apiService.get(url);
       return response;
     } catch (error) {
       console.error('Error fetching appointments:', error);
@@ -59,7 +59,7 @@ class AppointmentService {
   async cancelAppointment(appointmentId) {
     try {
       console.log(`Cancelling appointment ${appointmentId}`);
-      const response = await apiService.request('PATCH', `/appointments/cancel/${appointmentId}`);
+      const response = await apiService.patch(`/appointments/cancel/${appointmentId}`);
       return response;
     } catch (error) {
       console.error('Error cancelling appointment:', error);

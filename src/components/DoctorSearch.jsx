@@ -40,7 +40,7 @@ const DoctorSearch = () => {
           location: 'Neurodent Clinic', // Default location
           image: doctor.profileImage || `https://ui-avatars.com/api/?name=${doctor.firstName}+${doctor.lastName}&background=0d9488&color=fff`,
           availability: doctor.availability === 'active' ? 'Available Today' : 'Limited Availability',
-          nextSlot: getNextAvailableSlot(),
+          nextSlot: doctor.nextAvailableSlot || 'Not available',
           about: doctor.bio || `Experienced ${doctor.specialization.toLowerCase()} specialist providing quality dental care.`,
           qualifications: [`${doctor.position}`, `Specialization in ${doctor.specialization}`],
           languages: ['English'],
@@ -62,15 +62,6 @@ const DoctorSearch = () => {
     } finally {
       setLoading(false)
     }
-  }
-
-  // Helper function to get next available slot
-  const getNextAvailableSlot = () => {
-    const tomorrow = new Date()
-    tomorrow.setDate(tomorrow.getDate() + 1)
-    const hours = 9 + Math.floor(Math.random() * 8) // Random hour between 9 AM and 5 PM
-    const minutes = Math.random() > 0.5 ? '00' : '30'
-    return `${tomorrow.toISOString().split('T')[0]} ${hours}:${minutes} ${hours >= 12 ? 'PM' : 'AM'}`
   }
 
   // Helper function to get services based on specialization
