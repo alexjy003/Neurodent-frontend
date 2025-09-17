@@ -68,6 +68,23 @@ class AppointmentService {
   }
 
   /**
+   * Reschedule an appointment
+   * @param {string} appointmentId - The appointment ID to reschedule
+   * @param {Object} rescheduleData - New appointment data
+   * @returns {Promise} API response with reschedule confirmation
+   */
+  async rescheduleAppointment(appointmentId, rescheduleData) {
+    try {
+      console.log(`Rescheduling appointment ${appointmentId}:`, rescheduleData);
+      const response = await apiService.patch(`/appointments/reschedule/${appointmentId}`, rescheduleData);
+      return response;
+    } catch (error) {
+      console.error('Error rescheduling appointment:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Format date for API calls (YYYY-MM-DD)
    * @param {Date} date - JavaScript Date object
    * @returns {string} Formatted date string

@@ -235,9 +235,11 @@ const PatientDashboard = () => {
 
         {/* Page content - Added top padding to account for fixed header */}
         <main className="pt-24 pb-8">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/30 p-8 transition-all duration-300 hover:shadow-2xl hover:bg-white/90">
-              {renderActiveComponent()}
+          <div className="px-4 sm:px-6 lg:px-8 h-full">
+            <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg border border-white/30 min-h-[calc(100vh-8rem)] transition-all duration-300">
+              <div className="p-6 lg:p-8">
+                {renderActiveComponent()}
+              </div>
             </div>
           </div>
         </main>
