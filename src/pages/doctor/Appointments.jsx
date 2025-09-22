@@ -15,8 +15,11 @@ import {
   Eye,
   Edit,
   ChevronDown,
-  CalendarDays
+  CalendarDays,
+  Stethoscope,
+  FileText
 } from 'lucide-react'
+import apiService from '../../services/api'
 
 const Appointments = () => {
   const [activeTab, setActiveTab] = useState('pending')
@@ -25,126 +28,81 @@ const Appointments = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [dateFilter, setDateFilter] = useState('today')
   const [loading, setLoading] = useState(true)
-
-  // Sample appointments data
-  const sampleAppointments = [
-    {
-      id: 1,
-      patientName: 'Sarah Johnson',
-      patientEmail: 'sarah.johnson@email.com',
-      patientPhone: '+1 234-567-8900',
-      date: '2025-08-10',
-      time: '09:00 AM',
-      reason: 'Routine Checkup',
-      status: 'pending',
-      duration: '30 min',
-      notes: 'Regular dental cleaning and examination',
-      patientAge: 28,
-      lastVisit: '2025-05-15'
-    },
-    {
-      id: 2,
-      patientName: 'Michael Chen',
-      patientEmail: 'michael.chen@email.com',
-      patientPhone: '+1 234-567-8901',
-      date: '2025-08-10',
-      time: '10:30 AM',
-      reason: 'Tooth Pain',
-      status: 'pending',
-      duration: '45 min',
-      notes: 'Patient reports severe pain in upper left molar',
-      patientAge: 35,
-      lastVisit: '2025-03-20'
-    },
-    {
-      id: 3,
-      patientName: 'Emily Davis',
-      patientEmail: 'emily.davis@email.com',
-      patientPhone: '+1 234-567-8902',
-      date: '2025-08-10',
-      time: '02:00 PM',
-      reason: 'Follow-up',
-      status: 'completed',
-      duration: '30 min',
-      notes: 'Post-treatment checkup for root canal',
-      patientAge: 42,
-      lastVisit: '2025-07-25'
-    },
-    {
-      id: 4,
-      patientName: 'David Wilson',
-      patientEmail: 'david.wilson@email.com',
-      patientPhone: '+1 234-567-8903',
-      date: '2025-08-10',
-      time: '03:30 PM',
-      reason: 'Cleaning',
-      status: 'cancelled',
-      duration: '30 min',
-      notes: 'Patient cancelled due to emergency',
-      patientAge: 29,
-      lastVisit: '2025-02-10'
-    },
-    {
-      id: 5,
-      patientName: 'Lisa Anderson',
-      patientEmail: 'lisa.anderson@email.com',
-      patientPhone: '+1 234-567-8904',
-      date: '2025-08-11',
-      time: '09:00 AM',
-      reason: 'Consultation',
-      status: 'pending',
-      duration: '60 min',
-      notes: 'New patient consultation for orthodontic treatment',
-      patientAge: 16,
-      lastVisit: null
-    },
-    {
-      id: 6,
-      patientName: 'Robert Brown',
-      patientEmail: 'robert.brown@email.com',
-      patientPhone: '+1 234-567-8905',
-      date: '2025-08-11',
-      time: '11:00 AM',
-      reason: 'Filling',
-      status: 'completed',
-      duration: '45 min',
-      notes: 'Composite filling for cavity in tooth #14',
-      patientAge: 45,
-      lastVisit: '2025-07-20'
-    }
-  ]
+  const [error, setError] = useState('')
+  const [selectedAppointment, setSelectedAppointment] = useState(null)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [showCompleteModal, setShowCompleteModal] = useState(false)
+  const [editFormData, setEditFormData] = useState({
+    notes: '',
+    symptoms: '',
+    isEmergency: false
+  })
+  const [completeFormData, setCompleteFormData] = useState({
+    notes: ''
+  })
 
   useEffect(() => {
-    setTimeout(() => {
-      setAppointments(sampleAppointments)
+    fetchAppointments()
+  }, [activeTab, dateFilter])
+
+  const fetchAppointments = async () => {
+    try {
+      setLoading(true)
+      setError('')
+      
+      // Debug: Check if doctorToken exists
+      const doctorToken = localStorage.getItem('doctorToken')
+      console.log('🔍 Frontend Debug:')
+      console.log('- Doctor token available:', doctorToken ? 'Yes' : 'No')
+      console.log('- Token preview:', doctorToken ? doctorToken.substring(0, 20) + '...' : 'None')
+      
+      const params = new URLSearchParams({
+        status: activeTab === 'pending' ? 'pending' : activeTab,
+        limit: '50'
+      })
+      
+      if (dateFilter === 'today') {
+        const today = new Date().toISOString().split('T')[0]
+        params.append('date', today)
+      } else if (dateFilter === 'tomorrow') {
+        const tomorrow = new Date()
+        tomorrow.setDate(tomorrow.getDate() + 1)
+        params.append('date', tomorrow.toISOString().split('T')[0])
+      }
+      
+      console.log('📡 Making API call to:', `/appointments/doctor/my-appointments?${params}`)
+      const response = await apiService.get(`/appointments/doctor/my-appointments?${params}`)
+      console.log('📡 API Response:', response)
+      
+      if (response.success) {
+        setAppointments(response.appointments)
+      } else {
+        setError('Failed to fetch appointments')
+      }
+    } catch (error) {
+      console.error('❌ Error fetching appointments:', error)
+      setError('Failed to load appointments. Please try again.')
+    } finally {
       setLoading(false)
-    }, 1000)
-  }, [])
+    }
+  }
 
   useEffect(() => {
     let filtered = appointments.filter(appointment => {
-      const matchesStatus = appointment.status === activeTab
       const matchesSearch = appointment.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           appointment.reason.toLowerCase().includes(searchTerm.toLowerCase())
+                           appointment.slotType.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           (appointment.symptoms && appointment.symptoms.toLowerCase().includes(searchTerm.toLowerCase()))
       
-      let matchesDate = true
-      if (dateFilter === 'today') {
-        matchesDate = appointment.date === '2025-08-10'
-      } else if (dateFilter === 'tomorrow') {
-        matchesDate = appointment.date === '2025-08-11'
-      } else if (dateFilter === 'week') {
-        matchesDate = true
-      }
-      
-      return matchesStatus && matchesSearch && matchesDate
+      return matchesSearch
     })
     
     setFilteredAppointments(filtered)
-  }, [appointments, activeTab, searchTerm, dateFilter])
+  }, [appointments, searchTerm])
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'pending':
+      case 'scheduled':
+      case 'confirmed':
         return 'bg-yellow-100 text-yellow-800 border-yellow-200'
       case 'completed':
         return 'bg-green-100 text-green-800 border-green-200'
@@ -157,7 +115,8 @@ const Appointments = () => {
 
   const getStatusIcon = (status) => {
     switch (status) {
-      case 'pending':
+      case 'scheduled':
+      case 'confirmed':
         return <Clock className="w-4 h-4" />
       case 'completed':
         return <CheckCircle className="w-4 h-4" />
@@ -168,34 +127,109 @@ const Appointments = () => {
     }
   }
 
-  const handleStartConsultation = (appointmentId) => {
-    setAppointments(prev => 
-      prev.map(apt => 
-        apt.id === appointmentId 
-          ? { ...apt, status: 'completed' }
-          : apt
-      )
-    )
+  const handleStartConsultation = async (appointmentId) => {
+    try {
+      const response = await apiService.patch(`/appointments/doctor/start/${appointmentId}`)
+      
+      if (response.success) {
+        setAppointments(prev => 
+          prev.map(apt => 
+            apt.id === appointmentId 
+              ? { ...apt, status: 'confirmed' }
+              : apt
+          )
+        )
+      }
+    } catch (error) {
+      console.error('Error starting consultation:', error)
+      setError('Failed to start consultation')
+    }
   }
 
   const handleReschedule = (appointmentId) => {
+    // TODO: Implement reschedule functionality
     console.log('Reschedule appointment:', appointmentId)
   }
 
-  const handleMarkComplete = (appointmentId) => {
-    setAppointments(prev => 
-      prev.map(apt => 
-        apt.id === appointmentId 
-          ? { ...apt, status: 'completed' }
-          : apt
+  const handleEditAppointment = (appointment) => {
+    setSelectedAppointment(appointment)
+    setEditFormData({
+      notes: appointment.notes || '',
+      symptoms: appointment.symptoms || '',
+      isEmergency: appointment.isEmergency || false
+    })
+    setShowEditModal(true)
+  }
+
+  const handleUpdateAppointment = async () => {
+    try {
+      const response = await apiService.patch(
+        `/appointments/doctor/update/${selectedAppointment.id}`,
+        editFormData
       )
-    )
+      
+      if (response.success) {
+        setAppointments(prev => 
+          prev.map(apt => 
+            apt.id === selectedAppointment.id 
+              ? { ...apt, ...editFormData }
+              : apt
+          )
+        )
+        setShowEditModal(false)
+        setSelectedAppointment(null)
+      }
+    } catch (error) {
+      console.error('Error updating appointment:', error)
+      setError('Failed to update appointment')
+    }
+  }
+
+  const handleCompleteAppointment = (appointment) => {
+    setSelectedAppointment(appointment)
+    setCompleteFormData({
+      notes: appointment.notes || ''
+    })
+    setShowCompleteModal(true)
+  }
+
+  const handleMarkComplete = async () => {
+    try {
+      const response = await apiService.patch(
+        `/appointments/doctor/complete/${selectedAppointment.id}`,
+        completeFormData
+      )
+      
+      if (response.success) {
+        setAppointments(prev => 
+          prev.map(apt => 
+            apt.id === selectedAppointment.id 
+              ? { ...apt, status: 'completed', notes: completeFormData.notes }
+              : apt
+          )
+        )
+        setShowCompleteModal(false)
+        setSelectedAppointment(null)
+      }
+    } catch (error) {
+      console.error('Error completing appointment:', error)
+      setError('Failed to complete appointment')
+    }
+  }
+
+  const getTabCounts = () => {
+    const allAppointments = appointments // This would include all statuses if we fetch them
+    return {
+      pending: appointments.filter(a => ['scheduled', 'confirmed'].includes(a.status)).length,
+      completed: appointments.filter(a => a.status === 'completed').length,
+      cancelled: appointments.filter(a => a.status === 'cancelled').length
+    }
   }
 
   const tabs = [
-    { id: 'pending', label: 'Pending', count: appointments.filter(a => a.status === 'pending').length },
-    { id: 'completed', label: 'Completed', count: appointments.filter(a => a.status === 'completed').length },
-    { id: 'cancelled', label: 'Cancelled', count: appointments.filter(a => a.status === 'cancelled').length }
+    { id: 'pending', label: 'Pending', count: getTabCounts().pending },
+    { id: 'completed', label: 'Completed', count: getTabCounts().completed },
+    { id: 'cancelled', label: 'Cancelled', count: getTabCounts().cancelled }
   ]
 
   if (loading) {
@@ -211,6 +245,12 @@ const Appointments = () => {
 
   return (
     <div className="space-y-6">
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">
+          {error}
+        </div>
+      )}
+      
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Appointments</h1>
@@ -235,7 +275,7 @@ const Appointments = () => {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
             <input
               type="text"
-              placeholder="Search patients or reasons..."
+              placeholder="Search patients, symptoms, or reasons..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -314,6 +354,12 @@ const Appointments = () => {
                           {getStatusIcon(appointment.status)}
                           <span className="ml-1 capitalize">{appointment.status}</span>
                         </span>
+                        {appointment.isEmergency && (
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                            <AlertCircle className="w-3 h-3 mr-1" />
+                            Emergency
+                          </span>
+                        )}
                       </div>
                       <div className="mt-1 flex items-center space-x-4 text-sm text-gray-500">
                         <div className="flex items-center">
@@ -322,23 +368,27 @@ const Appointments = () => {
                         </div>
                         <div className="flex items-center">
                           <Clock className="w-4 h-4 mr-1" />
-                          {appointment.time}
+                          {appointment.timeRange}
                         </div>
                         <div className="flex items-center">
-                          <span className="w-4 h-4 mr-1">⏱</span>
-                          {appointment.duration}
+                          <Stethoscope className="w-4 h-4 mr-1" />
+                          {appointment.slotType}
                         </div>
                       </div>
-                      <div className="mt-2">
-                        <p className="text-sm text-gray-600">
-                          <span className="font-medium">Reason:</span> {appointment.reason}
-                        </p>
-                        {appointment.notes && (
-                          <p className="text-sm text-gray-500 mt-1">
+                      {appointment.symptoms && (
+                        <div className="mt-2">
+                          <p className="text-sm text-gray-600">
+                            <span className="font-medium">Symptoms:</span> {appointment.symptoms}
+                          </p>
+                        </div>
+                      )}
+                      {appointment.notes && (
+                        <div className="mt-2">
+                          <p className="text-sm text-gray-500">
                             <span className="font-medium">Notes:</span> {appointment.notes}
                           </p>
-                        )}
-                      </div>
+                        </div>
+                      )}
                       <div className="mt-2 flex items-center space-x-4 text-sm text-gray-500">
                         <div className="flex items-center">
                           <Phone className="w-4 h-4 mr-1" />
@@ -348,19 +398,16 @@ const Appointments = () => {
                           <Mail className="w-4 h-4 mr-1" />
                           {appointment.patientEmail}
                         </div>
-                        <div>
-                          Age: {appointment.patientAge}
-                        </div>
-                        {appointment.lastVisit && (
+                        {appointment.patientAge && (
                           <div>
-                            Last visit: {appointment.lastVisit}
+                            Age: {appointment.patientAge}
                           </div>
                         )}
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    {appointment.status === 'pending' && (
+                    {(appointment.status === 'scheduled' || appointment.status === 'confirmed') && (
                       <>
                         <button
                           onClick={() => handleStartConsultation(appointment.id)}
@@ -368,6 +415,13 @@ const Appointments = () => {
                         >
                           <Play className="w-3 h-3 mr-1" />
                           Start
+                        </button>
+                        <button
+                          onClick={() => handleCompleteAppointment(appointment)}
+                          className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+                        >
+                          <CheckCircle className="w-3 h-3 mr-1" />
+                          Complete
                         </button>
                         <button
                           onClick={() => handleReschedule(appointment.id)}
@@ -384,7 +438,10 @@ const Appointments = () => {
                         View Details
                       </button>
                     )}
-                    <button className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                    <button
+                      onClick={() => handleEditAppointment(appointment)}
+                      className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                    >
                       <Edit className="w-3 h-3 mr-1" />
                       Edit
                     </button>
@@ -395,6 +452,149 @@ const Appointments = () => {
           </div>
         )}
       </div>
+
+      {/* Edit Appointment Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900">
+                  Edit Appointment
+                </h3>
+                <button
+                  onClick={() => setShowEditModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <XCircle className="w-6 h-6" />
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Patient: {selectedAppointment?.patientName}
+                  </label>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Symptoms
+                  </label>
+                  <textarea
+                    value={editFormData.symptoms}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, symptoms: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    rows="3"
+                    placeholder="Patient symptoms..."
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Notes
+                  </label>
+                  <textarea
+                    value={editFormData.notes}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, notes: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    rows="3"
+                    placeholder="Additional notes..."
+                  />
+                </div>
+                
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="isEmergency"
+                    checked={editFormData.isEmergency}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, isEmergency: e.target.checked }))}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="isEmergency" className="ml-2 block text-sm text-gray-900">
+                    Mark as Emergency
+                  </label>
+                </div>
+              </div>
+              
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  onClick={() => setShowEditModal(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleUpdateAppointment}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  Update
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Complete Appointment Modal */}
+      {showCompleteModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900">
+                  Complete Appointment
+                </h3>
+                <button
+                  onClick={() => setShowCompleteModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <XCircle className="w-6 h-6" />
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Patient: {selectedAppointment?.patientName}
+                  </label>
+                  <p className="text-sm text-gray-500">
+                    {selectedAppointment?.date} at {selectedAppointment?.timeRange}
+                  </p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Treatment Notes
+                  </label>
+                  <textarea
+                    value={completeFormData.notes}
+                    onChange={(e) => setCompleteFormData(prev => ({ ...prev, notes: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    rows="4"
+                    placeholder="Add treatment notes, observations, or follow-up instructions..."
+                  />
+                </div>
+              </div>
+              
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  onClick={() => setShowCompleteModal(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleMarkComplete}
+                  className="px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  Mark Complete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
