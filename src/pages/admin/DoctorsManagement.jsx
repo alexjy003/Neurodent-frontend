@@ -32,7 +32,7 @@ const DoctorsManagement = () => {
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterSpecialization, setFilterSpecialization] = useState('all')
   const [filterExperience, setFilterExperience] = useState('all')
-  const [showPassword, setShowPassword] = useState(false)
+  const [showPassword, setShowPassword] = useState(false) // For edit form only
   const [selectedImage, setSelectedImage] = useState(null)
   const [imagePreview, setImagePreview] = useState(null)
   const [submitting, setSubmitting] = useState(false)
@@ -41,7 +41,7 @@ const DoctorsManagement = () => {
     firstName: '',
     lastName: '',
     email: '',
-    password: '',
+    password: '', // Only used for edit form
     phone: '',
     dateOfBirth: '',
     gender: '',
@@ -192,7 +192,7 @@ const DoctorsManagement = () => {
       firstName: '',
       lastName: '',
       email: '',
-      password: '',
+      password: '', // Only used for edit form
       phone: '',
       dateOfBirth: '',
       gender: '',
@@ -277,7 +277,7 @@ const DoctorsManagement = () => {
       })
 
       if (response.data.success) {
-        toast.success('Doctor added successfully!')
+        toast.success('Doctor added successfully! Login credentials have been sent to the doctor\'s email.')
         resetForm()
         setShowAddForm(false)
         fetchDoctors() // Refresh the doctors list
@@ -610,6 +610,24 @@ const DoctorsManagement = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold text-gray-900 mb-4">Add New Doctor</h2>
+            
+            {/* Information Message */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <svg className="w-5 h-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-blue-800">Automatic Password Generation</h3>
+                  <div className="mt-1 text-sm text-blue-700">
+                    <p>A secure password will be automatically generated and sent to the doctor's email address. The doctor can use these credentials to login and change their password if needed.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
             <form onSubmit={handleAddDoctor} className="space-y-6">
 
               {/* Profile Image Upload */}
@@ -677,36 +695,6 @@ const DoctorsManagement = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                     placeholder="doctor@neurodent.com"
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Password *
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      name="password"
-                      required
-                      value={formData.password}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                      placeholder="Password"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4 text-gray-400" />
-                      ) : (
-                        <Eye className="h-4 w-4 text-gray-400" />
-                      )}
-                    </button>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Must contain uppercase, lowercase, number, and special character
-                  </p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">

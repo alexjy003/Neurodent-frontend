@@ -35,7 +35,6 @@ const PharmacistManagement = () => {
     firstName: '',
     lastName: '',
     email: '',
-    password: '',
     phone: '',
     dateOfBirth: '',
     gender: '',
@@ -61,8 +60,7 @@ const PharmacistManagement = () => {
     image: ''
   })
 
-  // Password visibility states
-  const [showPassword, setShowPassword] = useState(false)
+  // Password visibility states (only for edit form)
   const [showEditPassword, setShowEditPassword] = useState(false)
   
   // Dropdown state for actions menu
@@ -141,7 +139,7 @@ const PharmacistManagement = () => {
     
     // Basic validation
     if (!newPharmacist.firstName || !newPharmacist.lastName || !newPharmacist.email || 
-        !newPharmacist.password || !newPharmacist.phone || !newPharmacist.dateOfBirth || 
+        !newPharmacist.phone || !newPharmacist.dateOfBirth || 
         !newPharmacist.gender || !newPharmacist.specialization) {
       toast.error('Please fill in all required fields')
       return
@@ -158,17 +156,6 @@ const PharmacistManagement = () => {
     const phoneRegex = /^\d{10}$/
     if (!phoneRegex.test(newPharmacist.phone)) {
       toast.error('Phone number must be exactly 10 digits')
-      return
-    }
-
-    // Password validation
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/
-    if (newPharmacist.password.length < 6) {
-      toast.error('Password must be at least 6 characters long')
-      return
-    }
-    if (!passwordRegex.test(newPharmacist.password)) {
-      toast.error('Password must contain at least one uppercase letter, one lowercase letter, and one number')
       return
     }
 
@@ -197,7 +184,6 @@ const PharmacistManagement = () => {
           firstName: '',
           lastName: '',
           email: '',
-          password: '',
           phone: '',
           dateOfBirth: '',
           gender: '',
@@ -209,7 +195,25 @@ const PharmacistManagement = () => {
         })
         setShowAddForm(false)
         setImagePreview(null)
-        toast.success('Pharmacist added successfully!')
+        
+        // Show appropriate success message based on email delivery
+        if (response.data.emailSent) {
+          toast.success('Pharmacist added successfully! Login credentials have been sent to their email.', {
+            duration: 5000
+          })
+          
+          // Show preview URL for test emails
+          if (response.data.emailPreview) {
+            console.log('Email preview available at:', response.data.emailPreview)
+            toast.success('📧 Check console for email preview link', {
+              duration: 3000
+            })
+          }
+        } else {
+          toast.success('Pharmacist added successfully, but failed to send credentials email. Please contact them manually.', {
+            duration: 6000
+          })
+        }
       }
     } catch (error) {
       console.error('Error adding pharmacist:', error)
@@ -640,26 +644,9 @@ const PharmacistManagement = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                     placeholder="pharmacist@neurodent.com"
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Password</label>
-                  <div className="relative">
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      required
-                      value={newPharmacist.password}
-                      onChange={(e) => setNewPharmacist({...newPharmacist, password: e.target.value})}
-                      className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                      placeholder="••••••••"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
-                    >
-                      {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                    </button>
-                  </div>
+                  <p className="text-xs text-blue-600 mt-1">
+                    💡 Login credentials will be auto-generated and sent to this email
+                  </p>
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Phone *</label>
@@ -835,7 +822,7 @@ const PharmacistManagement = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Password</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Password (Optional)</label>
                   <div className="relative">
                     <input
                       type={showEditPassword ? "text" : "password"}
@@ -852,6 +839,9 @@ const PharmacistManagement = () => {
                       {showEditPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                     </button>
                   </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Only fill this if you want to change the current password
+                  </p>
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Phone *</label>
