@@ -35,10 +35,23 @@ class ApiService {
 
   removeToken() {
     this.token = null;
+    // Clear all token types
     localStorage.removeItem('token');
     localStorage.removeItem('adminToken');
     localStorage.removeItem('doctorToken');
     localStorage.removeItem('pharmacistToken');
+    
+    // Clear all user data types
+    localStorage.removeItem('user');
+    localStorage.removeItem('adminAuth');
+    localStorage.removeItem('adminUser');
+    localStorage.removeItem('adminTokenExpiry');
+    localStorage.removeItem('doctorInfo');
+    localStorage.removeItem('pharmacistData');
+    localStorage.removeItem('patientInfo');
+    
+    // Clear session storage
+    sessionStorage.clear();
   }
 
   async request(endpoint, options = {}) {
@@ -144,6 +157,48 @@ class ApiService {
     
     if (response.token) {
       this.setToken(response.token);
+    }
+    
+    return response;
+  }
+
+  // Universal login that checks all user types
+  async universalLogin(credentials) {
+    const response = await this.request('/auth/universal-login', {
+      method: 'POST',
+      body: credentials,
+    });
+    
+    // Set appropriate token and user info based on user type
+    if (response.token && response.user) {
+      switch (response.user.userType) {
+        case 'admin':
+          this.setAdminToken(response.token);
+          // Set admin auth using the admin utilities
+          localStorage.setItem('adminAuth', 'true');
+          localStorage.setItem('adminUser', JSON.stringify(response.user));
+          sessionStorage.setItem('adminSession', 'active');
+          // Set session timeout (8 hours)
+          const expirationTime = Date.now() + (8 * 60 * 60 * 1000);
+          localStorage.setItem('adminTokenExpiry', expirationTime.toString());
+          break;
+        case 'doctor':
+          this.setDoctorToken(response.token);
+          // Set doctor info for DoctorProtectedRoute
+          localStorage.setItem('doctorInfo', JSON.stringify(response.user));
+          break;
+        case 'pharmacist':
+          this.setPharmacistToken(response.token);
+          // Set pharmacist data for PharmacistProtectedRoute
+          localStorage.setItem('pharmacistData', JSON.stringify(response.user));
+          break;
+        case 'patient':
+        default:
+          this.setToken(response.token);
+          // Set patient info for regular auth context
+          localStorage.setItem('user', JSON.stringify(response.user));
+          break;
+      }
     }
     
     return response;

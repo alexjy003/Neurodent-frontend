@@ -11,32 +11,51 @@ const PharmacistProtectedRoute = ({ children }) => {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        if (!pharmacistAPI.isAuthenticated()) {
-          setIsAuthenticated(false)
-          return
+        // Check for pharmacist token and data directly from localStorage
+        const pharmacistToken = localStorage.getItem('pharmacistToken');
+        const pharmacistData = localStorage.getItem('pharmacistData');
+        
+        if (!pharmacistToken || !pharmacistData) {
+          console.log('🔍 PharmacistProtectedRoute: No token or data found');
+          setIsAuthenticated(false);
+          return;
         }
 
-        // Verify token with backend
-        const response = await pharmacistAPI.getProfile()
-        if (response.success) {
-          setIsAuthenticated(true)
-          setIsActive(response.data.pharmacist.availability === 'Active')
+        console.log('🔍 PharmacistProtectedRoute: Token and data found, verifying...');
+        
+        // Use the universal verify endpoint instead of pharmacist-specific one
+        try {
+          const response = await fetch('http://localhost:5000/api/auth/verify', {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${pharmacistToken}`,
+              'Content-Type': 'application/json'
+            }
+          });
           
-          if (response.data.pharmacist.availability !== 'Active') {
-            toast.error('Your account has been deactivated. Please contact your administrator.')
-            pharmacistAPI.logout()
-            setIsAuthenticated(false)
+          const data = await response.json();
+          console.log('🔍 PharmacistProtectedRoute: Verification response:', data);
+          
+          if (response.ok && data.valid && data.user && data.user.userType === 'pharmacist') {
+            console.log('✅ PharmacistProtectedRoute: Authentication successful');
+            setIsAuthenticated(true);
+            // If the backend returned the user, they're already active (backend filters inactive users)
+            setIsActive(true);
+          } else {
+            console.log('❌ PharmacistProtectedRoute: Verification failed:', data);
+            setIsAuthenticated(false);
           }
-        } else {
-          setIsAuthenticated(false)
+        } catch (fetchError) {
+          console.error('❌ PharmacistProtectedRoute: Fetch error:', fetchError);
+          setIsAuthenticated(false);
         }
+        
       } catch (error) {
-        console.error('Auth check failed:', error)
-        if (error.response?.status === 401) {
-          toast.error('Your session has expired. Please login again.')
-        }
-        pharmacistAPI.logout()
-        setIsAuthenticated(false)
+        console.error('❌ PharmacistProtectedRoute: Auth check failed:', error);
+        // Clear pharmacist data on error
+        localStorage.removeItem('pharmacistToken');
+        localStorage.removeItem('pharmacistData');
+        setIsAuthenticated(false);
       }
     }
 

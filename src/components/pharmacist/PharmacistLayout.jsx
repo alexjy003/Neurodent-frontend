@@ -118,10 +118,26 @@ const PharmacistLayout = () => {
   ]
 
   const handleLogout = () => {
-    // Clear authentication data
+    // Clear ALL authentication data (comprehensive cleanup)
     pharmacistAPI.logout()
+    
+    // Also clear any additional data that might be cached
+    localStorage.removeItem('token')
+    localStorage.removeItem('adminToken')
+    localStorage.removeItem('doctorToken')
+    localStorage.removeItem('pharmacistToken')
+    localStorage.removeItem('user')
+    localStorage.removeItem('adminAuth')
+    localStorage.removeItem('adminUser')
+    localStorage.removeItem('doctorInfo')
+    localStorage.removeItem('pharmacistData')
+    localStorage.removeItem('patientInfo')
+    sessionStorage.clear()
+    
     toast.success('Logged out successfully')
-    navigate('/login/pharmacist')
+    
+    // Force redirect to login and prevent back navigation
+    window.location.replace('/login')
   }
 
   // Show loading state while data is being fetched

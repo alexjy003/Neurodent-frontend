@@ -72,8 +72,22 @@ export const getAdminToken = () => {
 }
 
 export const adminLogout = () => {
-  // Clear all authentication data
+  // Clear all admin authentication data
   clearAdminAuth()
+  
+  // Clear ALL possible authentication data (comprehensive cleanup)
+  localStorage.removeItem('token')
+  localStorage.removeItem('adminToken')
+  localStorage.removeItem('doctorToken')
+  localStorage.removeItem('pharmacistToken')
+  localStorage.removeItem('user')
+  localStorage.removeItem('adminAuth')
+  localStorage.removeItem('adminUser')
+  localStorage.removeItem('adminTokenExpiry')
+  localStorage.removeItem('doctorInfo')
+  localStorage.removeItem('pharmacistData')
+  localStorage.removeItem('patientInfo')
+  sessionStorage.clear()
 
   // Clear any cached data
   if ('caches' in window) {
@@ -84,8 +98,8 @@ export const adminLogout = () => {
     })
   }
 
-  // Navigate to admin login (allow normal navigation)
-  window.location.href = '/login/admin'
+  // Force redirect to universal login and prevent back navigation
+  window.location.replace('/login')
 }
 
 

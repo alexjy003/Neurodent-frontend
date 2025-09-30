@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import apiService from '../services/api'
+import universalLogout from '../utils/universalLogout'
 
 const AuthContext = createContext()
 
@@ -22,40 +23,49 @@ export const AuthProvider = ({ children }) => {
 
   const checkAuthStatus = async () => {
     try {
-      const token = localStorage.getItem('token')
-      console.log('🔍 Checking auth status, token exists:', !!token)
+      // Check for any type of token using the API service method  
+      const token = apiService.getToken();
+      console.log('🔍 Checking auth status, token exists:', !!token);
 
       if (!token) {
-        console.log('❌ No token found')
-        setUser(null)
-        setIsAuthenticated(false)
-        setLoading(false)
-        return
+        console.log('❌ No token found');
+        setUser(null);
+        setIsAuthenticated(false);
+        setLoading(false);
+        return;
       }
 
-      console.log('🔑 Verifying token with backend...')
-      // Verify token with backend
-      const response = await apiService.request('/auth/verify')
-      if (response.valid) {
-        console.log('✅ Token valid, user authenticated:', response.patient)
-        setUser(response.patient)
-        setIsAuthenticated(true)
+      console.log('🔑 Verifying token with backend...');
+      // Verify token with backend using the universal verify endpoint
+      const response = await apiService.request('/auth/verify');
+      if (response.valid && response.user) {
+        console.log('✅ Token valid, user authenticated:', response.user);
+        setUser(response.user);
+        setIsAuthenticated(true);
       } else {
-        console.log('❌ Token invalid, removing...')
+        console.log('❌ Token invalid, removing...');
         // Invalid token, remove it
-        apiService.removeToken()
-        setUser(null)
-        setIsAuthenticated(false)
+        apiService.removeToken();
+        setUser(null);
+        setIsAuthenticated(false);
       }
     } catch (error) {
-      console.error('❌ Auth check failed:', error)
-      apiService.removeToken()
-      setUser(null)
-      setIsAuthenticated(false)
+      console.error('❌ Auth check failed:', error);
+      // Only clear tokens if it's actually an auth error, not a network issue
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        apiService.removeToken();
+        setUser(null);
+        setIsAuthenticated(false);
+      } else {
+        // For network errors, keep existing auth state but still set loading to false
+        console.log('🔍 Network error during auth check, keeping existing state');
+        setLoading(false);
+        return;
+      }
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const login = async (credentials) => {
     try {
@@ -86,29 +96,10 @@ export const AuthProvider = ({ children }) => {
   }
 
   const logout = () => {
-    console.log('🚪 Logging out user...')
-
-    // Clear API service data and tokens
-    apiService.logout()
-
-    // Clear auth context state
-    setUser(null)
-    setIsAuthenticated(false)
-
-    // Clear any additional localStorage items
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
-    localStorage.removeItem('patientInfo')
-
-    // Clear session storage as well
-    sessionStorage.clear()
-
-    // Clear browser history to prevent back navigation to protected pages
-    window.history.pushState(null, '', '/login')
-    window.history.pushState(null, '', '/login')
-    window.history.pushState(null, '', '/login')
-
-    console.log('✅ Logout completed')
+    console.log('🚪 AuthContext logout called...')
+    
+    // Use universal logout for comprehensive cleanup
+    universalLogout()
   }
 
   const value = {

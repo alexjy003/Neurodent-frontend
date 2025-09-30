@@ -49,10 +49,21 @@ const DoctorLayout = () => {
   }, [])
 
   const handleLogout = () => {
-    // Clear doctor authentication data
+    // Clear ALL authentication data (comprehensive cleanup)
+    localStorage.removeItem('token')
+    localStorage.removeItem('adminToken')
     localStorage.removeItem('doctorToken')
+    localStorage.removeItem('pharmacistToken')
+    localStorage.removeItem('user')
+    localStorage.removeItem('adminAuth')
+    localStorage.removeItem('adminUser')
     localStorage.removeItem('doctorInfo')
-    navigate('/doctor/login')
+    localStorage.removeItem('pharmacistData')
+    localStorage.removeItem('patientInfo')
+    sessionStorage.clear()
+    
+    // Force redirect to login and prevent back navigation
+    window.location.replace('/login')
   }
 
   return (

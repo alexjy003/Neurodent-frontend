@@ -1,93 +1,91 @@
-import React, { useState, useEffect } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import neurodentLogo from '../assets/images/neurodent-logo.png'
-import apiService from '../services/api'
-import { useAuth } from '../contexts/AuthContext'
+﻿import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import neurodentLogo from '../assets/images/neurodent-logo.png';
+import apiService from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 
 const Login = () => {
-  const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const { checkAuthStatus } = useAuth()
-  const [showPassword, setShowPassword] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { checkAuthStatus } = useAuth();
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     rememberMe: false
-  })
+  });
 
-  // Handle Google OAuth token from URL
+    // Handle Google OAuth token from URL
   useEffect(() => {
-    const token = searchParams.get('token')
+    const token = searchParams.get('token');
     if (token) {
-      apiService.setToken(token)
-      navigate('/patient/dashboard', { replace: true })
+      apiService.setToken(token);
+      navigate('/patient/dashboard', { replace: true });
     }
 
-    const error = searchParams.get('error')
-    const message = searchParams.get('message')
+    const error = searchParams.get('error');
+    const message = searchParams.get('message');
 
     if (error === 'google_auth_failed') {
-      setError('Google authentication failed. Please try again.')
+      setError('Google authentication failed. Please try again.');
     } else if (error === 'account_not_found') {
-      setError('No account found with this Google account. Please sign up first or use a different account.')
+      setError('No account found with this Google account. Please sign up first or use a different account.');
     }
 
     if (message === 'password_reset_success') {
-      setSuccess('Password reset successful! You can now log in with your new password.')
+      setSuccess('Password reset successful! You can now log in with your new password.');
     }
-  }, [searchParams, navigate])
+  }, [searchParams, navigate]);
 
   const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target
+    const { name, value, type, checked } = e.target;
     setFormData(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value
-    }))
+    }));
     // Clear error when user starts typing
-    if (error) setError('')
-  }
+    if (error) setError('');
+  };
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setSuccess('');
 
     try {
-      console.log('🔐 Attempting login...')
-      const response = await apiService.login({
+      console.log('🔐 Attempting universal login...');
+      const response = await apiService.universalLogin({
         email: formData.email,
         password: formData.password
-      })
+      });
 
-      console.log('✅ Login successful:', response)
-
-      // Success - token is automatically set by apiService
-      // Trigger auth context to update immediately
-      await checkAuthStatus()
-
-      console.log('🔄 Redirecting to dashboard...')
-      navigate('/patient/dashboard', { replace: true })
+      console.log('✅ Login successful:', response);
+      
+      // Force a re-render to trigger ProtectedRoute re-evaluation
+      setLoading(false);
+      // Small delay to ensure tokens are stored, then force navigation
+      setTimeout(() => {
+        // Force a page reload to ensure clean state
+        window.location.reload();
+      }, 100);
+      
     } catch (err) {
-      console.error('❌ Login failed:', err)
-      setError(err.message || 'Login failed. Please check your credentials.')
-    } finally {
-      setLoading(false)
+      console.error('❌ Login failed:', err);
+      setError(err.message || 'Login failed. Please check your credentials.');
+      setLoading(false);
     }
-  }
+  };
 
   const handleGoogleLogin = () => {
-    console.log('🔐 Initiating Google login...')
-
-    // Clear any existing Google session to force account selection
-    // This helps ensure the user sees the account selection screen
-    const googleAuthUrl = apiService.getGoogleAuthUrl()
-    console.log('🔗 Redirecting to:', googleAuthUrl)
-
-    window.location.href = googleAuthUrl
-  }
+    console.log('🔐 Initiating Google login...');
+    const googleAuthUrl = apiService.getGoogleAuthUrl();
+    console.log('🔗 Redirecting to:', googleAuthUrl);
+    window.location.href = googleAuthUrl;
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
@@ -106,7 +104,7 @@ const Login = () => {
           Welcome back to <span className="text-dental-primary">Neurodent</span>
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
-          Sign in to your patient account
+          Sign in to your account
         </p>
       </div>
 
@@ -142,23 +140,24 @@ const Login = () => {
               </div>
             </div>
           )}
+          
           <form className="space-y-6" onSubmit={handleSubmit}>
             {/* Email Field */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email Address
+                Email Address / User ID
               </label>
               <div className="mt-1 relative">
                 <input
                   id="email"
                   name="email"
-                  type="email"
+                  type="text"
                   autoComplete="email"
                   required
                   value={formData.email}
                   onChange={handleInputChange}
                   className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-dental-primary focus:border-dental-primary sm:text-sm"
-                  placeholder="Enter your email address"
+                  placeholder="Enter your email or user ID"
                 />
                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
                   <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -272,7 +271,6 @@ const Login = () => {
                 disabled={loading}
                 className="w-full inline-flex items-center justify-center py-3 px-4 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:border-gray-400 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] active:scale-[0.98]"
               >
-                {/* Official Google Logo SVG */}
                 <svg className="h-5 w-5 mr-3" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                   <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -281,26 +279,6 @@ const Login = () => {
                 </svg>
                 <span className="text-gray-700">Continue with Google</span>
               </button>
-
-              {/* Help text for Google account issues */}
-              <div className="mt-2 text-center">
-                <p className="text-xs text-gray-500">
-                  Having trouble? Try{' '}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      // Open Google logout first, then redirect to our OAuth
-                      window.open('https://accounts.google.com/logout', '_blank', 'width=500,height=600');
-                      setTimeout(() => {
-                        handleGoogleLogin();
-                      }, 2000);
-                    }}
-                    className="text-blue-600 hover:text-blue-800 underline"
-                  >
-                    signing out of Google first
-                  </button>
-                </p>
-              </div>
             </div>
           </div>
 
@@ -310,7 +288,7 @@ const Login = () => {
               <span className="text-sm text-gray-600">
                 Don't have an account?{' '}
                 <Link to="/register" className="font-medium text-dental-primary hover:text-dental-accent transition-colors duration-200">
-                  Sign up as a new patient
+                  Sign up as a patient
                 </Link>
               </span>
             </div>
@@ -334,11 +312,11 @@ const Login = () => {
         </div>
       </div>
 
-      {/* Patient Benefits Section */}
+      {/* Portal Benefits Section */}
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-2xl">
         <div className="bg-dental-light rounded-lg p-6">
           <h3 className="text-lg font-semibold text-dental-secondary text-center mb-4">
-            Patient Portal Benefits
+            Neurodent Portal Benefits
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
             <div className="flex flex-col items-center">
@@ -347,7 +325,7 @@ const Login = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a1 1 0 011-1h6a1 1 0 011 1v4m-9 0h10a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V9a2 2 0 012-2z" />
                 </svg>
               </div>
-              <p className="text-sm text-gray-700 font-medium">Book Appointments</p>
+              <p className="text-sm text-gray-700 font-medium">Appointments</p>
             </div>
             <div className="flex flex-col items-center">
               <div className="w-10 h-10 bg-dental-primary rounded-full flex items-center justify-center mb-2">
@@ -355,21 +333,21 @@ const Login = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
               </div>
-              <p className="text-sm text-gray-700 font-medium">View Records</p>
+              <p className="text-sm text-gray-700 font-medium">Records</p>
             </div>
             <div className="flex flex-col items-center">
               <div className="w-10 h-10 bg-dental-primary rounded-full flex items-center justify-center mb-2">
                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                 </svg>
               </div>
-              <p className="text-sm text-gray-700 font-medium">Message Doctors</p>
+              <p className="text-sm text-gray-700 font-medium">Management</p>
             </div>
           </div>
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default Login
+export default Login;
