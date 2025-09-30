@@ -56,5 +56,5 @@ export const handleAdminLogoutNavigation = () => {
   clearNavigationHistory()
   
   // Navigate to admin login
-  window.location.href = '/login/admin'
+  window.location.href = '/login'
 }

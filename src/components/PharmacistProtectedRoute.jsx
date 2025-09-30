@@ -76,12 +76,12 @@ const PharmacistProtectedRoute = ({ children }) => {
 
   // Redirect to login if not authenticated
   if (!isAuthenticated) {
-    return <Navigate to="/login/pharmacist" state={{ from: location }} replace />
+    return <Navigate to="/login" state={{ from: location }} replace />
   }
 
   // Redirect to login if account is inactive
   if (isActive === false) {
-    return <Navigate to="/login/pharmacist" state={{ from: location }} replace />
+    return <Navigate to="/login" state={{ from: location }} replace />
   }
 
   // Render protected content

@@ -51,8 +51,11 @@ const Navbar = () => {
             </Link>
             
             <div className="flex items-center space-x-4">
-              <Link to="/role-selection" className="btn-primary cursor-pointer">
-                Create Account
+              <Link to="/register" className="btn-primary cursor-pointer">
+                Sign Up
+              </Link>
+              <Link to="/login" className="btn-primary cursor-pointer">
+                Login
               </Link>
             </div>
           </div>
@@ -108,11 +111,18 @@ const Navbar = () => {
             </Link>
             <div className="px-3 pt-2 space-y-2">
               <Link 
-                to="/role-selection" 
+                to="/register" 
                 className="w-full btn-primary block text-center !cursor-pointer"
                 onClick={() => setIsOpen(false)}
               >
-                Create Account
+                Sign Up
+              </Link>
+              <Link 
+                to="/login" 
+                className="w-full btn-primary block text-center !cursor-pointer"
+                onClick={() => setIsOpen(false)}
+              >
+                Login
               </Link>
             </div>
           </div>

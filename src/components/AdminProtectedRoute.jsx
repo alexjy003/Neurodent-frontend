@@ -59,7 +59,7 @@ const AdminProtectedRoute = ({ children }) => {
 
   // If admin is not authenticated, redirect to admin login
   if (!authenticated) {
-    return <Navigate to="/login/admin" replace />
+    return <Navigate to="/login" replace />
   }
 
   return children

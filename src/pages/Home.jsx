@@ -95,9 +95,14 @@ const Home = () => {
                 Connect with experienced dental professionals and get the quality care you deserve. 
                 Easy booking, trusted specialists, exceptional results.
               </p>
-              <Link to="/register" className="btn-primary text-lg animate-bounce-gentle inline-block">
-                Book Appointment Now
-              </Link>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <Link to="/register" className="btn-primary text-lg animate-bounce-gentle inline-block text-center">
+                  Sign Up
+                </Link>
+                <Link to="/login" className="btn-primary text-lg inline-block text-center">
+                  Login
+                </Link>
+              </div>
             </div>
             <div className="animate-slide-up">
               <div className="relative">
@@ -224,8 +229,11 @@ const Home = () => {
             Easy scheduling, verified specialists, and exceptional results guaranteed.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link to="/role-selection" className="border-2 border-white text-white hover:bg-white hover:text-dental-primary font-semibold py-4 px-8 rounded-full transition-all duration-300 transform hover:scale-105 text-lg inline-block text-center">
-              Create Account
+            <Link to="/register" className="border-2 border-white text-white hover:bg-white hover:text-dental-primary font-semibold py-4 px-8 rounded-full transition-all duration-300 transform hover:scale-105 text-lg inline-block text-center">
+              Sign Up
+            </Link>
+            <Link to="/login" className="border-2 border-white text-white hover:bg-white hover:text-dental-primary font-semibold py-4 px-8 rounded-full transition-all duration-300 transform hover:scale-105 text-lg inline-block text-center">
+              Login
             </Link>
             <Link to="/about" className="border-2 border-white text-white hover:bg-white hover:text-dental-primary font-semibold py-4 px-8 rounded-full transition-all duration-300 transform hover:scale-105 text-lg inline-block text-center">
               Learn More

@@ -44,7 +44,7 @@ const DoctorProtectedRoute = ({ children }) => {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/doctor/login" replace />
+    return <Navigate to="/login" replace />
   }
 
   return children

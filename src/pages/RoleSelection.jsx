@@ -26,45 +26,6 @@ const RoleSelection = () => {
       registerPath: '/register',
       loginPath: '/login',
       hasRegister: true
-    },
-    {
-      id: 'doctor',
-      title: 'Doctor',
-      description: 'Manage patients, create treatment plans, and view analytics',
-      icon: (
-        <img 
-          src={doctorLogo} 
-          alt="Doctor Logo" 
-          className="w-12 h-12 object-cover rounded-full"
-        />
-      ),
-      color: 'green-600',
-      bgGradient: 'bg-gradient-to-br from-green-400 to-green-600',
-      hoverGradient: 'hover:from-green-500 hover:to-green-700',
-      buttonBg: 'bg-gradient-to-r from-green-500 to-green-600',
-      buttonHover: 'hover:from-green-600 hover:to-green-700',
-      loginPath: '/login/doctor',
-      hasRegister: false
-    },
-
-    {
-      id: 'pharmacist',
-      title: 'Pharmacist',
-      description: 'Pharmacist access for daily operations and medication management',
-      icon: (
-        <img 
-          src={employeesLogo} 
-          alt="Pharmacist Logo" 
-          className="w-12 h-12 object-cover rounded-full"
-        />
-      ),
-      color: 'yellow-600',
-      bgGradient: 'bg-gradient-to-br from-yellow-400 to-yellow-700',
-      hoverGradient: 'hover:from-yellow-500 hover:to-yellow-800',
-      buttonBg: 'bg-gradient-to-r from-yellow-500 to-yellow-700',
-      buttonHover: 'hover:from-yellow-600 hover:to-yellow-800',
-      loginPath: '/login/pharmacist',
-      hasRegister: false
     }
   ]
 
@@ -90,12 +51,12 @@ const RoleSelection = () => {
       </div>
 
       {/* Role Selection Cards */}
-      <div className="sm:mx-auto sm:w-full sm:max-w-6xl">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-4">
+      <div className="sm:mx-auto sm:w-full sm:max-w-2xl">
+        <div className="flex justify-center px-4">
           {roles.map((role) => (
             <div
               key={role.id}
-              className="group relative bg-white rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 border border-gray-200 flex flex-col h-full"
+              className="group relative bg-white rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 border border-gray-200 flex flex-col h-full w-full max-w-md"
             >
               <div className="p-8 text-center flex-1 flex flex-col">
                 {/* Top Section */}
@@ -150,17 +111,44 @@ const RoleSelection = () => {
                   )}
                 </div>
               </div>
-              
-              {/* Role-specific badge */}
-              {!role.hasRegister && (
-                <div className="absolute top-3 right-3">
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                    Staff Only
-                  </span>
-                </div>
-              )}
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Staff Access Information */}
+      <div className="mt-12">
+        <div className="sm:mx-auto sm:w-full sm:max-w-2xl">
+          <div className="bg-gradient-to-r from-teal-50 to-blue-50 border border-teal-200 rounded-lg p-6">
+            <div className="flex items-start space-x-4">
+              <div className="flex-shrink-0">
+                <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-teal-900 mb-2">
+                  Medical Staff Access
+                </h3>
+                <p className="text-teal-700 text-sm leading-relaxed">
+                  <strong>For Doctors, Pharmacists & Admin:</strong> All medical staff can access their respective dashboards using the universal login system. Simply use your assigned credentials to sign in and you'll be automatically redirected to your appropriate dashboard.
+                </p>
+                <div className="mt-4">
+                  <Link
+                    to="/login"
+                    className="inline-flex items-center px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-md hover:bg-teal-700 transition-colors duration-200"
+                  >
+                    Staff Login
+                    <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

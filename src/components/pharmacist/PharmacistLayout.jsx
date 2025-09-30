@@ -45,7 +45,7 @@ const PharmacistLayout = () => {
           }
         } else {
           // Not authenticated, redirect to login
-          navigate('/login/pharmacist')
+          navigate('/login')
           return
         }
       } catch (error) {
@@ -53,7 +53,7 @@ const PharmacistLayout = () => {
         if (error.response?.status === 401) {
           // Token is invalid, redirect to login
           pharmacistAPI.logout()
-          navigate('/login/pharmacist')
+          navigate('/login')
           toast.error('Your session has expired. Please login again.')
         }
       } finally {
@@ -154,7 +154,7 @@ const PharmacistLayout = () => {
 
   // If no pharmacist data, redirect to login
   if (!pharmacistData) {
-    navigate('/login/pharmacist')
+    navigate('/login')
     return null
   }
 

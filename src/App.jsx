@@ -17,11 +17,7 @@ import ResetPassword from './pages/ResetPassword'
 import ResetPasswordOTP from './pages/ResetPasswordOTP'
 import Footer from './components/Footer'
 
-// Role selection and auth pages
-import RoleSelection from './pages/RoleSelection'
-import DoctorLogin from './pages/auth/DoctorLogin'
-import AdminLogin from './pages/auth/AdminLogin'
-import PharmacistLogin from './pages/auth/PharmacistLogin'
+// Auth pages
 
 // Dashboard pages
 import PatientDashboard from './pages/PatientDashboard'
@@ -62,8 +58,6 @@ function App() {
       <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <div className="min-h-screen bg-white">
         <Routes>
-          {/* Role selection page */}
-          <Route path="/role-selection" element={<RoleSelection />} />
           
           {/* Auth pages without navbar/footer - redirect to dashboard if already authenticated */}
           <Route path="/login" element={
@@ -91,12 +85,6 @@ function App() {
               <ResetPassword />
             </ProtectedRoute>
           } />
-
-          {/* Role-specific login pages */}
-          <Route path="/doctor/login" element={<DoctorLogin />} />
-          <Route path="/login/doctor" element={<DoctorLogin />} />
-          <Route path="/login/admin" element={<AdminLogin />} />
-          <Route path="/login/pharmacist" element={<PharmacistLogin />} />
 
           {/* Dashboard pages - require authentication */}
           <Route path="/patient/dashboard" element={
