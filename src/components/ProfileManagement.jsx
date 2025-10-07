@@ -1,84 +1,171 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { Camera, Edit, Save, X, User, Upload } from 'lucide-react'
+import toast from 'react-hot-toast'
+import apiService from '../services/api'
 
-const ProfileManagement = () => {
+const ProfileManagement = ({ user }) => {
   const [profileData, setProfileData] = useState({
-    firstName: 'John',
-    lastName: 'Doe',
-    email: 'john.doe@email.com',
-    phone: '+1 (555) 123-4567',
-    dateOfBirth: '1990-05-15',
-    gender: 'male',
-    address: '123 Main Street',
-    city: 'New York',
-    state: 'NY',
-    zipCode: '10001',
-    emergencyContact: {
-      name: 'Jane Doe',
-      relationship: 'spouse',
-      phone: '+1 (555) 987-6543'
-    },
-    medicalInfo: {
-      allergies: 'Penicillin, Latex',
-      medications: 'Ibuprofen 200mg as needed',
-      conditions: 'Hypertension',
-      insurance: {
-        provider: 'Blue Cross Blue Shield',
-        policyNumber: 'BC123456789',
-        groupNumber: 'GRP001'
-      }
-    }
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    dateOfBirth: '',
+    gender: '',
+    address: '',
+    city: '',
+    state: '',
+    zipCode: '',
+    profileImage: null
   })
 
   const [activeTab, setActiveTab] = useState('personal')
   const [isEditing, setIsEditing] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [imageUploading, setImageUploading] = useState(false)
+  const [imagePreview, setImagePreview] = useState(null)
 
-  const handleInputChange = (e, section = null) => {
-    const { name, value } = e.target
-    
-    if (section) {
-      setProfileData(prev => ({
-        ...prev,
-        [section]: {
-          ...prev[section],
-          [name]: value
-        }
-      }))
-    } else {
-      setProfileData(prev => ({
-        ...prev,
-        [name]: value
-      }))
+  // Fetch patient profile data
+  useEffect(() => {
+    fetchProfileData()
+  }, [])
+
+  const fetchProfileData = async () => {
+    try {
+      setLoading(true)
+      const response = await apiService.get('/auth/patient/profile')
+      
+      if (response.success) {
+        const patient = response.patient
+        setProfileData({
+          firstName: patient.firstName || '',
+          lastName: patient.lastName || '',
+          email: patient.email || '',
+          phone: patient.phone || '',
+          dateOfBirth: patient.dateOfBirth ? patient.dateOfBirth.split('T')[0] : '',
+          gender: patient.gender || '',
+          address: patient.address || '',
+          city: patient.city || '',
+          state: patient.state || '',
+          zipCode: patient.zipCode || '',
+          profileImage: patient.profileImage || null
+        })
+      }
+    } catch (error) {
+      console.error('Error fetching profile:', error)
+      toast.error('Failed to load profile data')
+    } finally {
+      setLoading(false)
     }
   }
 
-  const handleNestedInputChange = (e, section, subsection) => {
+  const handleInputChange = (e) => {
     const { name, value } = e.target
     setProfileData(prev => ({
       ...prev,
-      [section]: {
-        ...prev[section],
-        [subsection]: {
-          ...prev[section][subsection],
-          [name]: value
-        }
-      }
+      [name]: value
     }))
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    // Handle form submission here
-    console.log('Profile updated:', profileData)
-    setIsEditing(false)
-    // Show success message
+    try {
+      const response = await apiService.put('/auth/patient/profile', profileData)
+      
+      if (response.success) {
+        toast.success('Profile updated successfully!')
+        setIsEditing(false)
+        // Refresh profile data
+        fetchProfileData()
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error)
+      toast.error(error.response?.data?.message || 'Failed to update profile')
+    }
+  }
+
+  const handleImageSelect = (e) => {
+    const file = e.target.files[0]
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast.error('Please select a valid image file')
+        return
+      }
+
+      // Validate file size (5MB limit)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('Image size should be less than 5MB')
+        return
+      }
+
+      // Create preview
+      const reader = new FileReader()
+      reader.onload = (e) => setImagePreview(e.target.result)
+      reader.readAsDataURL(file)
+
+      // Upload image
+      uploadProfileImage(file)
+    }
+  }
+
+  const uploadProfileImage = async (file) => {
+    try {
+      setImageUploading(true)
+      
+      const formData = new FormData()
+      formData.append('profileImage', file)
+      
+      const response = await apiService.post('/patients/profile/image', formData)
+      
+      if (response.success) {
+        toast.success('Profile image updated successfully!')
+        setProfileData(prev => ({
+          ...prev,
+          profileImage: response.profileImage
+        }))
+        setImagePreview(null)
+      }
+    } catch (error) {
+      console.error('Error uploading image:', error)
+      toast.error(error.response?.data?.message || 'Failed to upload image')
+      setImagePreview(null)
+    } finally {
+      setImageUploading(false)
+    }
+  }
+
+  const deleteProfileImage = async () => {
+    try {
+      const response = await apiService.delete('/patients/profile/image')
+      
+      if (response.success) {
+        toast.success('Profile image removed successfully!')
+        setProfileData(prev => ({
+          ...prev,
+          profileImage: null
+        }))
+      }
+    } catch (error) {
+      console.error('Error deleting image:', error)
+      toast.error(error.response?.data?.message || 'Failed to delete image')
+    }
   }
 
   const tabs = [
     { id: 'personal', name: 'Personal Information', icon: '👤' },
-    { id: 'contact', name: 'Contact Details', icon: '📞' },
-    { id: 'emergency', name: 'Emergency Contact', icon: '🚨' },
-    { id: 'medical', name: 'Medical Information', icon: '🏥' }
+    { id: 'contact', name: 'Contact Details', icon: '📞' }
   ]
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading profile...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -87,7 +174,7 @@ const ProfileManagement = () => {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">My Profile</h2>
-            <p className="text-gray-600 mt-1">Manage your personal information and medical details</p>
+            <p className="text-gray-600 mt-1">Manage your personal information and contact details</p>
           </div>
           <div className="flex space-x-3">
             {isEditing ? (
@@ -100,7 +187,7 @@ const ProfileManagement = () => {
                 </button>
                 <button
                   onClick={handleSubmit}
-                  className="px-4 py-2 bg-dental-primary text-white rounded-md text-sm font-medium hover:bg-dental-accent transition-colors duration-200"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition-colors duration-200"
                 >
                   Save Changes
                 </button>
@@ -108,11 +195,64 @@ const ProfileManagement = () => {
             ) : (
               <button
                 onClick={() => setIsEditing(true)}
-                className="px-4 py-2 bg-dental-primary text-white rounded-md text-sm font-medium hover:bg-dental-accent transition-colors duration-200"
+                className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition-colors duration-200"
               >
+                <Edit className="w-4 h-4 mr-2 inline" />
                 Edit Profile
               </button>
             )}
+          </div>
+        </div>
+      </div>
+
+      {/* Profile Image Section */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h3 className="text-lg font-medium text-gray-900 mb-4">Profile Picture</h3>
+        <div className="flex items-center space-x-6">
+          <div className="relative">
+            <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center border-4 border-white shadow-lg">
+              {imagePreview ? (
+                <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+              ) : profileData.profileImage?.url ? (
+                <img src={profileData.profileImage.url} alt="Profile" className="w-full h-full object-cover" />
+              ) : (
+                <User className="w-8 h-8 text-gray-400" />
+              )}
+            </div>
+            {imageUploading && (
+              <div className="absolute inset-0 rounded-full bg-black bg-opacity-50 flex items-center justify-center">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+              </div>
+            )}
+          </div>
+          
+          <div className="flex-1">
+            <div className="flex space-x-3">
+              <label className="cursor-pointer inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200">
+                <Camera className="w-4 h-4 mr-2" />
+                {profileData.profileImage ? 'Change Photo' : 'Upload Photo'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageSelect}
+                  className="hidden"
+                  disabled={imageUploading}
+                />
+              </label>
+              
+              {profileData.profileImage && (
+                <button
+                  onClick={deleteProfileImage}
+                  className="inline-flex items-center px-4 py-2 border border-red-300 rounded-md shadow-sm text-sm font-medium text-red-700 bg-white hover:bg-red-50 transition-colors duration-200"
+                >
+                  <X className="w-4 h-4 mr-2" />
+                  Remove
+                </button>
+              )}
+            </div>
+            <p className="text-sm text-gray-500 mt-2">
+              JPG, PNG, or GIF up to 5MB. Recommended size: 400x400px.
+            </p>
           </div>
         </div>
       </div>
@@ -127,7 +267,7 @@ const ProfileManagement = () => {
                 onClick={() => setActiveTab(tab.id)}
                 className={`py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors duration-200 ${
                   activeTab === tab.id
-                    ? 'border-dental-primary text-dental-primary'
+                    ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
@@ -153,7 +293,7 @@ const ProfileManagement = () => {
                     value={profileData.firstName}
                     onChange={handleInputChange}
                     disabled={!isEditing}
-                    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-dental-primary focus:border-dental-primary ${
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                       !isEditing ? 'bg-gray-50' : ''
                     }`}
                   />
@@ -168,7 +308,7 @@ const ProfileManagement = () => {
                     value={profileData.lastName}
                     onChange={handleInputChange}
                     disabled={!isEditing}
-                    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-dental-primary focus:border-dental-primary ${
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                       !isEditing ? 'bg-gray-50' : ''
                     }`}
                   />
@@ -183,7 +323,7 @@ const ProfileManagement = () => {
                     value={profileData.dateOfBirth}
                     onChange={handleInputChange}
                     disabled={!isEditing}
-                    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-dental-primary focus:border-dental-primary ${
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                       !isEditing ? 'bg-gray-50' : ''
                     }`}
                   />
@@ -197,10 +337,11 @@ const ProfileManagement = () => {
                     value={profileData.gender}
                     onChange={handleInputChange}
                     disabled={!isEditing}
-                    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-dental-primary focus:border-dental-primary ${
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                       !isEditing ? 'bg-gray-50' : ''
                     }`}
                   >
+                    <option value="">Select Gender</option>
                     <option value="male">Male</option>
                     <option value="female">Female</option>
                     <option value="other">Other</option>
@@ -225,7 +366,7 @@ const ProfileManagement = () => {
                     value={profileData.email}
                     onChange={handleInputChange}
                     disabled={!isEditing}
-                    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-dental-primary focus:border-dental-primary ${
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                       !isEditing ? 'bg-gray-50' : ''
                     }`}
                   />
@@ -240,7 +381,7 @@ const ProfileManagement = () => {
                     value={profileData.phone}
                     onChange={handleInputChange}
                     disabled={!isEditing}
-                    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-dental-primary focus:border-dental-primary ${
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                       !isEditing ? 'bg-gray-50' : ''
                     }`}
                   />
@@ -255,9 +396,10 @@ const ProfileManagement = () => {
                     value={profileData.address}
                     onChange={handleInputChange}
                     disabled={!isEditing}
-                    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-dental-primary focus:border-dental-primary ${
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                       !isEditing ? 'bg-gray-50' : ''
                     }`}
+                    placeholder="Enter your address"
                   />
                 </div>
                 <div>
@@ -270,9 +412,10 @@ const ProfileManagement = () => {
                     value={profileData.city}
                     onChange={handleInputChange}
                     disabled={!isEditing}
-                    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-dental-primary focus:border-dental-primary ${
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                       !isEditing ? 'bg-gray-50' : ''
                     }`}
+                    placeholder="Enter your city"
                   />
                 </div>
                 <div>
@@ -285,9 +428,10 @@ const ProfileManagement = () => {
                     value={profileData.state}
                     onChange={handleInputChange}
                     disabled={!isEditing}
-                    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-dental-primary focus:border-dental-primary ${
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                       !isEditing ? 'bg-gray-50' : ''
                     }`}
+                    placeholder="Enter your state"
                   />
                 </div>
                 <div>
@@ -300,177 +444,11 @@ const ProfileManagement = () => {
                     value={profileData.zipCode}
                     onChange={handleInputChange}
                     disabled={!isEditing}
-                    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-dental-primary focus:border-dental-primary ${
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                       !isEditing ? 'bg-gray-50' : ''
                     }`}
+                    placeholder="Enter your ZIP code"
                   />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Emergency Contact Tab */}
-          {activeTab === 'emergency' && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Emergency Contact Name
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={profileData.emergencyContact.name}
-                    onChange={(e) => handleInputChange(e, 'emergencyContact')}
-                    disabled={!isEditing}
-                    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-dental-primary focus:border-dental-primary ${
-                      !isEditing ? 'bg-gray-50' : ''
-                    }`}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Relationship
-                  </label>
-                  <select
-                    name="relationship"
-                    value={profileData.emergencyContact.relationship}
-                    onChange={(e) => handleInputChange(e, 'emergencyContact')}
-                    disabled={!isEditing}
-                    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-dental-primary focus:border-dental-primary ${
-                      !isEditing ? 'bg-gray-50' : ''
-                    }`}
-                  >
-                    <option value="spouse">Spouse</option>
-                    <option value="parent">Parent</option>
-                    <option value="child">Child</option>
-                    <option value="sibling">Sibling</option>
-                    <option value="friend">Friend</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Phone Number
-                  </label>
-                  <input
-                    type="tel"
-                    name="phone"
-                    value={profileData.emergencyContact.phone}
-                    onChange={(e) => handleInputChange(e, 'emergencyContact')}
-                    disabled={!isEditing}
-                    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-dental-primary focus:border-dental-primary ${
-                      !isEditing ? 'bg-gray-50' : ''
-                    }`}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Medical Information Tab */}
-          {activeTab === 'medical' && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Allergies
-                  </label>
-                  <textarea
-                    name="allergies"
-                    rows={3}
-                    value={profileData.medicalInfo.allergies}
-                    onChange={(e) => handleInputChange(e, 'medicalInfo')}
-                    disabled={!isEditing}
-                    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-dental-primary focus:border-dental-primary ${
-                      !isEditing ? 'bg-gray-50' : ''
-                    }`}
-                    placeholder="List any known allergies..."
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Current Medications
-                  </label>
-                  <textarea
-                    name="medications"
-                    rows={3}
-                    value={profileData.medicalInfo.medications}
-                    onChange={(e) => handleInputChange(e, 'medicalInfo')}
-                    disabled={!isEditing}
-                    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-dental-primary focus:border-dental-primary ${
-                      !isEditing ? 'bg-gray-50' : ''
-                    }`}
-                    placeholder="List current medications..."
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Medical Conditions
-                  </label>
-                  <textarea
-                    name="conditions"
-                    rows={3}
-                    value={profileData.medicalInfo.conditions}
-                    onChange={(e) => handleInputChange(e, 'medicalInfo')}
-                    disabled={!isEditing}
-                    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-dental-primary focus:border-dental-primary ${
-                      !isEditing ? 'bg-gray-50' : ''
-                    }`}
-                    placeholder="List any medical conditions..."
-                  />
-                </div>
-                
-                {/* Insurance Information */}
-                <div className="border-t pt-6">
-                  <h4 className="text-lg font-medium text-gray-900 mb-4">Insurance Information</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Insurance Provider
-                      </label>
-                      <input
-                        type="text"
-                        name="provider"
-                        value={profileData.medicalInfo.insurance.provider}
-                        onChange={(e) => handleNestedInputChange(e, 'medicalInfo', 'insurance')}
-                        disabled={!isEditing}
-                        className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-dental-primary focus:border-dental-primary ${
-                          !isEditing ? 'bg-gray-50' : ''
-                        }`}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Policy Number
-                      </label>
-                      <input
-                        type="text"
-                        name="policyNumber"
-                        value={profileData.medicalInfo.insurance.policyNumber}
-                        onChange={(e) => handleNestedInputChange(e, 'medicalInfo', 'insurance')}
-                        disabled={!isEditing}
-                        className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-dental-primary focus:border-dental-primary ${
-                          !isEditing ? 'bg-gray-50' : ''
-                        }`}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Group Number
-                      </label>
-                      <input
-                        type="text"
-                        name="groupNumber"
-                        value={profileData.medicalInfo.insurance.groupNumber}
-                        onChange={(e) => handleNestedInputChange(e, 'medicalInfo', 'insurance')}
-                        disabled={!isEditing}
-                        className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-dental-primary focus:border-dental-primary ${
-                          !isEditing ? 'bg-gray-50' : ''
-                        }`}
-                      />
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>
