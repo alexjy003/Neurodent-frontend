@@ -26,9 +26,11 @@ import apiService from '../../services/api'
 const Appointments = () => {
   const [activeTab, setActiveTab] = useState('pending')
   const [appointments, setAppointments] = useState([])
+  const [pastPendingAppointments, setPastPendingAppointments] = useState([])
   const [filteredAppointments, setFilteredAppointments] = useState([])
+  const [filteredPastPending, setFilteredPastPending] = useState([])
   const [searchTerm, setSearchTerm] = useState('')
-  const [dateFilter, setDateFilter] = useState('today')
+  const [dateFilter, setDateFilter] = useState('all')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [selectedAppointment, setSelectedAppointment] = useState(null)
@@ -57,6 +59,7 @@ const Appointments = () => {
   })
 
   useEffect(() => {
+    console.log('🔄 useEffect triggered. Active tab:', activeTab, 'Date filter:', dateFilter)
     fetchAppointments()
   }, [activeTab, dateFilter])
 
@@ -70,12 +73,20 @@ const Appointments = () => {
       console.log('🔍 Frontend Debug:')
       console.log('- Doctor token available:', doctorToken ? 'Yes' : 'No')
       console.log('- Token preview:', doctorToken ? doctorToken.substring(0, 20) + '...' : 'None')
+      console.log('- Active tab:', activeTab)
+      console.log('- Date filter:', dateFilter)
       
       const params = new URLSearchParams({
         status: activeTab === 'pending' ? 'pending' : activeTab,
         limit: '50'
       })
       
+      // For pending appointments, fetch both upcoming and past
+      if (activeTab === 'pending') {
+        params.append('appointmentType', 'upcoming')
+      }
+      
+      // Only apply date filters when not on "All Dates"
       if (dateFilter === 'today') {
         const today = new Date().toISOString().split('T')[0]
         params.append('date', today)
@@ -84,18 +95,39 @@ const Appointments = () => {
         tomorrow.setDate(tomorrow.getDate() + 1)
         params.append('date', tomorrow.toISOString().split('T')[0])
       }
+      // For "All Dates" option, don't add any date filter
       
       console.log('📡 Making API call to:', `/appointments/doctor/my-appointments?${params}`)
       const response = await apiService.get(`/appointments/doctor/my-appointments?${params}`)
       console.log('📡 API Response:', response)
-      console.log('📡 Response type:', typeof response)
-      console.log('📡 Response success:', response.success)
-      console.log('📡 Response appointments:', response.appointments)
       
       if (response.success) {
         setAppointments(response.appointments || [])
+        
+        // If it's pending tab, also fetch past pending appointments
+        if (activeTab === 'pending') {
+          const pastParams = new URLSearchParams({
+            status: 'pending',
+            appointmentType: 'past',
+            limit: '50'
+          })
+          
+          console.log('📡 Fetching past pending appointments...')
+          const pastResponse = await apiService.get(`/appointments/doctor/my-appointments?${pastParams}`)
+          
+          if (pastResponse.success) {
+            setPastPendingAppointments(pastResponse.appointments || [])
+            console.log('📡 Past pending appointments:', pastResponse.appointments)
+          } else {
+            setPastPendingAppointments([])
+            console.log('❌ Failed to fetch past pending appointments:', pastResponse.message)
+          }
+        } else {
+          setPastPendingAppointments([])
+        }
+        
         setError('') // Clear any previous errors
-        console.log('✅ Appointments set successfully')
+        console.log('✅ Appointments set successfully. Count:', response.appointments?.length || 0)
       } else {
         console.log('❌ Response not successful:', response)
         setError('Failed to fetch appointments')
@@ -118,7 +150,22 @@ const Appointments = () => {
     })
     
     setFilteredAppointments(filtered)
-  }, [appointments, searchTerm])
+    
+    // Also filter past pending appointments if they exist
+    if (pastPendingAppointments.length > 0) {
+      let filteredPast = pastPendingAppointments.filter(appointment => {
+        const matchesSearch = appointment.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                             appointment.slotType.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                             (appointment.symptoms && appointment.symptoms.toLowerCase().includes(searchTerm.toLowerCase()))
+        
+        return matchesSearch
+      })
+      
+      setFilteredPastPending(filteredPast)
+    } else {
+      setFilteredPastPending([])
+    }
+  }, [appointments, pastPendingAppointments, searchTerm])
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -435,9 +482,11 @@ const Appointments = () => {
   }
 
   const getTabCounts = () => {
-    const allAppointments = appointments // This would include all statuses if we fetch them
+    // For pending tab, only count upcoming appointments
+    const pendingCount = appointments.filter(a => ['scheduled', 'confirmed'].includes(a.status)).length
+    
     return {
-      pending: appointments.filter(a => ['scheduled', 'confirmed'].includes(a.status)).length,
+      pending: pendingCount,
       completed: appointments.filter(a => a.status === 'completed').length,
       cancelled: appointments.filter(a => a.status === 'cancelled').length
     }
@@ -536,7 +585,7 @@ const Appointments = () => {
             <Calendar className="mx-auto h-12 w-12 text-gray-400" />
             <h3 className="mt-2 text-sm font-medium text-gray-900">No appointments</h3>
             <p className="mt-1 text-sm text-gray-500">
-              {activeTab === 'pending' ? 'No pending appointments found.' :
+              {activeTab === 'pending' ? 'No upcoming pending appointments found.' :
                activeTab === 'completed' ? 'No completed appointments found.' :
                'No cancelled appointments found.'}
             </p>
@@ -654,6 +703,130 @@ const Appointments = () => {
           </div>
         )}
       </div>
+
+      {/* Past Pending Appointments Section - Only show when on pending tab and have past appointments */}
+      {activeTab === 'pending' && filteredPastPending.length > 0 && (
+        <div className="bg-white shadow rounded-lg mt-6 border-t-4 border-orange-400">
+          <div className="px-6 py-4 border-b border-gray-200 bg-orange-50">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+                  <AlertCircle className="w-4 h-4 text-orange-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-medium text-orange-900">Past Pending Appointments</h3>
+                  <p className="text-sm text-orange-700">
+                    These appointments were scheduled for past dates but haven't been marked as completed
+                  </p>
+                </div>
+              </div>
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-200 text-orange-800">
+                {filteredPastPending.length} {filteredPastPending.length === 1 ? 'appointment' : 'appointments'}
+              </span>
+            </div>
+          </div>
+          <div className="divide-y divide-gray-200">
+            {filteredPastPending.map((appointment) => (
+              <div key={appointment.id} className="p-6 hover:bg-orange-25 transition-colors bg-orange-10">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <div className="flex-shrink-0">
+                      <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
+                        <User className="w-5 h-5 text-orange-600" />
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center space-x-3">
+                        <h3 className="text-lg font-medium text-gray-900 truncate">
+                          {appointment.patientName}
+                        </h3>
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border bg-orange-100 text-orange-800 border-orange-200">
+                          <Clock className="w-3 h-3 mr-1" />
+                          <span className="ml-1 capitalize">Past Due</span>
+                        </span>
+                        {appointment.isEmergency && (
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                            <AlertCircle className="w-3 h-3 mr-1" />
+                            Emergency
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-1 flex items-center space-x-4 text-sm text-gray-500">
+                        <div className="flex items-center text-orange-600 font-medium">
+                          <Calendar className="w-4 h-4 mr-1" />
+                          {appointment.date}
+                        </div>
+                        <div className="flex items-center">
+                          <Clock className="w-4 h-4 mr-1" />
+                          {appointment.timeRange}
+                        </div>
+                        <div className="flex items-center">
+                          <Stethoscope className="w-4 h-4 mr-1" />
+                          {appointment.slotType}
+                        </div>
+                      </div>
+                      {appointment.symptoms && (
+                        <div className="mt-2">
+                          <p className="text-sm text-gray-600">
+                            <span className="font-medium">Symptoms:</span> {appointment.symptoms}
+                          </p>
+                        </div>
+                      )}
+                      {appointment.notes && (
+                        <div className="mt-2">
+                          <p className="text-sm text-gray-500">
+                            <span className="font-medium">Notes:</span> {appointment.notes}
+                          </p>
+                        </div>
+                      )}
+                      <div className="mt-2 flex items-center space-x-4 text-sm text-gray-500">
+                        <div className="flex items-center">
+                          <Phone className="w-4 h-4 mr-1" />
+                          {appointment.patientPhone}
+                        </div>
+                        <div className="flex items-center">
+                          <Mail className="w-4 h-4 mr-1" />
+                          {appointment.patientEmail}
+                        </div>
+                        {appointment.patientAge && (
+                          <div>
+                            Age: {appointment.patientAge}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="relative">
+                      <button
+                        onClick={() => handleOpenPrescription(appointment)}
+                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-purple-600 hover:bg-purple-700 transition-colors"
+                      >
+                        <FileText className="w-3 h-3 mr-1" />
+                        Prescription
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => handleCompleteAppointment(appointment)}
+                      className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 transition-colors"
+                    >
+                      <CheckCircle className="w-3 h-3 mr-1" />
+                      Mark Complete
+                    </button>
+                    <button
+                      onClick={() => handleReschedule(appointment)}
+                      className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                    >
+                      <RotateCcw className="w-3 h-3 mr-1" />
+                      Reschedule
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Complete Appointment Modal */}
       {showCompleteModal && (

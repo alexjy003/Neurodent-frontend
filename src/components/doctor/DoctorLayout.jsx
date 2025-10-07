@@ -48,6 +48,38 @@ const DoctorLayout = () => {
     }
   }, [])
 
+  // Listen for profile updates
+  useEffect(() => {
+    const handleProfileUpdate = (event) => {
+      if (event.detail) {
+        setDoctor(event.detail)
+      }
+    }
+
+    // Listen for custom profile update event
+    window.addEventListener('doctorProfileUpdated', handleProfileUpdate)
+
+    // Also listen for storage events (in case updated from another tab)
+    const handleStorageChange = () => {
+      const doctorInfo = localStorage.getItem('doctorInfo')
+      if (doctorInfo) {
+        try {
+          const parsedDoctor = JSON.parse(doctorInfo)
+          setDoctor(parsedDoctor)
+        } catch (error) {
+          console.error('Error parsing doctor info:', error)
+        }
+      }
+    }
+
+    window.addEventListener('storage', handleStorageChange)
+
+    return () => {
+      window.removeEventListener('doctorProfileUpdated', handleProfileUpdate)
+      window.removeEventListener('storage', handleStorageChange)
+    }
+  }, [])
+
   const handleLogout = () => {
     // Clear ALL authentication data (comprehensive cleanup)
     localStorage.removeItem('token')
