@@ -417,21 +417,87 @@ const Appointments = () => {
 
   const savePrescription = async () => {
     try {
-      console.log('💾 Saving prescription:', prescriptionData)
+      console.log('💾 Saving prescription with appointment:', selectedAppointment)
+      console.log('💾 Prescription data:', prescriptionData)
+      
+      // Validate required fields before sending
+      if (!prescriptionData.diagnosis || !prescriptionData.diagnosis.trim()) {
+        toast.error('Please enter a diagnosis')
+        return
+      }
+      
+      if (!prescriptionData.medications || prescriptionData.medications.length === 0) {
+        toast.error('Please add at least one medication')
+        return
+      }
+      
+      // Validate each medication
+      for (let i = 0; i < prescriptionData.medications.length; i++) {
+        const med = prescriptionData.medications[i]
+        if (!med.name || !med.name.trim()) {
+          toast.error(`Please enter name for medication ${i + 1}`)
+          return
+        }
+        if (!med.dosage || !med.dosage.trim()) {
+          toast.error(`Please enter dosage for medication ${i + 1}`)
+          return
+        }
+        if (!med.duration || !med.duration.trim()) {
+          toast.error(`Please enter duration for medication ${i + 1}`)
+          return
+        }
+      }
+      
+      // Get the correct appointment ID - try different possible field names
+      const appointmentId = selectedAppointment._id || selectedAppointment.id || selectedAppointment.appointmentId
+      
+      if (!appointmentId) {
+        toast.error('Invalid appointment - cannot save prescription')
+        console.error('❌ No valid appointment ID found in:', selectedAppointment)
+        return
+      }
+      
+      // Get the correct patient ID - try different possible field names  
+      const patientId = selectedAppointment.patientId?._id || 
+                       selectedAppointment.patientId || 
+                       selectedAppointment.patient?._id ||
+                       selectedAppointment.patient
       
       const prescriptionPayload = {
-        appointmentId: selectedAppointment.id,
-        patientId: selectedAppointment.patientId || 'temp-patient-id', // You may need to get this from appointment
+        appointmentId: appointmentId,
         patientName: selectedAppointment.patientName,
-        patientAge: selectedAppointment.patientAge,
-        diagnosis: prescriptionData.diagnosis,
-        symptoms: selectedAppointment.symptoms,
-        medications: prescriptionData.medications,
-        generalInstructions: prescriptionData.instructions,
-        followUpDate: prescriptionData.followUpDate,
+        diagnosis: prescriptionData.diagnosis.trim(),
+        symptoms: selectedAppointment.symptoms || '',
+        medications: prescriptionData.medications.map(med => ({
+          name: med.name.trim(),
+          dosage: med.dosage.trim(),
+          duration: med.duration.trim(),
+          instructions: med.instructions ? med.instructions.trim() : '',
+          frequency: med.frequency ? med.frequency.trim() : ''
+        })),
+        generalInstructions: prescriptionData.instructions ? prescriptionData.instructions.trim() : '',
         isAIGenerated: prescriptionData.aiGenerated || false,
-        notes: prescriptionData.notes || ''
+        notes: prescriptionData.notes ? prescriptionData.notes.trim() : ''
       }
+      
+      // Add optional fields if available
+      if (patientId) {
+        prescriptionPayload.patientId = patientId
+      }
+      
+      if (selectedAppointment.patientAge || selectedAppointment.age) {
+        prescriptionPayload.patientAge = parseInt(selectedAppointment.patientAge || selectedAppointment.age)
+      }
+      
+      if (prescriptionData.followUpDate) {
+        prescriptionPayload.followUpDate = prescriptionData.followUpDate
+      }
+      
+      if (prescriptionData.aiModel) {
+        prescriptionPayload.aiModel = prescriptionData.aiModel
+      }
+      
+      console.log('📤 Sending prescription payload:', prescriptionPayload)
       
       const response = await apiService.post('/prescriptions', prescriptionPayload)
       
@@ -439,6 +505,13 @@ const Appointments = () => {
         toast.success('Prescription saved successfully!')
         setShowPrescriptionModal(false)
         setSelectedAppointment(null)
+        setPrescriptionData({
+          medications: [],
+          instructions: '',
+          diagnosis: '',
+          followUpDate: '',
+          aiGenerated: false
+        })
         // Optionally refresh appointments
         fetchAppointments()
       } else {
