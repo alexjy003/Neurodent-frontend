@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react'
 import {
   Search,
   User,
-  Plus,
   Download,
   Send,
   Save,
@@ -15,121 +14,80 @@ import {
   Trash2,
   ChevronDown,
   X,
-  Check
+  Check,
+  RefreshCw
 } from 'lucide-react'
+import toast from 'react-hot-toast'
+import apiService from '../../services/api'
 
 const Prescriptions = () => {
   const [prescriptions, setPrescriptions] = useState([])
   const [filteredPrescriptions, setFilteredPrescriptions] = useState([])
   const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [selectedPatient, setSelectedPatient] = useState('')
   const [symptoms, setSymptoms] = useState('')
   const [diagnosis, setDiagnosis] = useState('')
   const [medications, setMedications] = useState([{ name: '', dosage: '', duration: '', instructions: '' }])
+  const [patients, setPatients] = useState([])
+  const [selectedPrescription, setSelectedPrescription] = useState(null)
+  const [showDetailsModal, setShowDetailsModal] = useState(false)
 
-  // Sample prescriptions data
-  const samplePrescriptions = [
-    {
-      id: 1,
-      patientName: 'Sarah Johnson',
-      patientId: 1,
-      date: '2025-08-05',
-      symptoms: 'Tooth sensitivity, mild pain',
-      diagnosis: 'Dental sensitivity',
-      medications: [
-        {
-          name: 'Fluoride Rinse',
-          dosage: '10ml',
-          frequency: 'Twice daily',
-          duration: '2 weeks',
-          instructions: 'Rinse for 30 seconds after brushing'
-        }
-      ],
-      status: 'Active',
-      sentToPharmacy: true,
-      pharmacyName: 'City Pharmacy'
-    },
-    {
-      id: 2,
-      patientName: 'Michael Chen',
-      patientId: 2,
-      date: '2025-07-20',
-      symptoms: 'Severe tooth pain, swelling',
-      diagnosis: 'Post-operative pain management',
-      medications: [
-        {
-          name: 'Ibuprofen',
-          dosage: '400mg',
-          frequency: 'Every 6 hours',
-          duration: '5 days',
-          instructions: 'Take with food to avoid stomach upset'
-        },
-        {
-          name: 'Amoxicillin',
-          dosage: '500mg',
-          frequency: 'Three times daily',
-          duration: '7 days',
-          instructions: 'Complete full course even if symptoms improve'
-        }
-      ],
-      status: 'Completed',
-      sentToPharmacy: true,
-      pharmacyName: 'MedPlus Pharmacy'
-    }
-  ]
+  // Fetch prescriptions from API
+  const fetchPrescriptions = async () => {
+    try {
+      setLoading(true)
+      setError('')
+      
+      const params = new URLSearchParams({
+        page: 1,
+        limit: 50
+      })
+      
+      if (searchTerm) {
+        params.append('search', searchTerm)
+      }
 
-  // Sample patients for dropdown
-  const samplePatients = [
-    { id: 1, name: 'Sarah Johnson' },
-    { id: 2, name: 'Michael Chen' },
-    { id: 3, name: 'Emily Davis' },
-    { id: 4, name: 'David Wilson' },
-    { id: 5, name: 'Lisa Anderson' }
-  ]
-
-  // Common medications for autocomplete
-  const commonMedications = [
-    'Ibuprofen', 'Amoxicillin', 'Fluoride Rinse', 'Chlorhexidine Mouthwash',
-    'Acetaminophen', 'Clindamycin', 'Lidocaine Gel', 'Benzocaine Gel',
-    'Penicillin', 'Metronidazole', 'Hydrogen Peroxide Rinse'
-  ]
-
-  useEffect(() => {
-    setTimeout(() => {
-      setPrescriptions(samplePrescriptions)
+      const response = await apiService.getPrescriptions(Object.fromEntries(params))
+      
+      if (response && response.prescriptions) {
+        setPrescriptions(response.prescriptions)
+      } else {
+        setPrescriptions([])
+      }
+    } catch (error) {
+      console.error('❌ Error fetching prescriptions:', error)
+      if (error.response) {
+        setError(`Failed to load prescriptions: ${error.message}`)
+      } else {
+        setError('Failed to load prescriptions. Please try again.')
+      }
+      setPrescriptions([])
+    } finally {
       setLoading(false)
-    }, 1000)
-  }, [])
-
-  useEffect(() => {
-    let filtered = prescriptions.filter(prescription => {
-      const matchesSearch = prescription.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           prescription.diagnosis.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           prescription.medications.some(med => med.name.toLowerCase().includes(searchTerm.toLowerCase()))
-      
-      const matchesStatus = statusFilter === 'all' || prescription.status.toLowerCase() === statusFilter
-      
-      return matchesSearch && matchesStatus
-    })
-    
-    setFilteredPrescriptions(filtered)
-  }, [prescriptions, searchTerm, statusFilter])
-
-  const getStatusColor = (status) => {
-    switch (status.toLowerCase()) {
-      case 'active':
-        return 'bg-green-100 text-green-800 border-green-200'
-      case 'completed':
-        return 'bg-blue-100 text-blue-800 border-blue-200'
-      case 'cancelled':
-        return 'bg-red-100 text-red-800 border-red-200'
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-200'
+    }
+  }  // Fetch patients for dropdown
+  const fetchPatients = async () => {
+    try {
+      // For now, skip patient fetching since the endpoint might not exist
+      // or we might need to implement it differently
+      setPatients([])
+    } catch (error) {
+      console.error('❌ Error fetching patients:', error)
+      setPatients([])
     }
   }
+
+  useEffect(() => {
+    fetchPrescriptions()
+    fetchPatients()
+  }, [searchTerm])
+
+  useEffect(() => {
+    fetchPrescriptions()
+  }, [searchTerm])
 
   const addMedication = () => {
     setMedications([...medications, { name: '', dosage: '', duration: '', instructions: '' }])
@@ -148,38 +106,103 @@ const Prescriptions = () => {
     setMedications(updated)
   }
 
-  const handleSavePrescription = () => {
-    const newPrescription = {
-      id: prescriptions.length + 1,
-      patientName: samplePatients.find(p => p.id === parseInt(selectedPatient))?.name || '',
-      patientId: parseInt(selectedPatient),
-      date: new Date().toISOString().split('T')[0],
-      symptoms,
-      diagnosis,
-      medications: medications.filter(med => med.name && med.dosage),
-      status: 'Active',
-      sentToPharmacy: false,
-      pharmacyName: null
+  const handleSavePrescription = async () => {
+    try {
+      if (!selectedPatient || !diagnosis || medications.every(med => !med.name)) {
+        toast.error('Please fill in all required fields')
+        return
+      }
+
+      const selectedPatientData = patients.find(p => p._id === selectedPatient)
+      if (!selectedPatientData) {
+        toast.error('Please select a valid patient')
+        return
+      }
+
+      const prescriptionData = {
+        patientId: selectedPatient,
+        patientName: `${selectedPatientData.firstName} ${selectedPatientData.lastName}`,
+        patientAge: selectedPatientData.age,
+        diagnosis,
+        symptoms,
+        medications: medications.filter(med => med.name && med.dosage),
+        generalInstructions: '',
+        isAIGenerated: false
+      }
+
+      const response = await apiService.post('/prescriptions', prescriptionData)
+      
+      if (response.success) {
+        toast.success('Prescription saved successfully!')
+        resetForm()
+        setShowCreateForm(false)
+        fetchPrescriptions() // Refresh the list
+      } else {
+        throw new Error(response.message || 'Failed to save prescription')
+      }
+    } catch (error) {
+      console.error('❌ Error saving prescription:', error)
+      toast.error(error.response?.data?.message || 'Failed to save prescription')
     }
-    
-    setPrescriptions([newPrescription, ...prescriptions])
-    resetForm()
-    setShowCreateForm(false)
   }
 
-  const handleDownloadPDF = (prescriptionId) => {
-    console.log('Download PDF for prescription:', prescriptionId)
+  const handleDownloadPDF = async (prescriptionId) => {
+    try {
+      // Call API to generate and download prescription file
+      const response = await apiService.downloadPrescriptionPDF(prescriptionId);
+      
+      let blob;
+      let filename;
+      
+      if (response.type === 'text') {
+        // Handle text response
+        blob = new Blob([response.data], { type: 'text/plain' });
+        filename = `prescription-${prescriptionId}.txt`;
+      } else {
+        // Handle blob response (PDF)
+        blob = response.data;
+        filename = `prescription-${prescriptionId}.pdf`;
+      }
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.click();
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('Prescription downloaded successfully!');
+    } catch (error) {
+      console.error('Error downloading prescription:', error);
+      toast.error('Failed to download prescription. Please try again.');
+    }
   }
 
-  const handleSendToPharmacy = (prescriptionId) => {
-    setPrescriptions(prev => 
-      prev.map(p => 
-        p.id === prescriptionId 
-          ? { ...p, sentToPharmacy: true, pharmacyName: 'Default Pharmacy' }
-          : p
-      )
-    )
+  const handleSendToPharmacy = async (prescriptionId) => {
+    try {
+      await apiService.sendPrescriptionToPharmacy(prescriptionId);
+      
+      // Update the prescription in state to reflect it was sent
+      setPrescriptions(prev => 
+        prev.map(p => 
+          p._id === prescriptionId 
+            ? { ...p, sentToPharmacy: true }
+            : p
+        )
+      );
+      
+      toast.success('Prescription sent to pharmacy successfully!');
+    } catch (error) {
+      console.error('❌ Error sending to pharmacy:', error);
+      toast.error('Failed to send prescription to pharmacy');
+    }
   }
+
+  const handleViewDetails = (prescription) => {
+    setSelectedPrescription(prescription);
+    setShowDetailsModal(true);
+  };
 
   const resetForm = () => {
     setSelectedPatient('')
@@ -204,15 +227,8 @@ const Prescriptions = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Prescriptions</h1>
-          <p className="text-gray-600 mt-1">Create and manage patient prescriptions</p>
+          <p className="text-gray-600 mt-1">View and manage patient prescriptions</p>
         </div>
-        <button
-          onClick={() => setShowCreateForm(true)}
-          className="mt-4 sm:mt-0 inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          New Prescription
-        </button>
       </div>
 
       {showCreateForm && (
@@ -236,8 +252,10 @@ const Prescriptions = () => {
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">Choose a patient...</option>
-                {samplePatients.map(patient => (
-                  <option key={patient.id} value={patient.id}>{patient.name}</option>
+                {patients.map(patient => (
+                  <option key={patient._id} value={patient._id}>
+                    {patient.firstName} {patient.lastName}
+                  </option>
                 ))}
               </select>
             </div>
@@ -377,54 +395,81 @@ const Prescriptions = () => {
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
-          <div className="flex items-center space-x-4">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="all">All Status</option>
-              <option value="active">Active</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-          </div>
         </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
         <div className="p-6">
-          {filteredPrescriptions.length === 0 ? (
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg mb-4">
+              {error}
+            </div>
+          )}
+          
+          {loading ? (
+            <div className="text-center py-12">
+              <RefreshCw className="w-12 h-12 text-gray-400 mx-auto mb-4 animate-spin" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Loading prescriptions...</h3>
+              <p className="text-gray-600">Please wait while we fetch your prescriptions</p>
+            </div>
+          ) : prescriptions.length === 0 ? (
             <div className="text-center py-12">
               <Pill className="w-12 h-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No prescriptions found</h3>
-              <p className="text-gray-600">Create your first prescription or adjust your search criteria</p>
+              <p className="text-gray-600">Create your first prescription from the Appointments section</p>
+              <p className="text-sm text-gray-500 mt-2">Go to Appointments → Select a patient → Generate prescription</p>
             </div>
           ) : (
             <div className="space-y-4">
-              {filteredPrescriptions.map((prescription) => (
-                <div key={prescription.id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-all duration-200">
+              {prescriptions.map((prescription) => (
+                <div key={prescription._id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-all duration-200">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-start space-x-4">
-                      <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full flex items-center justify-center">
-                        <User className="w-6 h-6 text-blue-600" />
+                      <div className="w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
+                        {(prescription.patientId?.profilePicture || prescription.patientId?.profileImage?.url) ? (
+                          <img 
+                            src={prescription.patientId.profilePicture || prescription.patientId.profileImage.url} 
+                            alt="Patient"
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              e.target.nextSibling.style.display = 'flex';
+                            }}
+                          />
+                        ) : null}
+                        <div 
+                          className="w-full h-full flex items-center justify-center"
+                          style={{display: (prescription.patientId?.profilePicture || prescription.patientId?.profileImage?.url) ? 'none' : 'flex'}}
+                        >
+                          <User className="w-6 h-6 text-blue-600" />
+                        </div>
                       </div>
                       <div>
-                        <h3 className="text-lg font-semibold text-gray-900">{prescription.patientName}</h3>
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          {prescription.patientName || 
+                           (prescription.patientId ? 
+                             `${prescription.patientId.firstName} ${prescription.patientId.lastName}` : 
+                             'Unknown Patient')}
+                        </h3>
                         <div className="flex items-center space-x-4 text-sm text-gray-600">
                           <span className="flex items-center">
                             <Calendar className="w-4 h-4 mr-1" />
-                            {prescription.date}
+                            {new Date(prescription.prescriptionDate || prescription.createdAt).toLocaleDateString()}
                           </span>
                           <span>•</span>
                           <span>{prescription.diagnosis}</span>
+                          {prescription.isAIGenerated && (
+                            <>
+                              <span>•</span>
+                              <span className="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs">
+                                AI Generated
+                              </span>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
                     <div className="flex items-center space-x-3">
-                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(prescription.status)}`}>
-                        {prescription.status}
-                      </span>
                       {prescription.sentToPharmacy && (
                         <span className="inline-flex items-center px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">
                           <Check className="w-3 h-3 mr-1" />
@@ -435,7 +480,11 @@ const Prescriptions = () => {
                   </div>
 
                   <div className="mb-4">
-                    <p className="text-sm text-gray-700 mb-2"><strong>Symptoms:</strong> {prescription.symptoms}</p>
+                    {prescription.symptoms && (
+                      <p className="text-sm text-gray-700 mb-2">
+                        <strong>Symptoms:</strong> {prescription.symptoms}
+                      </p>
+                    )}
                     <div>
                       <p className="text-sm font-medium text-gray-900 mb-2">Medications:</p>
                       <div className="space-y-2">
@@ -444,7 +493,10 @@ const Prescriptions = () => {
                             <div className="flex items-center justify-between">
                               <div>
                                 <p className="font-medium text-gray-900">{med.name}</p>
-                                <p className="text-sm text-gray-600">{med.dosage} • {med.frequency} • {med.duration}</p>
+                                <p className="text-sm text-gray-600">
+                                  {med.dosage} • {med.duration}
+                                  {med.frequency && ` • ${med.frequency}`}
+                                </p>
                                 {med.instructions && (
                                   <p className="text-sm text-gray-500 italic">{med.instructions}</p>
                                 )}
@@ -454,11 +506,25 @@ const Prescriptions = () => {
                         ))}
                       </div>
                     </div>
+                    {prescription.generalInstructions && (
+                      <div className="mt-3">
+                        <p className="text-sm text-gray-700">
+                          <strong>General Instructions:</strong> {prescription.generalInstructions}
+                        </p>
+                      </div>
+                    )}
+                    {prescription.followUpDate && (
+                      <div className="mt-2">
+                        <p className="text-sm text-gray-700">
+                          <strong>Follow-up Date:</strong> {new Date(prescription.followUpDate).toLocaleDateString()}
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex items-center space-x-3 pt-4 border-t border-gray-200">
                     <button
-                      onClick={() => handleDownloadPDF(prescription.id)}
+                      onClick={() => handleDownloadPDF(prescription._id)}
                       className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
                     >
                       <Download className="w-4 h-4 mr-2" />
@@ -466,14 +532,17 @@ const Prescriptions = () => {
                     </button>
                     {!prescription.sentToPharmacy && (
                       <button
-                        onClick={() => handleSendToPharmacy(prescription.id)}
+                        onClick={() => handleSendToPharmacy(prescription._id)}
                         className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
                       >
                         <Send className="w-4 h-4 mr-2" />
                         Send to Pharmacy
                       </button>
                     )}
-                    <button className="inline-flex items-center px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
+                    <button 
+                      onClick={() => handleViewDetails(prescription)}
+                      className="inline-flex items-center px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+                    >
                       <Eye className="w-4 h-4 mr-2" />
                       View Details
                     </button>
@@ -484,6 +553,152 @@ const Prescriptions = () => {
           )}
         </div>
       </div>
+
+      {/* Prescription Details Modal */}
+      {showDetailsModal && selectedPrescription && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-gray-900">Prescription Details</h2>
+                <button
+                  onClick={() => setShowDetailsModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                {/* Patient Info */}
+                <div className="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg">
+                  <div className="w-16 h-16 rounded-full overflow-hidden bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
+                    {(selectedPrescription.patientId?.profilePicture || selectedPrescription.patientId?.profileImage?.url) ? (
+                      <img 
+                        src={selectedPrescription.patientId.profilePicture || selectedPrescription.patientId.profileImage.url} 
+                        alt="Patient"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <User className="w-8 h-8 text-blue-600" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {selectedPrescription.patientName || 
+                       (selectedPrescription.patientId ? 
+                         `${selectedPrescription.patientId.firstName} ${selectedPrescription.patientId.lastName}` : 
+                         'Unknown Patient')}
+                    </h3>
+                    <div className="text-sm text-gray-600 space-y-1">
+                      <p className="flex items-center">
+                        <Calendar className="w-4 h-4 mr-2" />
+                        Prescription Date: {new Date(selectedPrescription.prescriptionDate || selectedPrescription.createdAt).toLocaleDateString()}
+                      </p>
+                      {selectedPrescription.patientId?.age && (
+                        <p>Age: {selectedPrescription.patientId.age} years</p>
+                      )}
+                      {selectedPrescription.isAIGenerated && (
+                        <span className="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs">
+                          AI Generated
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Diagnosis */}
+                <div>
+                  <h4 className="text-lg font-medium text-gray-900 mb-2">Diagnosis</h4>
+                  <p className="text-gray-700 bg-gray-50 p-3 rounded-lg">{selectedPrescription.diagnosis}</p>
+                </div>
+
+                {/* Symptoms */}
+                {selectedPrescription.symptoms && (
+                  <div>
+                    <h4 className="text-lg font-medium text-gray-900 mb-2">Symptoms</h4>
+                    <p className="text-gray-700 bg-gray-50 p-3 rounded-lg">{selectedPrescription.symptoms}</p>
+                  </div>
+                )}
+
+                {/* Medications */}
+                <div>
+                  <h4 className="text-lg font-medium text-gray-900 mb-3">Medications</h4>
+                  <div className="space-y-3">
+                    {selectedPrescription.medications.map((med, index) => (
+                      <div key={index} className="border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-start justify-between mb-2">
+                          <h5 className="font-semibold text-gray-900">{med.name}</h5>
+                          <span className="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                            {med.dosage}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
+                          <div>
+                            <span className="font-medium">Duration:</span> {med.duration}
+                          </div>
+                          {med.frequency && (
+                            <div>
+                              <span className="font-medium">Frequency:</span> {med.frequency}
+                            </div>
+                          )}
+                        </div>
+                        {med.instructions && (
+                          <div className="mt-2">
+                            <span className="font-medium text-gray-900">Instructions:</span>
+                            <p className="text-gray-700 italic mt-1">{med.instructions}</p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* General Instructions */}
+                {selectedPrescription.generalInstructions && (
+                  <div>
+                    <h4 className="text-lg font-medium text-gray-900 mb-2">General Instructions</h4>
+                    <p className="text-gray-700 bg-gray-50 p-3 rounded-lg">{selectedPrescription.generalInstructions}</p>
+                  </div>
+                )}
+
+                {/* Follow-up Date */}
+                {selectedPrescription.followUpDate && (
+                  <div>
+                    <h4 className="text-lg font-medium text-gray-900 mb-2">Follow-up Date</h4>
+                    <p className="text-gray-700 bg-gray-50 p-3 rounded-lg">
+                      {new Date(selectedPrescription.followUpDate).toLocaleDateString()}
+                    </p>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex items-center space-x-3 pt-4 border-t border-gray-200">
+                  <button
+                    onClick={() => handleDownloadPDF(selectedPrescription._id)}
+                    className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Download PDF
+                  </button>
+                  {!selectedPrescription.sentToPharmacy && (
+                    <button
+                      onClick={() => {
+                        handleSendToPharmacy(selectedPrescription._id);
+                        setShowDetailsModal(false);
+                      }}
+                      className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                    >
+                      <Send className="w-4 h-4 mr-2" />
+                      Send to Pharmacy
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

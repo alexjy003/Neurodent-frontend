@@ -15,6 +15,15 @@ const PatientDashboard = () => {
   const [searchParams] = useSearchParams()
   const { user, isAuthenticated, loading, checkAuthStatus, logout } = useAuth()
 
+  // Debug: Log user data to see profile picture status
+  useEffect(() => {
+    console.log('🔍 PatientDashboard user debug:', {
+      user: user,
+      hasProfilePicture: !!user?.profilePicture,
+      profilePictureValue: user?.profilePicture
+    });
+  }, [user]);
+
   // Prevent back navigation to dashboard after logout
   usePreventBackNavigation(!isAuthenticated, '/login')
   const [activeTab, setActiveTab] = useState('overview')
@@ -160,10 +169,18 @@ const PatientDashboard = () => {
                   className="flex items-center text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 hover:shadow-lg transition-all duration-200 ease-in-out p-1"
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
                 >
-                  <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 flex items-center justify-center shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-200">
-                    <span className="text-white font-semibold text-sm">
-                      {user ? `${user.firstName.charAt(0)}${user.lastName.charAt(0)}` : 'P'}
-                    </span>
+                  <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 flex items-center justify-center shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-200 overflow-hidden">
+                    {user && user.profilePicture ? (
+                      <img 
+                        src={user.profilePicture} 
+                        alt={`${user.firstName} ${user.lastName}`} 
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-white font-semibold text-sm">
+                        {user ? `${user.firstName.charAt(0)}${user.lastName.charAt(0)}` : 'P'}
+                      </span>
+                    )}
                   </div>
                   <span className="ml-3 text-slate-700 hidden sm:block font-medium">
                     {user ? `${user.firstName} ${user.lastName}` : 'Patient'}

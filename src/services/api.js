@@ -372,6 +372,75 @@ class ApiService {
   async deleteSchedule(scheduleId) {
     return this.delete(`/schedules/${scheduleId}`);
   }
+
+  // Prescription Management Methods
+  async getPrescriptions(params = {}) {
+    const queryParams = new URLSearchParams();
+    
+    if (params.page) queryParams.append('page', params.page);
+    if (params.limit) queryParams.append('limit', params.limit);
+    if (params.search) queryParams.append('search', params.search);
+    if (params.status) queryParams.append('status', params.status);
+    if (params.patientId) queryParams.append('patientId', params.patientId);
+    if (params.startDate) queryParams.append('startDate', params.startDate);
+    if (params.endDate) queryParams.append('endDate', params.endDate);
+    
+    const queryString = queryParams.toString();
+    const endpoint = queryString ? `/prescriptions/doctor/my-prescriptions?${queryString}` : '/prescriptions/doctor/my-prescriptions';
+    
+    return this.get(endpoint);
+  }
+
+  async createPrescription(prescriptionData) {
+    return this.post('/prescriptions', prescriptionData);
+  }
+
+  async generateAIPrescription(data) {
+    return this.post('/prescriptions/generate-ai', data);
+  }
+
+  async getPrescriptionById(id) {
+    return this.get(`/prescriptions/${id}`);
+  }
+
+  async updatePrescription(id, prescriptionData) {
+    return this.put(`/prescriptions/${id}`, prescriptionData);
+  }
+
+  async deletePrescription(id) {
+    return this.delete(`/prescriptions/${id}`);
+  }
+
+  async updatePrescriptionStatus(id, status) {
+    return this.patch(`/prescriptions/${id}/status`, { status });
+  }
+
+  async downloadPrescriptionPDF(id) {
+    const url = `${API_BASE_URL}/prescriptions/${id}/pdf`;
+    const currentToken = this.getToken();
+    
+    const response = await fetch(url, {
+      headers: {
+        ...(currentToken && { Authorization: `Bearer ${currentToken}` }),
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to download prescription file');
+    }
+
+    // Handle both text and PDF responses
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('text/plain')) {
+      return { data: await response.text(), type: 'text' };
+    } else {
+      return { data: await response.blob(), type: 'blob' };
+    }
+  }
+
+  async sendPrescriptionToPharmacy(id) {
+    return this.patch(`/prescriptions/${id}/send-to-pharmacy`);
+  }
 }
 
 export default new ApiService();

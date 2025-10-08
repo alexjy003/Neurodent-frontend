@@ -37,8 +37,10 @@ const Appointments = () => {
   const [showCompleteModal, setShowCompleteModal] = useState(false)
   const [showPrescriptionModal, setShowPrescriptionModal] = useState(false)
   const [showRescheduleModal, setShowRescheduleModal] = useState(false)
+  const [showDetailsModal, setShowDetailsModal] = useState(false)
   const [prescriptionMode, setPrescriptionMode] = useState('ai') // 'ai' or 'manual'
   const [generatingPrescription, setGeneratingPrescription] = useState(false)
+  const [isViewingExistingPrescription, setIsViewingExistingPrescription] = useState(false)
   const [loadingTimeSlots, setLoadingTimeSlots] = useState(false)
   const [availableTimeSlots, setAvailableTimeSlots] = useState([])
   const [slotError, setSlotError] = useState('')
@@ -102,6 +104,54 @@ const Appointments = () => {
       console.log('📡 API Response:', response)
       
       if (response.success) {
+        // Debug: Log appointment data to check profile pictures and patient data
+        if (response.appointments && response.appointments.length > 0) {
+          console.log('🔍 Appointments debug data:', response.appointments.map(apt => ({
+            patientName: apt.patientName,
+            patientId: apt.patientId,
+            patientGender: apt.patientGender,
+            patientIdGender: apt.patientId?.gender,
+            patientAge: apt.patientAge,
+            hasProfilePicture: !!apt.patientProfilePicture,
+            profilePictureValue: apt.patientProfilePicture,
+            patientIdProfilePicture: apt.patientId?.profilePicture,
+            patientIdProfileImage: apt.patientId?.profileImage
+          })));
+          
+          // Specific gender debugging
+          console.log('🎯 Gender Debug:', response.appointments.map(apt => ({
+            patientName: apt.patientName,
+            patientGender: apt.patientGender,
+            patientIdGender: apt.patientId?.gender,
+            hasAnyGender: !!(apt.patientGender || apt.patientId?.gender),
+            genderValue: apt.patientGender || apt.patientId?.gender || 'MISSING',
+            isRealGender: !!(apt.patientGender || apt.patientId?.gender),
+            profilePicture: apt.patientProfilePicture,
+            patientIdProfilePicture: apt.patientId?.profilePicture,
+            hasProfilePicture: !!(apt.patientProfilePicture || apt.patientId?.profilePicture)
+          })));
+        }
+        
+        console.log('🔍 Raw API Response:', response.appointments?.slice(0, 2));
+        
+        // Extra detailed debugging for gender issue
+        if (response.appointments && response.appointments.length > 0) {
+          console.log('\n🔍 DETAILED GENDER DEBUGGING:');
+          response.appointments.forEach((apt, index) => {
+            console.log(`\nAppointment ${index + 1}:`);
+            console.log('- Patient Name:', apt.patientName);
+            console.log('- patientGender field:', apt.patientGender);
+            console.log('- patientId object:', apt.patientId);
+            console.log('- patientId.gender:', apt.patientId?.gender);
+            console.log('- Gender fallback logic result:', apt.patientId?.gender || apt.patientGender);
+            console.log('- Final gender value:', (() => {
+              const gender = apt.patientId?.gender || apt.patientGender;
+              return gender ? gender.charAt(0).toUpperCase() + gender.slice(1) : 'Not Defined';
+            })());
+          });
+        }
+        
+        // Use raw data from server without any modifications
         setAppointments(response.appointments || [])
         
         // If it's pending tab, also fetch past pending appointments
@@ -224,6 +274,61 @@ const Appointments = () => {
       aiGenerated: false
     })
     setShowPrescriptionModal(true)
+  }
+
+  const handleViewExistingPrescription = async (appointment) => {
+    try {
+      console.log('🔍 Fetching existing prescription for:', appointment.patientName)
+      
+      // Fetch existing prescriptions for this patient
+      const response = await apiService.get(`/prescriptions/patient/${appointment.patientId._id || appointment.patientId}`)
+      
+      if (response.success && response.prescriptions && response.prescriptions.length > 0) {
+        // Sort by date and get the most recent prescription
+        const latestPrescription = response.prescriptions.sort((a, b) => 
+          new Date(b.createdAt) - new Date(a.createdAt)
+        )[0]
+        
+        console.log('✅ Found existing prescription:', latestPrescription)
+        console.log('📋 Prescription data details:', {
+          instructions: latestPrescription.instructions,
+          generalInstructions: latestPrescription.generalInstructions,
+          followUpDate: latestPrescription.followUpDate,
+          diagnosis: latestPrescription.diagnosis,
+          medications: latestPrescription.medications
+        })
+        
+        // Set the prescription data for viewing
+        setPrescriptionData({
+          ...latestPrescription,
+          medications: latestPrescription.medications || [],
+          instructions: latestPrescription.instructions || latestPrescription.generalInstructions || '',
+          diagnosis: latestPrescription.diagnosis || '',
+          followUpDate: latestPrescription.followUpDate ? 
+            (typeof latestPrescription.followUpDate === 'string' ? 
+              latestPrescription.followUpDate.split('T')[0] : 
+              new Date(latestPrescription.followUpDate).toISOString().split('T')[0]
+            ) : '',
+          aiGenerated: latestPrescription.aiGenerated || false,
+          createdAt: latestPrescription.createdAt,
+          _id: latestPrescription._id
+        })
+        
+        setSelectedAppointment(appointment)
+        setShowPrescriptionModal(true)
+        setIsViewingExistingPrescription(true)
+      } else {
+        console.log('❌ No existing prescription found, opening creation modal')
+        // No existing prescription, open creation modal
+        handleOpenPrescription(appointment)
+        setIsViewingExistingPrescription(false)
+      }
+    } catch (error) {
+      console.error('❌ Error fetching prescription:', error)
+      // Fallback to creation modal
+      handleOpenPrescription(appointment)
+      setIsViewingExistingPrescription(false)
+    }
   }
 
   const generateAIPrescription = async () => {
@@ -481,6 +586,11 @@ const Appointments = () => {
     }
   }
 
+  const handleViewDetails = (appointment) => {
+    setSelectedAppointment(appointment)
+    setShowDetailsModal(true)
+  }
+
   const getTabCounts = () => {
     // For pending tab, only count upcoming appointments
     const pendingCount = appointments.filter(a => ['scheduled', 'confirmed'].includes(a.status)).length
@@ -597,8 +707,16 @@ const Appointments = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
                     <div className="flex-shrink-0">
-                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                        <User className="w-5 h-5 text-blue-600" />
+                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 rounded-full flex items-center justify-center overflow-hidden">
+                        {appointment.patientProfilePicture ? (
+                          <img 
+                            src={appointment.patientProfilePicture} 
+                            alt={appointment.patientName} 
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <User className="w-5 h-5 text-white" />
+                        )}
                       </div>
                     </div>
                     <div className="flex-1 min-w-0">
@@ -659,6 +777,12 @@ const Appointments = () => {
                             Age: {appointment.patientAge}
                           </div>
                         )}
+                        <div>
+                          Gender: {(() => {
+                            const gender = appointment.patientId?.gender || appointment.patientGender;
+                            return gender ? gender.charAt(0).toUpperCase() + gender.slice(1) : 'Not Defined';
+                          })()}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -691,7 +815,10 @@ const Appointments = () => {
                       </>
                     )}
                     {appointment.status === 'completed' && (
-                      <button className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                      <button 
+                        onClick={() => handleViewDetails(appointment)}
+                        className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                      >
                         <Eye className="w-3 h-3 mr-1" />
                         View Details
                       </button>
@@ -793,6 +920,12 @@ const Appointments = () => {
                             Age: {appointment.patientAge}
                           </div>
                         )}
+                        <div>
+                          Gender: {(() => {
+                            const gender = appointment.patientId?.gender || appointment.patientGender;
+                            return gender ? gender.charAt(0).toUpperCase() + gender.slice(1) : 'Not Defined';
+                          })()}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -895,76 +1028,101 @@ const Appointments = () => {
             <div className="mb-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-xl font-semibold text-gray-900">
-                  Create Prescription - {selectedAppointment?.patientName}
+                  {isViewingExistingPrescription ? 'Prescription Details' : 'Create Prescription'} - {selectedAppointment?.patientName}
                 </h3>
                 <button
-                  onClick={() => setShowPrescriptionModal(false)}
+                  onClick={() => {
+                    setShowPrescriptionModal(false);
+                    setIsViewingExistingPrescription(false);
+                  }}
                   className="text-gray-400 hover:text-gray-600"
                 >
                   <X className="w-6 h-6" />
                 </button>
               </div>
 
-              {/* Prescription Mode Toggle */}
-              <div className="flex items-center space-x-4 mb-6">
-                <span className="text-sm font-medium text-gray-700">Prescription Mode:</span>
-                <div className="flex bg-gray-100 rounded-lg p-1">
-                  <button
-                    onClick={() => setPrescriptionMode('ai')}
-                    className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                      prescriptionMode === 'ai'
-                        ? 'bg-purple-600 text-white shadow-sm'
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    <Brain className="w-4 h-4 mr-2" />
-                    AI Generated
-                  </button>
-                  <button
-                    onClick={() => setPrescriptionMode('manual')}
-                    className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                      prescriptionMode === 'manual'
-                        ? 'bg-blue-600 text-white shadow-sm'
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    <PenTool className="w-4 h-4 mr-2" />
-                    Manual Entry
-                  </button>
-                </div>
-              </div>
-
-              {/* AI Generation Section */}
-              {prescriptionMode === 'ai' && (
-                <div className="mb-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-lg font-medium text-purple-900">AI Prescription Generator</h4>
-                    <button
-                      onClick={generateAIPrescription}
-                      disabled={generatingPrescription}
-                      className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      {generatingPrescription ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                          Generating...
-                        </>
-                      ) : (
-                        <>
-                          <Zap className="w-4 h-4 mr-2" />
-                          Generate Prescription
-                        </>
-                      )}
-                    </button>
+              {/* Show creation mode toggle only for new prescriptions */}
+              {!isViewingExistingPrescription && (
+                <>
+                  {/* Prescription Mode Toggle */}
+                  <div className="flex items-center space-x-4 mb-6">
+                    <span className="text-sm font-medium text-gray-700">Prescription Mode:</span>
+                    <div className="flex bg-gray-100 rounded-lg p-1">
+                      <button
+                        onClick={() => setPrescriptionMode('ai')}
+                        className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                          prescriptionMode === 'ai'
+                            ? 'bg-purple-600 text-white shadow-sm'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        <Brain className="w-4 h-4 mr-2" />
+                        AI Generated
+                      </button>
+                      <button
+                        onClick={() => setPrescriptionMode('manual')}
+                        className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                          prescriptionMode === 'manual'
+                            ? 'bg-blue-600 text-white shadow-sm'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        <PenTool className="w-4 h-4 mr-2" />
+                        Manual Entry
+                      </button>
+                    </div>
                   </div>
-                  <p className="text-sm text-purple-700">
-                    Based on patient symptoms: "{selectedAppointment?.symptoms || 'No symptoms recorded'}"
-                  </p>
-                </div>
+
+                  {/* AI Generation Section */}
+                  {prescriptionMode === 'ai' && (
+                    <div className="mb-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-lg font-medium text-purple-900">AI Prescription Generator</h4>
+                        <button
+                          onClick={generateAIPrescription}
+                          disabled={generatingPrescription}
+                          className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          {generatingPrescription ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                              Generating...
+                            </>
+                          ) : (
+                            <>
+                              <Zap className="w-4 h-4 mr-2" />
+                              Generate Prescription
+                            </>
+                          )}
+                        </button>
+                      </div>
+                      <p className="text-sm text-purple-700">
+                        Based on patient symptoms: "{selectedAppointment?.symptoms || 'No symptoms recorded'}"
+                      </p>
+                    </div>
+                  )}
+                </>
               )}
 
               {/* Prescription Form */}
               <div className="space-y-6">
+                {/* Show creation date for existing prescriptions */}
+                {isViewingExistingPrescription && prescriptionData.createdAt && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-sm font-medium text-blue-900">Prescription Date</h4>
+                        <p className="text-sm text-blue-700">{new Date(prescriptionData.createdAt).toLocaleDateString()}</p>
+                      </div>
+                      {prescriptionData.aiGenerated && (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                          AI Generated
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Diagnosis */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -976,6 +1134,7 @@ const Appointments = () => {
                     onChange={(e) => setPrescriptionData(prev => ({ ...prev, diagnosis: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Enter diagnosis..."
+                    readOnly={isViewingExistingPrescription}
                   />
                 </div>
 
@@ -985,13 +1144,15 @@ const Appointments = () => {
                     <label className="block text-sm font-medium text-gray-700">
                       Medications
                     </label>
-                    <button
-                      onClick={addMedication}
-                      className="inline-flex items-center px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
-                    >
-                      <Plus className="w-4 h-4 mr-1" />
-                      Add Medication
-                    </button>
+                    {!isViewingExistingPrescription && (
+                      <button
+                        onClick={addMedication}
+                        className="inline-flex items-center px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Add Medication
+                      </button>
+                    )}
                   </div>
                   
                   <div className="space-y-4">
@@ -999,12 +1160,14 @@ const Appointments = () => {
                       <div key={index} className="p-4 border border-gray-200 rounded-lg">
                         <div className="flex items-center justify-between mb-3">
                           <h5 className="text-sm font-medium text-gray-700">Medication {index + 1}</h5>
-                          <button
-                            onClick={() => removeMedication(index)}
-                            className="text-red-600 hover:text-red-800"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
+                          {!isViewingExistingPrescription && (
+                            <button
+                              onClick={() => removeMedication(index)}
+                              className="text-red-600 hover:text-red-800"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                           <div>
@@ -1017,6 +1180,7 @@ const Appointments = () => {
                               onChange={(e) => updateMedication(index, 'name', e.target.value)}
                               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                               placeholder="e.g., Ibuprofen 400mg"
+                              readOnly={isViewingExistingPrescription}
                             />
                           </div>
                           <div>
@@ -1029,6 +1193,7 @@ const Appointments = () => {
                               onChange={(e) => updateMedication(index, 'dosage', e.target.value)}
                               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                               placeholder="e.g., 1 tablet twice daily"
+                              readOnly={isViewingExistingPrescription}
                             />
                           </div>
                           <div>
@@ -1041,6 +1206,7 @@ const Appointments = () => {
                               onChange={(e) => updateMedication(index, 'duration', e.target.value)}
                               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                               placeholder="e.g., 5 days"
+                              readOnly={isViewingExistingPrescription}
                             />
                           </div>
                           <div>
@@ -1053,6 +1219,7 @@ const Appointments = () => {
                               onChange={(e) => updateMedication(index, 'instructions', e.target.value)}
                               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                               placeholder="e.g., Take after meals"
+                              readOnly={isViewingExistingPrescription}
                             />
                           </div>
                         </div>
@@ -1074,44 +1241,202 @@ const Appointments = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     General Instructions
                   </label>
-                  <textarea
-                    value={prescriptionData.instructions}
-                    onChange={(e) => setPrescriptionData(prev => ({ ...prev, instructions: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    rows="3"
-                    placeholder="General care instructions, precautions, or additional notes..."
-                  />
+                  {isViewingExistingPrescription ? (
+                    <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 min-h-[80px]">
+                      {prescriptionData.instructions || 'No general instructions provided'}
+                    </div>
+                  ) : (
+                    <textarea
+                      value={prescriptionData.instructions}
+                      onChange={(e) => setPrescriptionData(prev => ({ ...prev, instructions: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      rows="3"
+                      placeholder="General care instructions, precautions, or additional notes..."
+                    />
+                  )}
                 </div>
 
                 {/* Follow-up Date */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Follow-up Date (Optional)
+                    Follow-up Date {!isViewingExistingPrescription && '(Optional)'}
                   </label>
-                  <input
-                    type="date"
-                    value={prescriptionData.followUpDate}
-                    onChange={(e) => setPrescriptionData(prev => ({ ...prev, followUpDate: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                  {isViewingExistingPrescription ? (
+                    <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50">
+                      {prescriptionData.followUpDate ? 
+                        new Date(prescriptionData.followUpDate).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'long', 
+                          day: 'numeric'
+                        }) : 
+                        'No follow-up date scheduled'
+                      }
+                    </div>
+                  ) : (
+                    <input
+                      type="date"
+                      value={prescriptionData.followUpDate}
+                      onChange={(e) => setPrescriptionData(prev => ({ ...prev, followUpDate: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  )}
                 </div>
               </div>
 
               {/* Action Buttons */}
               <div className="flex justify-end space-x-3 mt-8">
                 <button
-                  onClick={() => setShowPrescriptionModal(false)}
+                  onClick={() => {
+                    setShowPrescriptionModal(false);
+                    setIsViewingExistingPrescription(false);
+                  }}
                   className="px-6 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  Cancel
+                  {isViewingExistingPrescription ? 'Close' : 'Cancel'}
                 </button>
+                {!isViewingExistingPrescription && (
+                  <button
+                    onClick={savePrescription}
+                    className="inline-flex items-center px-6 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  >
+                    <Save className="w-4 h-4 mr-2" />
+                    Save Prescription
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Appointment Details Modal */}
+      {showDetailsModal && selectedAppointment && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-gray-900">Appointment Details</h2>
                 <button
-                  onClick={savePrescription}
-                  className="inline-flex items-center px-6 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  onClick={() => setShowDetailsModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
                 >
-                  <Save className="w-4 h-4 mr-2" />
-                  Save Prescription
+                  <X className="w-6 h-6" />
                 </button>
+              </div>
+
+              <div className="space-y-6">
+                {/* Patient Information */}
+                <div className="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg">
+                  <div className="w-16 h-16 rounded-full overflow-hidden bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
+                    {(selectedAppointment.patientId?.profilePicture || selectedAppointment.patientId?.profileImage?.url) ? (
+                      <img 
+                        src={selectedAppointment.patientId.profilePicture || selectedAppointment.patientId.profileImage.url} 
+                        alt="Patient"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <User className="w-8 h-8 text-blue-600" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {selectedAppointment.patientName}
+                    </h3>
+                    <div className="grid grid-cols-2 gap-4 mt-2 text-sm text-gray-600">
+                      <div>
+                        <span className="font-medium">Email:</span> {selectedAppointment.patientEmail}
+                      </div>
+                      <div>
+                        <span className="font-medium">Phone:</span> {selectedAppointment.patientPhone}
+                      </div>
+                      {selectedAppointment.patientAge && (
+                        <div>
+                          <span className="font-medium">Age:</span> {selectedAppointment.patientAge} years
+                        </div>
+                      )}
+                      <div>
+                        <span className="font-medium">Gender:</span> {(() => {
+                          const gender = selectedAppointment.patientId?.gender || selectedAppointment.patientGender;
+                          return gender ? gender.charAt(0).toUpperCase() + gender.slice(1) : 'Not Defined';
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Appointment Information */}
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="text-lg font-medium text-gray-900 mb-3">Appointment Details</h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center">
+                        <Calendar className="w-4 h-4 mr-2 text-gray-400" />
+                        <span className="font-medium">Date:</span>
+                        <span className="ml-2">{new Date(selectedAppointment.appointmentDate).toLocaleDateString()}</span>
+                      </div>
+                      <div className="flex items-center">
+                        <Clock className="w-4 h-4 mr-2 text-gray-400" />
+                        <span className="font-medium">Time:</span>
+                        <span className="ml-2">{selectedAppointment.startTime} - {selectedAppointment.endTime}</span>
+                      </div>
+                      <div className="flex items-center">
+                        <Stethoscope className="w-4 h-4 mr-2 text-gray-400" />
+                        <span className="font-medium">Service:</span>
+                        <span className="ml-2">{selectedAppointment.serviceType}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h4 className="text-lg font-medium text-gray-900 mb-3">Status</h4>
+                    <div className="space-y-2">
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                        selectedAppointment.status === 'completed' 
+                          ? 'bg-green-100 text-green-800' 
+                          : selectedAppointment.status === 'confirmed'
+                          ? 'bg-blue-100 text-blue-800'
+                          : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {selectedAppointment.status === 'completed' && <CheckCircle className="w-4 h-4 mr-1" />}
+                        {selectedAppointment.status === 'confirmed' && <AlertCircle className="w-4 h-4 mr-1" />}
+                        {selectedAppointment.status === 'scheduled' && <Clock className="w-4 h-4 mr-1" />}
+                        {selectedAppointment.status.charAt(0).toUpperCase() + selectedAppointment.status.slice(1)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Reason/Symptoms */}
+                {selectedAppointment.reason && (
+                  <div>
+                    <h4 className="text-lg font-medium text-gray-900 mb-2">Reason for Visit</h4>
+                    <p className="text-gray-700 bg-gray-50 p-3 rounded-lg">{selectedAppointment.reason}</p>
+                  </div>
+                )}
+
+                {/* Notes */}
+                {selectedAppointment.notes && (
+                  <div>
+                    <h4 className="text-lg font-medium text-gray-900 mb-2">Doctor's Notes</h4>
+                    <p className="text-gray-700 bg-gray-50 p-3 rounded-lg">{selectedAppointment.notes}</p>
+                  </div>
+                )}
+
+                {/* Action buttons for completed appointments */}
+                {selectedAppointment.status === 'completed' && (
+                  <div className="flex items-center space-x-3 pt-4 border-t border-gray-200">
+                    <button
+                      onClick={() => {
+                        setShowDetailsModal(false);
+                        handleViewExistingPrescription(selectedAppointment);
+                      }}
+                      className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 transition-colors"
+                    >
+                      <FileText className="w-4 h-4 mr-2" />
+                      View Prescription
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
