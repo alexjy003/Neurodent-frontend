@@ -1,26 +1,146 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
+import apiService from '../services/api'
 
 const DashboardOverview = ({ user }) => {
-  // Use real user data or fallback to mock data
-  const patientData = {
-    name: user ? `${user.firstName} ${user.lastName}` : 'Patient',
-    nextAppointment: {
-      date: '2024-01-15',
-      time: '10:00 AM',
-      doctor: 'Dr. Sarah Johnson',
-      type: 'Regular Checkup'
-    },
-    recentActivity: [
-      { date: '2024-01-10', action: 'Appointment booked with Dr. Sarah Johnson' },
-      { date: '2024-01-08', action: 'Prescription received for teeth cleaning' },
-      { date: '2024-01-05', action: 'Medical records updated' }
-    ],
+  const [dashboardData, setDashboardData] = useState({
     stats: {
-      totalAppointments: 12,
-      upcomingAppointments: 2,
-      completedTreatments: 8,
-      missedAppointments: 1
+      totalAppointments: 0,
+      upcomingAppointments: 0,
+      completedTreatments: 0,
+      missedAppointments: 0
+    },
+    nextAppointment: null,
+    recentActivity: [],
+    loading: true
+  })
+
+  useEffect(() => {
+    if (user) {
+      loadDashboardData()
     }
+  }, [user])
+
+  const loadDashboardData = async () => {
+    try {
+      console.log('🔍 Loading dashboard data for patient:', user?._id)
+
+      // Fetch appointments data
+      const appointmentsResponse = await apiService.get('/appointments/my-appointments?limit=50')
+      console.log('📅 Dashboard appointments response:', appointmentsResponse)
+      
+      let appointments = []
+      let nextAppointment = null
+      let stats = {
+        totalAppointments: 0,
+        upcomingAppointments: 0,
+        completedTreatments: 0,
+        missedAppointments: 0
+      }
+
+      if (appointmentsResponse && appointmentsResponse.success && appointmentsResponse.appointments) {
+        appointments = appointmentsResponse.appointments
+        stats.totalAppointments = appointments.length
+
+        // Get current date for comparison
+        const now = new Date()
+        now.setHours(0, 0, 0, 0)
+
+        // Calculate stats and find next appointment
+        appointments.forEach(apt => {
+          const aptDate = new Date(apt.appointmentDate)
+          aptDate.setHours(0, 0, 0, 0)
+
+          if (apt.status === 'completed') {
+            stats.completedTreatments++
+          } else if (apt.status === 'cancelled') {
+            stats.missedAppointments++
+          } else if (aptDate >= now) {
+            stats.upcomingAppointments++
+            // Find the earliest upcoming appointment
+            if (!nextAppointment || aptDate < new Date(nextAppointment.appointmentDate)) {
+              nextAppointment = apt
+            }
+          }
+        })
+
+        console.log('📊 Calculated stats:', stats)
+        console.log('📅 Next appointment:', nextAppointment)
+      }
+
+      // Create recent activity from appointments
+      const recentActivity = appointments
+        .filter(apt => apt.status === 'completed' || apt.status === 'confirmed')
+        .slice(0, 3)
+        .map(apt => ({
+          date: formatDateForActivity(apt.appointmentDate),
+          action: `Appointment ${apt.status === 'completed' ? 'completed' : 'booked'} with ${apt.doctorName || 'Doctor'}`,
+          type: apt.status
+        }))
+
+      // Add some generic recent activity if we don't have enough
+      if (recentActivity.length < 3) {
+        recentActivity.push(
+          { date: formatDateForActivity(new Date()), action: 'Medical records updated', type: 'update' }
+        )
+      }
+
+      setDashboardData({
+        stats,
+        nextAppointment,
+        recentActivity,
+        loading: false
+      })
+
+    } catch (error) {
+      console.error('❌ Error loading dashboard data:', error)
+      // Set default values on error
+      setDashboardData({
+        stats: {
+          totalAppointments: 0,
+          upcomingAppointments: 0,
+          completedTreatments: 0,
+          missedAppointments: 0
+        },
+        nextAppointment: null,
+        recentActivity: [
+          { date: formatDateForActivity(new Date()), action: 'Medical records updated', type: 'update' }
+        ],
+        loading: false
+      })
+    }
+  }
+
+  const formatDateForActivity = (dateString) => {
+    if (!dateString) return 'Recently'
+    const date = new Date(dateString)
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    })
+  }
+
+  const formatAppointmentDate = (dateString) => {
+    if (!dateString) return 'N/A'
+    const date = new Date(dateString)
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    })
+  }
+
+  if (dashboardData.loading) {
+    return (
+      <div className="space-y-8">
+        <div className="bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 rounded-2xl p-8 text-white shadow-2xl">
+          <h2 className="text-3xl font-bold mb-3">Loading your dashboard...</h2>
+          <div className="animate-pulse">
+            <div className="h-4 bg-white/20 rounded w-3/4"></div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -29,7 +149,7 @@ const DashboardOverview = ({ user }) => {
       <div className="bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 rounded-2xl p-8 text-white shadow-2xl relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent"></div>
         <div className="relative z-10">
-          <h2 className="text-3xl font-bold mb-3">Welcome back, {patientData.name}! 👋</h2>
+          <h2 className="text-3xl font-bold mb-3">Welcome back, {user ? `${user.firstName} ${user.lastName}` : 'Patient'}! 👋</h2>
           <p className="text-blue-100 text-lg">Managing your dental health has never been easier.</p>
         </div>
         <div className="absolute -top-4 -right-4 w-24 h-24 bg-white/10 rounded-full"></div>
@@ -49,7 +169,7 @@ const DashboardOverview = ({ user }) => {
             </div>
             <div className="ml-4">
               <p className="text-sm font-semibold text-gray-600">Total Appointments</p>
-              <p className="text-3xl font-bold text-gray-900">{patientData.stats.totalAppointments}</p>
+              <p className="text-3xl font-bold text-gray-900">{dashboardData.stats.totalAppointments}</p>
             </div>
           </div>
         </div>
@@ -65,7 +185,7 @@ const DashboardOverview = ({ user }) => {
             </div>
             <div className="ml-4">
               <p className="text-sm font-semibold text-gray-600">Upcoming</p>
-              <p className="text-3xl font-bold text-gray-900">{patientData.stats.upcomingAppointments}</p>
+              <p className="text-3xl font-bold text-gray-900">{dashboardData.stats.upcomingAppointments}</p>
             </div>
           </div>
         </div>
@@ -81,7 +201,7 @@ const DashboardOverview = ({ user }) => {
             </div>
             <div className="ml-4">
               <p className="text-sm font-semibold text-gray-600">Completed</p>
-              <p className="text-3xl font-bold text-gray-900">{patientData.stats.completedTreatments}</p>
+              <p className="text-3xl font-bold text-gray-900">{dashboardData.stats.completedTreatments}</p>
             </div>
           </div>
         </div>
@@ -97,7 +217,7 @@ const DashboardOverview = ({ user }) => {
             </div>
             <div className="ml-4">
               <p className="text-sm font-semibold text-gray-600">Missed</p>
-              <p className="text-3xl font-bold text-gray-900">{patientData.stats.missedAppointments}</p>
+              <p className="text-3xl font-bold text-gray-900">{dashboardData.stats.missedAppointments}</p>
             </div>
           </div>
         </div>
@@ -109,31 +229,33 @@ const DashboardOverview = ({ user }) => {
           <div className="p-8">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-bold text-gray-900">Next Appointment</h3>
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 shadow-sm">
-                ✓ Confirmed
-              </span>
+              {dashboardData.nextAppointment && (
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 shadow-sm">
+                  ✓ Confirmed
+                </span>
+              )}
             </div>
             
-            {patientData.nextAppointment ? (
+            {dashboardData.nextAppointment ? (
               <div>
                 <div className="space-y-3">
                   <div className="flex items-center text-sm text-gray-600">
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a1 1 0 011-1h6a1 1 0 011 1v4m-9 0h10a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V9a2 2 0 012-2z" />
                     </svg>
-                    {patientData.nextAppointment.date} at {patientData.nextAppointment.time}
+                    {formatAppointmentDate(dashboardData.nextAppointment.appointmentDate)} at {dashboardData.nextAppointment.timeRange || '10:00 AM'}
                   </div>
                   <div className="flex items-center text-sm text-gray-600">
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>
-                    {patientData.nextAppointment.doctor}
+                    {dashboardData.nextAppointment.doctorName || 'Doctor'}
                   </div>
                   <div className="flex items-center text-sm text-gray-600">
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    {patientData.nextAppointment.type}
+                    {dashboardData.nextAppointment.slotType || 'General Appointment'}
                   </div>
                 </div>
                 <div className="mt-6 flex space-x-3">
@@ -161,9 +283,13 @@ const DashboardOverview = ({ user }) => {
           <div className="p-8">
             <h3 className="text-xl font-bold text-gray-900 mb-6">Recent Activity</h3>
             <div className="space-y-5">
-              {patientData.recentActivity.map((activity, index) => (
+              {dashboardData.recentActivity.map((activity, index) => (
                 <div key={index} className="flex items-start group hover:bg-blue-50 p-3 rounded-lg transition-colors duration-200">
-                  <div className="flex-shrink-0 w-3 h-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full mt-2 shadow-sm"></div>
+                  <div className={`flex-shrink-0 w-3 h-3 rounded-full mt-2 shadow-sm ${
+                    activity.type === 'completed' ? 'bg-gradient-to-r from-green-500 to-emerald-600' :
+                    activity.type === 'confirmed' ? 'bg-gradient-to-r from-blue-500 to-indigo-600' :
+                    'bg-gradient-to-r from-purple-500 to-pink-600'
+                  }`}></div>
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-900 group-hover:text-blue-900">{activity.action}</p>
                     <p className="text-xs text-gray-500 mt-1">{activity.date}</p>
@@ -180,48 +306,6 @@ const DashboardOverview = ({ user }) => {
               </button>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
-        <h3 className="text-xl font-bold text-gray-900 mb-6">Quick Actions</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-          <button className="group flex flex-col items-center p-6 border-2 border-blue-100 rounded-2xl hover:bg-gradient-to-br hover:from-blue-50 hover:to-indigo-50 hover:border-blue-300 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg group-hover:shadow-xl transition-shadow duration-300">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a1 1 0 011-1h6a1 1 0 011 1v4m-9 0h10a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V9a2 2 0 012-2z" />
-              </svg>
-            </div>
-            <span className="text-sm font-semibold text-gray-900 group-hover:text-blue-900">Book Appointment</span>
-          </button>
-
-          <button className="group flex flex-col items-center p-6 border-2 border-emerald-100 rounded-2xl hover:bg-gradient-to-br hover:from-emerald-50 hover:to-green-50 hover:border-emerald-300 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
-            <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg group-hover:shadow-xl transition-shadow duration-300">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </div>
-            <span className="text-sm font-semibold text-gray-900 group-hover:text-emerald-900">Find Doctors</span>
-          </button>
-
-          <button className="group flex flex-col items-center p-6 border-2 border-purple-100 rounded-2xl hover:bg-gradient-to-br hover:from-purple-50 hover:to-indigo-50 hover:border-purple-300 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
-            <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg group-hover:shadow-xl transition-shadow duration-300">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            </div>
-            <span className="text-sm font-semibold text-gray-900 group-hover:text-purple-900">View Records</span>
-          </button>
-
-          <button className="group flex flex-col items-center p-6 border-2 border-pink-100 rounded-2xl hover:bg-gradient-to-br hover:from-pink-50 hover:to-rose-50 hover:border-pink-300 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
-            <div className="w-12 h-12 bg-gradient-to-br from-pink-500 to-pink-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg group-hover:shadow-xl transition-shadow duration-300">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-            </div>
-            <span className="text-sm font-semibold text-gray-900 group-hover:text-pink-900">Update Profile</span>
-          </button>
         </div>
       </div>
     </div>

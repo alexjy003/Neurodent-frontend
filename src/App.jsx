@@ -40,7 +40,6 @@ import DoctorDashboard from './pages/doctor/DoctorDashboard'
 import Appointments from './pages/doctor/Appointments'
 import DoctorPatientRecords from './pages/doctor/PatientRecords'
 import Prescriptions from './pages/doctor/Prescriptions'
-import TreatmentNotes from './pages/doctor/TreatmentNotes'
 import Schedule from './pages/doctor/Schedule'
 import DoctorSettings from './pages/doctor/Settings'
 
@@ -122,7 +121,6 @@ function App() {
             <Route path="appointments" element={<Appointments />} />
             <Route path="patient-records" element={<DoctorPatientRecords />} />
             <Route path="prescriptions" element={<Prescriptions />} />
-            <Route path="treatment-notes" element={<TreatmentNotes />} />
             <Route path="schedule" element={<Schedule />} />
             <Route path="settings" element={<DoctorSettings />} />
           </Route>

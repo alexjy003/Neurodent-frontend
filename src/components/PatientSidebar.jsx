@@ -106,9 +106,6 @@ const PatientSidebar = ({ activeTab, setActiveTab, sidebarOpen, setSidebarOpen, 
                 {item.icon}
               </div>
               <span className="text-left flex-1 min-w-0">{item.name}</span>
-              {activeTab === item.id && (
-                <div className="w-2 h-2 bg-white rounded-full shadow-sm"></div>
-              )}
             </button>
           ))}
         </div>

@@ -28,7 +28,6 @@ const DoctorLayout = () => {
     { name: 'Appointments', href: '/doctor/appointments', icon: Calendar },
     { name: 'Patient Records', href: '/doctor/patient-records', icon: Users },
     { name: 'Prescriptions', href: '/doctor/prescriptions', icon: FileText },
-    { name: 'Treatment Notes', href: '/doctor/treatment-notes', icon: Stethoscope },
     { name: 'Schedule', href: '/doctor/schedule', icon: Clock },
     { name: 'Profile Settings', href: '/doctor/settings', icon: Settings },
   ]

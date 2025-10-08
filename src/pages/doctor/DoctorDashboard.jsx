@@ -21,11 +21,14 @@ import {
   ArrowRight,
   User
 } from 'lucide-react'
+import apiService from '../../services/api'
+import toast from 'react-hot-toast'
 
 const DoctorDashboard = () => {
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('overview')
   const [appointments, setAppointments] = useState([])
+  const [todaysAppointments, setTodaysAppointments] = useState([])
   const [patients, setPatients] = useState([])
   const [loading, setLoading] = useState(true)
   const [doctor, setDoctor] = useState(null)
@@ -44,6 +47,8 @@ const DoctorDashboard = () => {
       try {
         const parsedDoctor = JSON.parse(doctorInfo)
         setDoctor(parsedDoctor)
+        // Load real data after authentication
+        loadDashboardData()
       } catch (error) {
         console.error('Error parsing doctor info:', error)
         navigate('/doctor/login')
@@ -52,112 +57,56 @@ const DoctorDashboard = () => {
     }
 
     checkAuth()
-
-    // Mock data - replace with actual API calls
-    setTimeout(() => {
-      setAppointments([
-        {
-          id: 1,
-          patientName: 'Sarah Johnson',
-          time: '09:00 AM',
-          date: '2024-01-15',
-          reason: 'Routine Checkup',
-          status: 'pending',
-          phone: '+1 234-567-8900'
-        },
-        {
-          id: 2,
-          patientName: 'Michael Chen',
-          time: '10:30 AM',
-          date: '2024-01-15',
-          reason: 'Tooth Pain',
-          status: 'completed',
-          phone: '+1 234-567-8901'
-        },
-        {
-          id: 3,
-          patientName: 'Emily Davis',
-          time: '02:00 PM',
-          date: '2024-01-15',
-          reason: 'Dental Cleaning',
-          status: 'pending',
-          phone: '+1 234-567-8902'
-        },
-        {
-          id: 4,
-          patientName: 'Robert Wilson',
-          time: '03:30 PM',
-          date: '2024-01-15',
-          reason: 'Root Canal',
-          status: 'completed',
-          phone: '+1 234-567-8903'
-        },
-        {
-          id: 5,
-          patientName: 'Lisa Brown',
-          time: '04:00 PM',
-          date: '2024-01-15',
-          reason: 'Consultation',
-          status: 'cancelled',
-          phone: '+1 234-567-8904'
-        },
-        {
-          id: 6,
-          patientName: 'David Miller',
-          time: '11:00 AM',
-          date: '2024-01-15',
-          reason: 'Teeth Whitening',
-          status: 'pending',
-          phone: '+1 234-567-8905'
-        }
-      ])
-
-      setPatients([
-        {
-          id: 1,
-          name: 'Sarah Johnson',
-          lastVisit: '2024-01-10',
-          nextAppointment: '2024-01-15',
-          treatments: 3,
-          status: 'active'
-        },
-        {
-          id: 2,
-          name: 'Michael Chen',
-          lastVisit: '2024-01-15',
-          nextAppointment: null,
-          treatments: 1,
-          status: 'completed'
-        },
-        {
-          id: 3,
-          name: 'Emily Davis',
-          lastVisit: '2024-01-12',
-          nextAppointment: '2024-01-15',
-          treatments: 2,
-          status: 'active'
-        },
-        {
-          id: 4,
-          name: 'Robert Wilson',
-          lastVisit: '2024-01-08',
-          nextAppointment: '2024-01-20',
-          treatments: 5,
-          status: 'active'
-        },
-        {
-          id: 5,
-          name: 'Lisa Brown',
-          lastVisit: '2024-01-05',
-          nextAppointment: null,
-          treatments: 1,
-          status: 'inactive'
-        }
-      ])
-
-      setLoading(false)
-    }, 1000)
   }, [navigate])
+
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true)
+      console.log('🔍 Loading dashboard data...')
+
+      // Fetch appointments
+      const appointmentsResponse = await apiService.get('/appointments/doctor/my-appointments?limit=50')
+      console.log('📅 Appointments response:', appointmentsResponse)
+      
+      if (appointmentsResponse.success) {
+        const allAppointments = appointmentsResponse.appointments || []
+        setAppointments(allAppointments)
+        
+        // Filter today's appointments
+        const today = new Date().toISOString().split('T')[0]
+        const todaysAppts = allAppointments.filter(apt => {
+          const appointmentDate = apt.appointmentDate || apt.date
+          return appointmentDate === today
+        })
+        setTodaysAppointments(todaysAppts)
+        
+        console.log('✅ Loaded appointments:', allAppointments.length, 'Today:', todaysAppts.length)
+      } else {
+        console.error('❌ Failed to fetch appointments:', appointmentsResponse.message)
+        toast.error('Failed to load appointments')
+      }
+
+      // Fetch patients (optional - for total count)
+      try {
+        const patientsResponse = await apiService.get('/patients')
+        console.log('👥 Patients response:', patientsResponse)
+        
+        if (patientsResponse.success) {
+          const patientsData = patientsResponse.data || patientsResponse.patients || []
+          setPatients(patientsData)
+          console.log('✅ Loaded patients:', patientsData.length)
+        }
+      } catch (patientsError) {
+        console.log('⚠️ Could not load patients (optional):', patientsError.message)
+      }
+
+    } catch (error) {
+      console.error('❌ Error loading dashboard data:', error)
+      toast.error('Failed to load dashboard data')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   // Logout function
   const handleLogout = () => {
@@ -169,32 +118,60 @@ const DoctorDashboard = () => {
   const today = new Date().toISOString().split('T')[0]
 
   const stats = {
-    todayAppointments: appointments.length, // Show all appointments for demo
-    pendingAppointments: appointments.filter(apt => apt.status === 'pending').length,
-    completedAppointments: appointments.filter(apt => apt.status === 'completed').length,
-    cancelledAppointments: appointments.filter(apt => apt.status === 'cancelled').length,
+    todayAppointments: todaysAppointments.length,
+    pendingAppointments: todaysAppointments.filter(apt => 
+      apt.status === 'pending' || apt.status === 'scheduled' || apt.status === 'confirmed'
+    ).length,
+    completedAppointments: todaysAppointments.filter(apt => apt.status === 'completed').length,
+    cancelledAppointments: todaysAppointments.filter(apt => apt.status === 'cancelled').length,
     totalPatients: patients.length,
-    patientSatisfaction: 4.8
+    patientSatisfaction: 4.8 // Keep as mock for now
   }
 
 
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200'
-      case 'completed': return 'bg-green-100 text-green-800 border-green-200'
-      case 'cancelled': return 'bg-red-100 text-red-800 border-red-200'
-      default: return 'bg-gray-100 text-gray-800 border-gray-200'
+      case 'pending':
+      case 'scheduled': 
+      case 'confirmed': 
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200'
+      case 'completed': 
+        return 'bg-green-100 text-green-800 border-green-200'
+      case 'cancelled': 
+        return 'bg-red-100 text-red-800 border-red-200'
+      default: 
+        return 'bg-gray-100 text-gray-800 border-gray-200'
     }
   }
 
   const getStatusIcon = (status) => {
     switch (status) {
-      case 'pending': return <AlertCircle className="w-4 h-4" />
-      case 'completed': return <CheckCircle className="w-4 h-4" />
-      case 'cancelled': return <XCircle className="w-4 h-4" />
-      default: return <Clock className="w-4 h-4" />
+      case 'pending':
+      case 'scheduled':
+      case 'confirmed':
+        return <AlertCircle className="w-4 h-4" />
+      case 'completed': 
+        return <CheckCircle className="w-4 h-4" />
+      case 'cancelled': 
+        return <XCircle className="w-4 h-4" />
+      default: 
+        return <Clock className="w-4 h-4" />
     }
+  }
+
+  const formatTime = (timeString) => {
+    if (!timeString) return 'N/A'
+    // If it's already in 12-hour format, return as is
+    if (timeString.includes('AM') || timeString.includes('PM')) {
+      return timeString
+    }
+    // Convert 24-hour to 12-hour format
+    const [hours, minutes] = timeString.split(':')
+    const hour = parseInt(hours)
+    const period = hour >= 12 ? 'PM' : 'AM'
+    const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour
+    return `${hour12}:${minutes} ${period}`
   }
 
   if (loading) {
@@ -351,11 +328,11 @@ const DoctorDashboard = () => {
                   <span className="text-sm font-medium text-gray-700">Cancelled</span>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <span className="text-sm font-semibold text-gray-900">{appointments.filter(apt => apt.status === 'cancelled').length}</span>
+                  <span className="text-sm font-semibold text-gray-900">{stats.cancelledAppointments}</span>
                   <div className="w-20 h-2 bg-gray-200 rounded-full">
                     <div
                       className="h-2 bg-red-500 rounded-full"
-                      style={{ width: `${(appointments.filter(apt => apt.status === 'cancelled').length / stats.todayAppointments) * 100}%` }}
+                      style={{ width: `${stats.todayAppointments > 0 ? (stats.cancelledAppointments / stats.todayAppointments) * 100 : 0}%` }}
                     ></div>
                   </div>
                 </div>
@@ -369,17 +346,24 @@ const DoctorDashboard = () => {
               <h3 className="text-lg font-semibold text-gray-900">Next Appointment</h3>
               <Clock className="w-5 h-5 text-gray-500" />
             </div>
-            {appointments.filter(apt => apt.status === 'pending').length > 0 ? (
+            {todaysAppointments.filter(apt => 
+              apt.status === 'pending' || apt.status === 'scheduled' || apt.status === 'confirmed'
+            ).length > 0 ? (
               <div className="space-y-4">
-                {appointments.filter(apt => apt.status === 'pending').slice(0, 1).map((appointment) => (
+                {todaysAppointments
+                  .filter(apt => apt.status === 'pending' || apt.status === 'scheduled' || apt.status === 'confirmed')
+                  .slice(0, 1)
+                  .map((appointment) => (
                   <div key={appointment.id} className="border border-gray-200 rounded-lg p-4">
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="font-semibold text-gray-900">{appointment.patientName}</h4>
-                      <span className="text-sm text-blue-600 font-medium">{appointment.time}</span>
+                      <span className="text-sm text-blue-600 font-medium">
+                        {formatTime(appointment.startTime)}
+                      </span>
                     </div>
-                    <p className="text-sm text-gray-600 mb-2">{appointment.reason}</p>
+                    <p className="text-sm text-gray-600 mb-2">{appointment.symptoms || appointment.reason || appointment.slotType}</p>
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-500">{appointment.phone}</span>
+                      <span className="text-xs text-gray-500">{appointment.patientPhone || 'No phone'}</span>
                       <button className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center">
                         View Details
                         <ArrowRight className="w-4 h-4 ml-1" />
@@ -444,49 +428,68 @@ const DoctorDashboard = () => {
             </div>
             
             <div className="space-y-4">
-              {appointments.filter(apt => apt.date === '2024-01-15').map((appointment) => (
-                <div key={appointment.id} className="border border-gray-200 rounded-xl p-4 hover:shadow-md transition-all duration-200">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full flex items-center justify-center">
-                        <Users className="w-6 h-6 text-blue-600" />
+              {todaysAppointments.length === 0 ? (
+                <div className="text-center py-8">
+                  <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500">No appointments scheduled for today</p>
+                </div>
+              ) : (
+                todaysAppointments.map((appointment) => (
+                  <div key={appointment.id} className="border border-gray-200 rounded-xl p-4 hover:shadow-md transition-all duration-200">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4">
+                        <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full flex items-center justify-center overflow-hidden">
+                          {appointment.patientId?.profileImage?.url || appointment.patientProfilePicture ? (
+                            <img 
+                              src={appointment.patientId?.profileImage?.url || appointment.patientProfilePicture} 
+                              alt={appointment.patientName}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                const fallbackIcon = e.target.parentElement.querySelector('.fallback-icon');
+                                if (fallbackIcon) fallbackIcon.style.display = 'block';
+                              }}
+                            />
+                          ) : null}
+                          <Users className={`fallback-icon w-6 h-6 text-blue-600 ${appointment.patientId?.profileImage?.url || appointment.patientProfilePicture ? 'hidden' : 'block'}`} />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-gray-900">{appointment.patientName}</h3>
+                          <p className="text-sm text-gray-600">{appointment.symptoms || appointment.reason || appointment.slotType}</p>
+                          <p className="text-sm text-gray-500">{appointment.patientPhone || appointment.patientEmail || 'No contact'}</p>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="font-semibold text-gray-900">{appointment.patientName}</h3>
-                        <p className="text-sm text-gray-600">{appointment.reason}</p>
-                        <p className="text-sm text-gray-500">{appointment.phone}</p>
+                      
+                      <div className="text-right">
+                        <p className="font-semibold text-gray-900">{formatTime(appointment.startTime)}</p>
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(appointment.status)}`}>
+                          {getStatusIcon(appointment.status)}
+                          <span className="ml-1 capitalize">{appointment.status}</span>
+                        </span>
                       </div>
                     </div>
                     
-                    <div className="text-right">
-                      <p className="font-semibold text-gray-900">{appointment.time}</p>
-                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(appointment.status)}`}>
-                        {getStatusIcon(appointment.status)}
-                        <span className="ml-1 capitalize">{appointment.status}</span>
-                      </span>
+                    <div className="flex items-center space-x-2 mt-4">
+                      {(appointment.status === 'pending' || appointment.status === 'scheduled' || appointment.status === 'confirmed') && (
+                        <>
+                          <button className="px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm">
+                            Start Consultation
+                          </button>
+                          <button className="px-3 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm">
+                            Reschedule
+                          </button>
+                        </>
+                      )}
+                      {appointment.status === 'completed' && (
+                        <button className="px-3 py-1 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm flex items-center space-x-1">
+                          <Eye className="w-4 h-4" />
+                          <span>View Details</span>
+                        </button>
+                      )}
                     </div>
                   </div>
-                  
-                  <div className="flex items-center space-x-2 mt-4">
-                    {appointment.status === 'pending' && (
-                      <>
-                        <button className="px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm">
-                          Start Consultation
-                        </button>
-                        <button className="px-3 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm">
-                          Reschedule
-                        </button>
-                      </>
-                    )}
-                    {appointment.status === 'completed' && (
-                      <button className="px-3 py-1 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm flex items-center space-x-1">
-                        <Eye className="w-4 h-4" />
-                        <span>View Details</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
 
@@ -495,14 +498,30 @@ const DoctorDashboard = () => {
             {/* Next Appointment */}
             <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-6 text-white shadow-lg">
               <h3 className="text-lg font-bold mb-4">Next Appointment</h3>
-              {appointments.filter(apt => apt.status === 'pending')[0] ? (
+              {todaysAppointments.filter(apt => 
+                apt.status === 'pending' || apt.status === 'scheduled' || apt.status === 'confirmed'
+              )[0] ? (
                 <div>
                   <p className="text-blue-100 text-sm">Patient</p>
-                  <p className="font-semibold text-lg">{appointments.filter(apt => apt.status === 'pending')[0].patientName}</p>
+                  <p className="font-semibold text-lg">
+                    {todaysAppointments.filter(apt => 
+                      apt.status === 'pending' || apt.status === 'scheduled' || apt.status === 'confirmed'
+                    )[0].patientName}
+                  </p>
                   <p className="text-blue-100 text-sm mt-2">Time</p>
-                  <p className="font-semibold">{appointments.filter(apt => apt.status === 'pending')[0].time}</p>
+                  <p className="font-semibold">
+                    {formatTime(todaysAppointments.filter(apt => 
+                      apt.status === 'pending' || apt.status === 'scheduled' || apt.status === 'confirmed'
+                    )[0].startTime)}
+                  </p>
                   <p className="text-blue-100 text-sm mt-2">Reason</p>
-                  <p className="font-semibold">{appointments.filter(apt => apt.status === 'pending')[0].reason}</p>
+                  <p className="font-semibold">
+                    {todaysAppointments.filter(apt => 
+                      apt.status === 'pending' || apt.status === 'scheduled' || apt.status === 'confirmed'
+                    )[0].symptoms || todaysAppointments.filter(apt => 
+                      apt.status === 'pending' || apt.status === 'scheduled' || apt.status === 'confirmed'
+                    )[0].slotType || 'General Consultation'}
+                  </p>
                 </div>
               ) : (
                 <p className="text-blue-100">No upcoming appointments</p>

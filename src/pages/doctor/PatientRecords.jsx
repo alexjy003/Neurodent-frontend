@@ -6,12 +6,9 @@ import {
   Mail,
   Calendar,
   Clock,
-  FileText,
   Download,
   Eye,
   Edit,
-  Plus,
-  Filter,
   ChevronRight,
   Activity,
   Pill,
@@ -19,178 +16,142 @@ import {
   Heart,
   Users
 } from 'lucide-react'
+import apiService from '../../services/api'
+import toast from 'react-hot-toast'
 
 const PatientRecords = () => {
   const [patients, setPatients] = useState([])
   const [filteredPatients, setFilteredPatients] = useState([])
   const [selectedPatient, setSelectedPatient] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('overview')
-
-  // Sample patient data
-  const samplePatients = [
-    {
-      id: 1,
-      name: 'Sarah Johnson',
-      email: 'sarah.johnson@email.com',
-      phone: '+1 234-567-8900',
-      age: 28,
-      gender: 'Female',
-      lastVisit: '2025-08-05',
-      nextAppointment: '2025-08-15',
-      status: 'Active',
-      totalVisits: 12,
-      treatmentHistory: [
-        {
-          id: 1,
-          date: '2025-08-05',
-          treatment: 'Routine Cleaning',
-          doctor: 'Dr. Smith',
-          notes: 'Regular cleaning completed. No issues found.',
-          cost: '$120'
-        },
-        {
-          id: 2,
-          date: '2025-05-15',
-          treatment: 'Cavity Filling',
-          doctor: 'Dr. Smith',
-          notes: 'Filled cavity in upper right molar. Patient responded well.',
-          cost: '$180'
-        }
-      ],
-      prescriptions: [
-        {
-          id: 1,
-          date: '2025-08-05',
-          medication: 'Fluoride Rinse',
-          dosage: '10ml twice daily',
-          duration: '2 weeks',
-          status: 'Active'
-        }
-      ],
-      notes: [
-        {
-          id: 1,
-          date: '2025-08-05',
-          note: 'Patient maintains good oral hygiene. Recommend continued regular cleanings.',
-          doctor: 'Dr. Smith'
-        }
-      ]
-    },
-    {
-      id: 2,
-      name: 'Michael Chen',
-      email: 'michael.chen@email.com',
-      phone: '+1 234-567-8901',
-      age: 35,
-      gender: 'Male',
-      lastVisit: '2025-07-20',
-      nextAppointment: '2025-08-10',
-      status: 'Active',
-      totalVisits: 8,
-      treatmentHistory: [
-        {
-          id: 1,
-          date: '2025-07-20',
-          treatment: 'Root Canal',
-          doctor: 'Dr. Smith',
-          notes: 'Root canal procedure completed successfully on tooth #19.',
-          cost: '$800'
-        }
-      ],
-      prescriptions: [
-        {
-          id: 1,
-          date: '2025-07-20',
-          medication: 'Ibuprofen',
-          dosage: '400mg every 6 hours',
-          duration: '5 days',
-          status: 'Completed'
-        }
-      ],
-      notes: [
-        {
-          id: 1,
-          date: '2025-07-20',
-          note: 'Patient experienced severe pain. Root canal was necessary.',
-          doctor: 'Dr. Smith'
-        }
-      ]
-    },
-    {
-      id: 3,
-      name: 'Emily Davis',
-      email: 'emily.davis@email.com',
-      phone: '+1 234-567-8902',
-      age: 42,
-      gender: 'Female',
-      lastVisit: '2025-06-10',
-      nextAppointment: null,
-      status: 'Inactive',
-      totalVisits: 15,
-      treatmentHistory: [
-        {
-          id: 1,
-          date: '2025-06-10',
-          treatment: 'Teeth Whitening',
-          doctor: 'Dr. Smith',
-          notes: 'Professional whitening treatment completed.',
-          cost: '$300'
-        }
-      ],
-      prescriptions: [],
-      notes: [
-        {
-          id: 1,
-          date: '2025-06-10',
-          note: 'Patient satisfied with whitening results.',
-          doctor: 'Dr. Smith'
-        }
-      ]
-    }
-  ]
+  const [patientAppointments, setPatientAppointments] = useState([])
+  const [patientPrescriptions, setPatientPrescriptions] = useState([])
 
   useEffect(() => {
-    setTimeout(() => {
-      setPatients(samplePatients)
-      setLoading(false)
-    }, 1000)
+    fetchPatients()
   }, [])
+
+  const fetchPatients = async () => {
+    try {
+      setLoading(true)
+      console.log('🔍 Fetching patients...')
+      
+      const response = await apiService.get('/patients')
+      console.log('📊 Patients API Response:', response)
+      
+      if (response.success) {
+        const patientsData = response.data || response.patients || []
+        setPatients(patientsData)
+        console.log('✅ Patients loaded successfully:', patientsData.length)
+      } else {
+        console.error('❌ Failed to fetch patients:', response.message)
+        toast.error(response.message || 'Failed to load patients')
+        setPatients([])
+      }
+    } catch (error) {
+      console.error('❌ Error fetching patients:', error)
+      toast.error('Failed to load patient records')
+      setPatients([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchPatientDetails = async (patientId) => {
+    try {
+      console.log('🔍 Fetching details for patient:', patientId)
+      
+      // Fetch patient appointments
+      const appointmentsResponse = await apiService.get(`/appointments/patient/${patientId}`)
+      if (appointmentsResponse.success) {
+        setPatientAppointments(appointmentsResponse.appointments || [])
+      }
+      
+      // Fetch patient prescriptions
+      const prescriptionsResponse = await apiService.get(`/prescriptions/patient/${patientId}`)
+      if (prescriptionsResponse.success) {
+        setPatientPrescriptions(prescriptionsResponse.prescriptions || [])
+      }
+    } catch (error) {
+      console.error('❌ Error fetching patient details:', error)
+    }
+  }
 
   useEffect(() => {
     let filtered = patients.filter(patient => {
-      const matchesSearch = patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           patient.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           patient.phone.includes(searchTerm)
+      const matchesSearch = patient.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           patient.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           patient.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           patient.phone?.includes(searchTerm)
       
-      const matchesStatus = statusFilter === 'all' || patient.status.toLowerCase() === statusFilter
-      
-      return matchesSearch && matchesStatus
+      return matchesSearch
     })
     
     setFilteredPatients(filtered)
-  }, [patients, searchTerm, statusFilter])
-
-  const getStatusColor = (status) => {
-    switch (status.toLowerCase()) {
-      case 'active':
-        return 'bg-green-100 text-green-800 border-green-200'
-      case 'inactive':
-        return 'bg-gray-100 text-gray-800 border-gray-200'
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-200'
-    }
-  }
+  }, [patients, searchTerm])
 
   const handlePatientSelect = (patient) => {
     setSelectedPatient(patient)
     setActiveTab('overview')
+    fetchPatientDetails(patient._id)
+  }
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A'
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    })
+  }
+
+  const calculateAge = (dateOfBirth) => {
+    if (!dateOfBirth) return 'N/A'
+    const today = new Date()
+    const birthDate = new Date(dateOfBirth)
+    let age = today.getFullYear() - birthDate.getFullYear()
+    const monthDiff = today.getMonth() - birthDate.getMonth()
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--
+    }
+    
+    return age
+  }
+
+  const getLastVisit = (appointments) => {
+    if (!appointments || appointments.length === 0) return 'No visits'
+    
+    const completedAppointments = appointments.filter(apt => apt.status === 'completed')
+    if (completedAppointments.length === 0) return 'No completed visits'
+    
+    const lastVisit = completedAppointments.sort((a, b) => new Date(b.date) - new Date(a.date))[0]
+    return formatDate(lastVisit.date)
+  }
+
+  const getNextAppointment = (appointments) => {
+    if (!appointments || appointments.length === 0) return null
+    
+    const upcomingAppointments = appointments.filter(apt => 
+      apt.status === 'scheduled' || apt.status === 'confirmed'
+    )
+    
+    if (upcomingAppointments.length === 0) return null
+    
+    const nextAppt = upcomingAppointments.sort((a, b) => new Date(a.date) - new Date(b.date))[0]
+    return formatDate(nextAppt.date)
+  }
+
+  const getTotalVisits = (appointments) => {
+    if (!appointments || appointments.length === 0) return 0
+    return appointments.filter(apt => apt.status === 'completed').length
   }
 
   const handleDownloadReport = (patientId) => {
     console.log('Download report for patient:', patientId)
+    toast.info('Report download feature coming soon!')
   }
 
   if (loading) {
@@ -215,11 +176,13 @@ const PatientRecords = () => {
             ← Back to Patients
           </button>
           <div className="flex-1">
-            <h1 className="text-2xl font-bold text-gray-900">{selectedPatient.name}</h1>
-            <p className="text-gray-600">Patient ID: #{selectedPatient.id}</p>
+            <h1 className="text-2xl font-bold text-gray-900">
+              {selectedPatient.firstName} {selectedPatient.lastName}
+            </h1>
+            <p className="text-gray-600">Patient ID: #{selectedPatient._id}</p>
           </div>
           <button
-            onClick={() => handleDownloadReport(selectedPatient.id)}
+            onClick={() => handleDownloadReport(selectedPatient._id)}
             className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
           >
             <Download className="w-4 h-4 mr-2" />
@@ -235,7 +198,7 @@ const PatientRecords = () => {
               </div>
               <div>
                 <p className="text-sm text-gray-600">Age & Gender</p>
-                <p className="font-semibold">{selectedPatient.age} years, {selectedPatient.gender}</p>
+                <p className="font-semibold">{calculateAge(selectedPatient.dateOfBirth)} years, {selectedPatient.gender || 'N/A'}</p>
               </div>
             </div>
             <div className="flex items-center space-x-3">
@@ -244,7 +207,7 @@ const PatientRecords = () => {
               </div>
               <div>
                 <p className="text-sm text-gray-600">Phone</p>
-                <p className="font-semibold">{selectedPatient.phone}</p>
+                <p className="font-semibold">{selectedPatient.phone || 'No phone'}</p>
               </div>
             </div>
             <div className="flex items-center space-x-3">
@@ -253,7 +216,7 @@ const PatientRecords = () => {
               </div>
               <div>
                 <p className="text-sm text-gray-600">Email</p>
-                <p className="font-semibold text-sm">{selectedPatient.email}</p>
+                <p className="font-semibold text-sm">{selectedPatient.email || 'No email'}</p>
               </div>
             </div>
             <div className="flex items-center space-x-3">
@@ -262,7 +225,7 @@ const PatientRecords = () => {
               </div>
               <div>
                 <p className="text-sm text-gray-600">Total Visits</p>
-                <p className="font-semibold">{selectedPatient.totalVisits}</p>
+                <p className="font-semibold">{getTotalVisits(patientAppointments)}</p>
               </div>
             </div>
           </div>
@@ -274,8 +237,7 @@ const PatientRecords = () => {
               {[
                 { id: 'overview', label: 'Overview', icon: Eye },
                 { id: 'history', label: 'Treatment History', icon: Stethoscope },
-                { id: 'prescriptions', label: 'Prescriptions', icon: Pill },
-                { id: 'notes', label: 'Doctor Notes', icon: FileText }
+                { id: 'prescriptions', label: 'Prescriptions', icon: Pill }
               ].map((tab) => {
                 const Icon = tab.icon
                 return (
@@ -298,84 +260,81 @@ const PatientRecords = () => {
 
           <div className="p-6">
             {activeTab === 'overview' && (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="bg-blue-50 rounded-lg p-4">
                   <h3 className="font-semibold text-blue-900 mb-2">Last Visit</h3>
-                  <p className="text-blue-700">{selectedPatient.lastVisit}</p>
+                  <p className="text-blue-700">{getLastVisit(patientAppointments)}</p>
                 </div>
                 <div className="bg-green-50 rounded-lg p-4">
                   <h3 className="font-semibold text-green-900 mb-2">Next Appointment</h3>
-                  <p className="text-green-700">{selectedPatient.nextAppointment || 'Not scheduled'}</p>
-                </div>
-                <div className="bg-purple-50 rounded-lg p-4">
-                  <h3 className="font-semibold text-purple-900 mb-2">Status</h3>
-                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(selectedPatient.status)}`}>
-                    {selectedPatient.status}
-                  </span>
+                  <p className="text-green-700">{getNextAppointment(patientAppointments) || 'Not scheduled'}</p>
                 </div>
               </div>
             )}
 
             {activeTab === 'history' && (
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Treatment History Timeline</h3>
-                {selectedPatient.treatmentHistory.map((treatment) => (
-                  <div key={treatment.id} className="border-l-4 border-blue-500 pl-4 pb-4">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h4 className="font-semibold">{treatment.treatment}</h4>
-                        <p className="text-sm text-gray-600">{treatment.date} • {treatment.doctor}</p>
-                        <p className="text-sm mt-2">{treatment.notes}</p>
+                <h3 className="text-lg font-semibold">Appointment History</h3>
+                {patientAppointments.length === 0 ? (
+                  <p className="text-gray-600">No appointment history found.</p>
+                ) : (
+                  patientAppointments
+                    .filter(appointment => appointment.status === 'completed')
+                    .sort((a, b) => new Date(b.date) - new Date(a.date))
+                    .map((appointment) => (
+                      <div key={appointment._id} className="border-l-4 border-blue-500 pl-4 pb-4">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h4 className="font-semibold">{appointment.reason || 'General Appointment'}</h4>
+                            <p className="text-sm text-gray-600">
+                              {formatDate(appointment.date)} • {appointment.time || 'Time not specified'}
+                            </p>
+                            {appointment.notes && (
+                              <p className="text-sm mt-2">{appointment.notes}</p>
+                            )}
+                          </div>
+                          <span className="text-sm font-semibold text-blue-600">
+                            {appointment.status}
+                          </span>
+                        </div>
                       </div>
-                      <span className="text-sm font-semibold text-green-600">{treatment.cost}</span>
-                    </div>
-                  </div>
-                ))}
+                    ))
+                )}
               </div>
             )}
 
             {activeTab === 'prescriptions' && (
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Past Prescriptions</h3>
-                {selectedPatient.prescriptions.length === 0 ? (
+                <h3 className="text-lg font-semibold">Prescriptions</h3>
+                {patientPrescriptions.length === 0 ? (
                   <p className="text-gray-600">No prescriptions found.</p>
                 ) : (
-                  selectedPatient.prescriptions.map((prescription) => (
-                    <div key={prescription.id} className="border border-gray-200 rounded-lg p-4">
+                  patientPrescriptions.map((prescription) => (
+                    <div key={prescription._id} className="border border-gray-200 rounded-lg p-4">
                       <div className="flex justify-between items-start">
                         <div>
-                          <h4 className="font-semibold">{prescription.medication}</h4>
-                          <p className="text-sm text-gray-600">{prescription.dosage} • {prescription.duration}</p>
-                          <p className="text-sm text-gray-500">Prescribed on {prescription.date}</p>
+                          <h4 className="font-semibold">{prescription.medication || prescription.medicationName}</h4>
+                          <p className="text-sm text-gray-600">
+                            {prescription.dosage} • {prescription.duration}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            Prescribed on {formatDate(prescription.date || prescription.createdAt)}
+                          </p>
+                          {prescription.instructions && (
+                            <p className="text-sm mt-2 text-gray-700">{prescription.instructions}</p>
+                          )}
                         </div>
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          prescription.status === 'Active' 
+                          prescription.status === 'active' 
                             ? 'bg-green-100 text-green-800' 
                             : 'bg-gray-100 text-gray-800'
                         }`}>
-                          {prescription.status}
+                          {prescription.status || 'Unknown'}
                         </span>
                       </div>
                     </div>
                   ))
                 )}
-              </div>
-            )}
-
-            {activeTab === 'notes' && (
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Doctor Notes</h3>
-                {selectedPatient.notes.map((note) => (
-                  <div key={note.id} className="border border-gray-200 rounded-lg p-4">
-                    <div className="flex justify-between items-start mb-2">
-                      <span className="text-sm text-gray-600">{note.date} • {note.doctor}</span>
-                      <button className="text-blue-600 hover:text-blue-800">
-                        <Edit className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <p className="text-sm">{note.note}</p>
-                  </div>
-                ))}
               </div>
             )}
           </div>
@@ -389,12 +348,8 @@ const PatientRecords = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Patient Records</h1>
-          <p className="text-gray-600 mt-1">Search and manage patient information</p>
+          <p className="text-gray-600 mt-1">View and manage patient information</p>
         </div>
-        <button className="mt-4 sm:mt-0 inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
-          <Plus className="w-4 h-4 mr-2" />
-          Add New Patient
-        </button>
       </div>
 
       <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
@@ -408,17 +363,6 @@ const PatientRecords = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
-          </div>
-          <div className="flex items-center space-x-4">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="all">All Patients</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
           </div>
         </div>
       </div>
@@ -435,30 +379,42 @@ const PatientRecords = () => {
             <div className="space-y-4">
               {filteredPatients.map((patient) => (
                 <div
-                  key={patient.id}
+                  key={patient._id}
                   onClick={() => handlePatientSelect(patient)}
                   className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all duration-200 cursor-pointer"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full flex items-center justify-center">
-                        <User className="w-6 h-6 text-blue-600" />
+                      <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full flex items-center justify-center overflow-hidden">
+                        {patient.profileImage?.url || patient.profilePicture ? (
+                          <img 
+                            src={patient.profileImage?.url || patient.profilePicture} 
+                            alt={`${patient.firstName} ${patient.lastName}`}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              // Hide the image and show the fallback icon
+                              e.target.style.display = 'none';
+                              const fallbackIcon = e.target.parentElement.querySelector('.fallback-icon');
+                              if (fallbackIcon) fallbackIcon.style.display = 'block';
+                            }}
+                          />
+                        ) : null}
+                        <User className={`fallback-icon w-6 h-6 text-blue-600 ${patient.profileImage?.url || patient.profilePicture ? 'hidden' : 'block'}`} />
                       </div>
                       <div>
-                        <h3 className="text-lg font-semibold text-gray-900">{patient.name}</h3>
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          {patient.firstName} {patient.lastName}
+                        </h3>
                         <div className="flex items-center space-x-4 text-sm text-gray-600">
-                          <span>{patient.age} years, {patient.gender}</span>
+                          <span>{calculateAge(patient.dateOfBirth)} years, {patient.gender || 'N/A'}</span>
                           <span>•</span>
-                          <span>{patient.phone}</span>
+                          <span>{patient.phone || 'No phone'}</span>
                           <span>•</span>
-                          <span>Last visit: {patient.lastVisit}</span>
+                          <span>Last visit: N/A</span>
                         </div>
                       </div>
                     </div>
                     <div className="flex items-center space-x-4">
-                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(patient.status)}`}>
-                        {patient.status}
-                      </span>
                       <ChevronRight className="w-5 h-5 text-gray-400" />
                     </div>
                   </div>
