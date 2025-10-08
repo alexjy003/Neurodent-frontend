@@ -18,12 +18,38 @@ const Login = () => {
     rememberMe: false
   });
 
-    // Handle Google OAuth token from URL
+    // Handle Google OAuth token and success from URL
   useEffect(() => {
     const token = searchParams.get('token');
-    if (token) {
+    const googleAuth = searchParams.get('googleAuth');
+    
+    if (token && googleAuth === 'success') {
+      // Google OAuth signup was successful, set token and authenticate
+      console.log('🔑 Google OAuth signup successful, setting token and authenticating...');
+      setSuccess('Google signup successful! Redirecting to your dashboard...');
+      try {
+        apiService.setToken(token);
+        // Trigger auth context to check the token and get user info
+        checkAuthStatus().then(() => {
+          console.log('✅ Auth status check completed, redirecting to patient dashboard');
+          // Clean up URL and redirect to patient dashboard
+          navigate('/patient/dashboard', { replace: true });
+        }).catch((error) => {
+          console.error('❌ Auth status check failed:', error);
+          setError('Authentication failed. Please try logging in again.');
+          setSuccess('');
+        });
+      } catch (error) {
+        console.error('❌ Error setting token:', error);
+        setError('Authentication failed. Please try logging in again.');
+        setSuccess('');
+      }
+      return;
+    } else if (token && !googleAuth) {
+      // Direct token from login (not signup)
       apiService.setToken(token);
       navigate('/patient/dashboard', { replace: true });
+      return;
     }
 
     const error = searchParams.get('error');
@@ -38,7 +64,7 @@ const Login = () => {
     if (message === 'password_reset_success') {
       setSuccess('Password reset successful! You can now log in with your new password.');
     }
-  }, [searchParams, navigate]);
+  }, [searchParams, navigate, checkAuthStatus]);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;

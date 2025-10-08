@@ -39,13 +39,33 @@ const Register = () => {
 
   // Check for stored email verification status
   useEffect(() => {
-    if (formData.email) {
-      const storedVerification = localStorage.getItem(`email_verified_${formData.email}`)
-      if (storedVerification === 'true') {
-        setEmailVerified(true)
-        console.log('✅ Found stored email verification for:', formData.email)
+    const checkEmailVerificationStatus = async () => {
+      if (formData.email) {
+        const storedVerification = localStorage.getItem(`email_verified_${formData.email}`)
+        if (storedVerification === 'true') {
+          // Verify with backend that the patient still exists and is verified
+          try {
+            const response = await apiService.get(`/auth/check-email-verification?email=${encodeURIComponent(formData.email)}`)
+            if (response.verified) {
+              setEmailVerified(true)
+              console.log('✅ Confirmed email verification with backend for:', formData.email)
+            } else {
+              // Patient doesn't exist or isn't verified anymore, clear localStorage
+              localStorage.removeItem(`email_verified_${formData.email}`)
+              setEmailVerified(false)
+              console.log('❌ Email verification expired or patient deleted, cleared cache for:', formData.email)
+            }
+          } catch (error) {
+            // If backend check fails, clear localStorage to be safe
+            localStorage.removeItem(`email_verified_${formData.email}`)
+            setEmailVerified(false)
+            console.log('❌ Backend verification check failed, cleared cache for:', formData.email)
+          }
+        }
       }
     }
+
+    checkEmailVerificationStatus()
   }, [formData.email])
 
   // Validation helper functions
@@ -280,6 +300,12 @@ const Register = () => {
       return
     }
 
+    // Check if email is verified before proceeding
+    if (!emailVerified) {
+      setError('Please verify your email address before completing registration.')
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -341,6 +367,10 @@ const Register = () => {
     setOtpLoading(true)
     setError('')
 
+    // Clear any existing verification status when sending new OTP
+    localStorage.removeItem(`email_verified_${formData.email}`)
+    setEmailVerified(false)
+
     try {
       const response = await apiService.sendVerificationOTP(formData.email, formData.firstName)
       setOtpSent(true)
@@ -390,6 +420,18 @@ const Register = () => {
 
   const handleResendOTP = async () => {
     await handleSendOTP()
+  }
+
+  // Function to clear verification cache (useful for testing)
+  const clearVerificationCache = () => {
+    if (formData.email) {
+      localStorage.removeItem(`email_verified_${formData.email}`)
+      setEmailVerified(false)
+      setOtpSent(false)
+      setEmailVerificationStep(false)
+      setOtp('')
+      console.log('🗑️ Cleared verification cache for:', formData.email)
+    }
   }
 
   // Helper function to render field errors
@@ -828,7 +870,7 @@ const Register = () => {
             <div>
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || !emailVerified}
                 className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-semibold rounded-xl text-white bg-gradient-to-r from-dental-primary to-dental-accent hover:from-dental-secondary hover:to-dental-primary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-dental-primary transition-all duration-300 transform hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg"
               >
                 <span className="absolute left-0 inset-y-0 flex items-center pl-3">
@@ -843,8 +885,13 @@ const Register = () => {
                     </svg>
                   )}
                 </span>
-                {loading ? 'Creating account...' : 'Create your account'}
+                {loading ? 'Creating account...' : !emailVerified ? 'Please verify email first' : 'Create your account'}
               </button>
+              {!emailVerified && (
+                <p className="mt-2 text-sm text-gray-600 text-center">
+                  Please verify your email address to enable registration
+                </p>
+              )}
             </div>
           </form>
 

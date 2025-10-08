@@ -23,9 +23,13 @@ export const AuthProvider = ({ children }) => {
 
   const checkAuthStatus = async () => {
     try {
+      // Refresh the token reference in case it was updated elsewhere
+      apiService.token = apiService.getToken();
+      
       // Check for any type of token using the API service method  
       const token = apiService.getToken();
       console.log('🔍 Checking auth status, token exists:', !!token);
+      console.log('🔍 Token value (first 20 chars):', token ? token.substring(0, 20) + '...' : 'null');
 
       if (!token) {
         console.log('❌ No token found');

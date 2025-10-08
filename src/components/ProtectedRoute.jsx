@@ -1,10 +1,11 @@
 import React, { useEffect } from 'react'
-import { Navigate, useLocation } from 'react-router-dom'
+import { Navigate, useLocation, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 
 const ProtectedRoute = ({ children, requireAuth = true }) => {
   const { isAuthenticated, loading } = useAuth()
   const location = useLocation()
+  const [searchParams] = useSearchParams()
 
   useEffect(() => {
     // Prevent back navigation to protected pages when not authenticated
@@ -58,8 +59,16 @@ const ProtectedRoute = ({ children, requireAuth = true }) => {
     )
   }
 
+  // Check if there's a token in the URL (for OAuth redirects)
+  const urlToken = searchParams.get('token')
+
   // If route requires authentication and user is not authenticated
   if (requireAuth && !isAuthenticated) {
+    // Allow access if there's a token in the URL (OAuth redirect)
+    if (urlToken) {
+      console.log('🔑 ProtectedRoute: Token found in URL, allowing access to process authentication')
+      return children
+    }
     return <Navigate to="/login" replace />
   }
 

@@ -69,6 +69,8 @@ const ProfileManagement = ({ user }) => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
+      console.log('🔍 Profile update data being sent:', profileData);
+      
       const response = await apiService.put('/auth/patient/profile', profileData)
       
       if (response.success) {
@@ -78,7 +80,8 @@ const ProfileManagement = ({ user }) => {
         fetchProfileData()
       }
     } catch (error) {
-      console.error('Error updating profile:', error)
+      console.error('❌ Error updating profile:', error)
+      console.error('❌ Error response:', error.response?.data)
       toast.error(error.response?.data?.message || 'Failed to update profile')
     }
   }
