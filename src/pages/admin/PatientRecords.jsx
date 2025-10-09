@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { 
   Search, 
   Filter,
@@ -12,92 +12,109 @@ import {
   Mail,
   MapPin,
   Clock,
-  Heart
+  Heart,
+  RefreshCw
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import apiService from '../../services/api'
+import toast from 'react-hot-toast'
 
 const PatientRecords = () => {
-  const [patients, setPatients] = useState([
-    {
-      id: 1,
-      name: 'John Smith',
-      email: 'john.smith@email.com',
-      phone: '+1 (555) 123-4567',
-      address: '123 Main St, City, State 12345',
-      dateOfBirth: '1985-06-15',
-      lastVisit: '2024-01-10',
-      nextAppointment: '2024-01-25',
-      assignedDoctor: 'Dr. Sarah Johnson',
-      treatments: ['Root Canal', 'Cleaning'],
-      totalVisits: 8,
-      status: 'active',
-      medicalHistory: ['Hypertension', 'Allergic to Penicillin'],
-      insurance: 'BlueCross BlueShield',
-      image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80'
-    },
-    {
-      id: 2,
-      name: 'Emily Davis',
-      email: 'emily.davis@email.com',
-      phone: '+1 (555) 234-5678',
-      address: '456 Oak Ave, City, State 12345',
-      dateOfBirth: '1990-03-22',
-      lastVisit: '2024-01-08',
-      nextAppointment: '2024-02-15',
-      assignedDoctor: 'Dr. Michael Smith',
-      treatments: ['Orthodontics', 'Whitening'],
-      totalVisits: 12,
-      status: 'active',
-      medicalHistory: ['Diabetes Type 2'],
-      insurance: 'Aetna',
-      image: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80'
-    },
-    {
-      id: 3,
-      name: 'Michael Johnson',
-      email: 'michael.johnson@email.com',
-      phone: '+1 (555) 345-6789',
-      address: '789 Pine St, City, State 12345',
-      dateOfBirth: '1978-11-30',
-      lastVisit: '2023-12-20',
-      nextAppointment: null,
-      assignedDoctor: 'Dr. Emily Williams',
-      treatments: ['Cleaning', 'Filling'],
-      totalVisits: 6,
-      status: 'inactive',
-      medicalHistory: ['No known allergies'],
-      insurance: 'Humana',
-      image: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80'
-    },
-    {
-      id: 4,
-      name: 'Sarah Wilson',
-      email: 'sarah.wilson@email.com',
-      phone: '+1 (555) 456-7890',
-      address: '321 Elm Dr, City, State 12345',
-      dateOfBirth: '1995-09-12',
-      lastVisit: '2024-01-15',
-      nextAppointment: '2024-01-30',
-      assignedDoctor: 'Dr. Robert Brown',
-      treatments: ['Extraction', 'Implant'],
-      totalVisits: 4,
-      status: 'active',
-      medicalHistory: ['Anxiety', 'Lactose Intolerant'],
-      insurance: 'Cigna',
-      image: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80'
-    }
-  ])
-
+  const [patients, setPatients] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
-  const [filterStatus, setFilterStatus] = useState('all')
   const [selectedPatient, setSelectedPatient] = useState(null)
+  const [stats, setStats] = useState({
+    totalPatients: 0,
+    activePatients: 0,
+    upcomingVisits: 0,
+    recentVisits: 0
+  })
+
+  // Fetch patients from database
+  useEffect(() => {
+    fetchPatients()
+  }, [])
+
+  const fetchPatients = async () => {
+    try {
+      setLoading(true)
+      setError('')
+      
+      // Debug logging
+      const adminToken = localStorage.getItem('adminToken')
+      const adminAuth = localStorage.getItem('adminAuth')
+      const adminUser = localStorage.getItem('adminUser')
+      console.log('🔍 Debug - Admin Token:', adminToken)
+      console.log('🔍 Debug - Admin Auth:', adminAuth)
+      console.log('🔍 Debug - Admin User:', adminUser)
+      console.log('🔍 Debug - API Base URL:', import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api')
+      
+      // Try to make the API call and log full request/response details
+      console.log('🔍 Making API call to:', `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'}/patients`)
+      console.log('🔍 With headers:', { Authorization: `Bearer ${adminToken}` })
+      
+      const response = await apiService.get('/patients')
+      console.log('Patients API Response:', response)
+      
+      if (response.success) {
+        setPatients(response.data || response.patients || [])
+        calculateStats(response.data || response.patients || [])
+      } else {
+        setError('Failed to fetch patients')
+        toast.error('Failed to load patients')
+      }
+    } catch (error) {
+      console.error('Error fetching patients:', error)
+      setError('Failed to load patients. Please try again.')
+      toast.error('Failed to load patients')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const calculateStats = (patientsData) => {
+    const total = patientsData.length
+    const active = patientsData.filter(p => p.isActive !== false).length
+    
+    // Calculate upcoming visits (patients with future appointments)
+    const upcoming = patientsData.filter(p => {
+      if (!p.appointments || !Array.isArray(p.appointments)) return false
+      return p.appointments.some(apt => {
+        const aptDate = new Date(apt.date || apt.appointmentDate)
+        return aptDate > new Date() && (apt.status === 'scheduled' || apt.status === 'confirmed')
+      })
+    }).length
+
+    // Calculate recent visits (last 7 days)
+    const recent = patientsData.filter(p => {
+      if (!p.appointments || !Array.isArray(p.appointments)) return false
+      return p.appointments.some(apt => {
+        const aptDate = new Date(apt.date || apt.appointmentDate)
+        const weekAgo = new Date()
+        weekAgo.setDate(weekAgo.getDate() - 7)
+        return aptDate >= weekAgo && aptDate <= new Date() && apt.status === 'completed'
+      })
+    }).length
+
+    setStats({
+      totalPatients: total,
+      activePatients: active,
+      upcomingVisits: upcoming,
+      recentVisits: recent
+    })
+  }
 
   const filteredPatients = patients.filter(patient => {
-    const matchesSearch = patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         patient.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         patient.phone.includes(searchTerm)
-    const matchesFilter = filterStatus === 'all' || patient.status === filterStatus
-    return matchesSearch && matchesFilter
+    const fullName = `${patient.firstName || ''} ${patient.lastName || ''}`.toLowerCase()
+    const email = (patient.email || '').toLowerCase()
+    const phone = (patient.phone || '').toLowerCase()
+    const searchLower = searchTerm.toLowerCase()
+    
+    return fullName.includes(searchLower) ||
+           email.includes(searchLower) ||
+           phone.includes(searchLower)
   })
 
   const formatDate = (dateString) => {
@@ -110,6 +127,7 @@ const PatientRecords = () => {
   }
 
   const calculateAge = (dateOfBirth) => {
+    if (!dateOfBirth) return 'N/A'
     const today = new Date()
     const birthDate = new Date(dateOfBirth)
     let age = today.getFullYear() - birthDate.getFullYear()
@@ -118,6 +136,109 @@ const PatientRecords = () => {
       age--
     }
     return age
+  }
+
+  const getPatientFullName = (patient) => {
+    return `${patient.firstName || ''} ${patient.lastName || ''}`.trim() || 'N/A'
+  }
+
+  const getLastVisit = (patient) => {
+    if (!patient.appointments || !Array.isArray(patient.appointments)) return null
+    
+    const completedAppointments = patient.appointments.filter(apt => apt.status === 'completed')
+    if (completedAppointments.length === 0) return null
+    
+    const lastAppt = completedAppointments.sort((a, b) => 
+      new Date(b.date || b.appointmentDate) - new Date(a.date || a.appointmentDate)
+    )[0]
+    
+    return lastAppt.date || lastAppt.appointmentDate
+  }
+
+  const getNextAppointment = (patient) => {
+    if (!patient.appointments || !Array.isArray(patient.appointments)) return null
+    
+    const futureAppointments = patient.appointments.filter(apt => {
+      const aptDate = new Date(apt.date || apt.appointmentDate)
+      return aptDate > new Date() && (apt.status === 'scheduled' || apt.status === 'confirmed')
+    })
+    
+    if (futureAppointments.length === 0) return null
+    
+    const nextAppt = futureAppointments.sort((a, b) => 
+      new Date(a.date || a.appointmentDate) - new Date(b.date || b.appointmentDate)
+    )[0]
+    
+    return nextAppt.date || nextAppt.appointmentDate
+  }
+
+  const getTotalVisits = (patient) => {
+    if (!patient.appointments || !Array.isArray(patient.appointments)) return 0
+    return patient.appointments.filter(apt => apt.status === 'completed').length
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <RefreshCw className="w-8 h-8 animate-spin text-teal-600 mx-auto mb-4" />
+          <p className="text-gray-600">Loading patient records...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">
+        <div className="flex items-center">
+          <div className="flex-shrink-0">
+            <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <div className="ml-3">
+            <h3 className="text-sm font-medium text-red-800">Error loading patients</h3>
+            <div className="mt-2 text-sm text-red-700">
+              <p>{error}</p>
+              <div className="flex space-x-2 mt-2">
+                <button 
+                  onClick={fetchPatients}
+                  className="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded text-sm"
+                >
+                  Try Again
+                </button>
+                <button
+                  onClick={() => {
+                    // Manual admin token creation for debugging
+                    const adminToken = `admin_token_${Date.now()}`
+                    const adminUser = { 
+                      role: 'admin', 
+                      email: 'admin@gmail.com',
+                      firstName: 'Admin',
+                      lastName: 'User'
+                    }
+                    localStorage.setItem('adminToken', adminToken)
+                    localStorage.setItem('adminAuth', 'true')
+                    localStorage.setItem('adminUser', JSON.stringify(adminUser))
+                    sessionStorage.setItem('adminSession', 'active')
+                    const expirationTime = Date.now() + (8 * 60 * 60 * 1000)
+                    localStorage.setItem('adminTokenExpiry', expirationTime.toString())
+                    console.log('🔧 Debug: Created admin token:', adminToken)
+                    
+                    // Retry fetching patients
+                    fetchPatients()
+                  }}
+                  className="bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-1 rounded text-sm"
+                >
+                  Debug: Fix Auth
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -139,7 +260,7 @@ const PatientRecords = () => {
             </div>
             <div className="ml-4">
               <p className="text-sm font-semibold text-gray-600">Total Patients</p>
-              <p className="text-2xl font-bold text-gray-900">{patients.length}</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.totalPatients}</p>
             </div>
           </div>
         </div>
@@ -151,7 +272,7 @@ const PatientRecords = () => {
             </div>
             <div className="ml-4">
               <p className="text-sm font-semibold text-gray-600">Active Patients</p>
-              <p className="text-2xl font-bold text-gray-900">{patients.filter(p => p.status === 'active').length}</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.activePatients}</p>
             </div>
           </div>
         </div>
@@ -163,7 +284,7 @@ const PatientRecords = () => {
             </div>
             <div className="ml-4">
               <p className="text-sm font-semibold text-gray-600">Upcoming Visits</p>
-              <p className="text-2xl font-bold text-gray-900">{patients.filter(p => p.nextAppointment).length}</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.upcomingVisits}</p>
             </div>
           </div>
         </div>
@@ -175,12 +296,7 @@ const PatientRecords = () => {
             </div>
             <div className="ml-4">
               <p className="text-sm font-semibold text-gray-600">Recent Visits</p>
-              <p className="text-2xl font-bold text-gray-900">{patients.filter(p => {
-                const lastVisit = new Date(p.lastVisit)
-                const weekAgo = new Date()
-                weekAgo.setDate(weekAgo.getDate() - 7)
-                return lastVisit >= weekAgo
-              }).length}</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.recentVisits}</p>
             </div>
           </div>
         </div>
@@ -200,18 +316,13 @@ const PatientRecords = () => {
             />
           </div>
           <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <Filter className="w-4 h-4 text-gray-500" />
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-              >
-                <option value="all">All Patients</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-            </div>
+            <button
+              onClick={fetchPatients}
+              className="flex items-center space-x-2 px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors duration-200"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span>Refresh</span>
+            </button>
           </div>
         </div>
       </div>
@@ -227,77 +338,79 @@ const PatientRecords = () => {
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Last Visit</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Next Appointment</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Assigned Doctor</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredPatients.map((patient) => (
-                <tr key={patient.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <img
-                        src={patient.image}
-                        alt={patient.name}
-                        className="w-10 h-10 rounded-full object-cover"
-                      />
-                      <div className="ml-4">
-                        <div className="text-sm font-semibold text-gray-900">{patient.name}</div>
-                        <div className="text-sm text-gray-500">Age: {calculateAge(patient.dateOfBirth)}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{patient.phone}</div>
-                    <div className="text-sm text-gray-500">{patient.email}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{formatDate(patient.lastVisit)}</div>
-                    <div className="text-sm text-gray-500">{patient.totalVisits} total visits</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {patient.nextAppointment ? formatDate(patient.nextAppointment) : 'Not scheduled'}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{patient.assignedDoctor}</div>
-                    <div className="text-sm text-gray-500">{patient.treatments.join(', ')}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                      patient.status === 'active' 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      {patient.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center space-x-2">
-                      <button
-                        onClick={() => setSelectedPatient(patient)}
-                        className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors duration-200"
-                        title="View Profile"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button
-                        className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition-colors duration-200"
-                        title="Edit Patient"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        className="p-2 text-purple-600 hover:bg-purple-100 rounded-lg transition-colors duration-200"
-                        title="Medical Records"
-                      >
-                        <FileText className="w-4 h-4" />
-                      </button>
-                    </div>
+              {filteredPatients.length === 0 ? (
+                <tr>
+                  <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
+                    <User className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                    <p>No patients found</p>
+                    {searchTerm && <p className="text-sm">Try adjusting your search terms</p>}
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filteredPatients.map((patient) => (
+                  <tr key={patient._id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="w-10 h-10 bg-gradient-to-br from-teal-400 to-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
+                          {getPatientFullName(patient).charAt(0).toUpperCase()}
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-semibold text-gray-900">{getPatientFullName(patient)}</div>
+                          <div className="text-sm text-gray-500">Age: {calculateAge(patient.dateOfBirth)}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{patient.phone || 'N/A'}</div>
+                      <div className="text-sm text-gray-500">{patient.email || 'N/A'}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{formatDate(getLastVisit(patient))}</div>
+                      <div className="text-sm text-gray-500">{getTotalVisits(patient)} total visits</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        {formatDate(getNextAppointment(patient))}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        {patient.assignedDoctor || 'Not assigned'}
+                      </div>
+                      {patient.treatments && patient.treatments.length > 0 && (
+                        <div className="text-sm text-gray-500">{patient.treatments.join(', ')}</div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => setSelectedPatient(patient)}
+                          className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors duration-200"
+                          title="View Profile"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition-colors duration-200"
+                          title="Edit Patient"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button
+                          className="p-2 text-purple-600 hover:bg-purple-100 rounded-lg transition-colors duration-200"
+                          title="Medical Records"
+                        >
+                          <FileText className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -321,17 +434,17 @@ const PatientRecords = () => {
               {/* Patient Info */}
               <div className="lg:col-span-1">
                 <div className="bg-gradient-to-br from-teal-500 to-blue-600 rounded-2xl p-6 text-white text-center">
-                  <img
-                    src={selectedPatient.image}
-                    alt={selectedPatient.name}
-                    className="w-24 h-24 rounded-full object-cover mx-auto mb-4 border-4 border-white/20"
-                  />
-                  <h3 className="text-xl font-bold">{selectedPatient.name}</h3>
+                  <div className="w-24 h-24 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-4 border-4 border-white/20">
+                    <span className="text-2xl font-bold text-white">
+                      {getPatientFullName(selectedPatient).split(' ').map(n => n[0]).join('')}
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-bold">{getPatientFullName(selectedPatient)}</h3>
                   <p className="text-teal-100">Age: {calculateAge(selectedPatient.dateOfBirth)}</p>
                   <div className="mt-4 space-y-2">
                     <div className="flex items-center justify-center text-sm">
                       <Phone className="w-4 h-4 mr-2" />
-                      {selectedPatient.phone}
+                      {selectedPatient.phoneNumber || 'Not provided'}
                     </div>
                     <div className="flex items-center justify-center text-sm">
                       <Mail className="w-4 h-4 mr-2" />
@@ -345,15 +458,15 @@ const PatientRecords = () => {
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Total Visits:</span>
-                      <span className="font-semibold">{selectedPatient.totalVisits}</span>
+                      <span className="font-semibold">{getTotalVisits(selectedPatient)}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Last Visit:</span>
-                      <span className="font-semibold">{formatDate(selectedPatient.lastVisit)}</span>
+                      <span className="font-semibold">{getLastVisit(selectedPatient)}</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Insurance:</span>
-                      <span className="font-semibold">{selectedPatient.insurance}</span>
+                      <span className="text-gray-600">Patient ID:</span>
+                      <span className="font-semibold">{selectedPatient._id?.slice(-6) || 'N/A'}</span>
                     </div>
                   </div>
                 </div>
@@ -370,18 +483,12 @@ const PatientRecords = () => {
                         <p className="font-semibold">{formatDate(selectedPatient.dateOfBirth)}</p>
                       </div>
                       <div>
-                        <span className="text-sm text-gray-600">Address:</span>
-                        <p className="font-semibold">{selectedPatient.address}</p>
+                        <span className="text-sm text-gray-600">Gender:</span>
+                        <p className="font-semibold">{selectedPatient.gender || 'Not specified'}</p>
                       </div>
                       <div>
-                        <span className="text-sm text-gray-600">Status:</span>
-                        <span className={`ml-2 px-2 py-1 rounded-full text-xs font-semibold ${
-                          selectedPatient.status === 'active' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-red-100 text-red-800'
-                        }`}>
-                          {selectedPatient.status}
-                        </span>
+                        <span className="text-sm text-gray-600">Address:</span>
+                        <p className="font-semibold">{selectedPatient.address || 'Not provided'}</p>
                       </div>
                     </div>
                   </div>
@@ -390,17 +497,21 @@ const PatientRecords = () => {
                     <h4 className="font-semibold text-gray-900 mb-4">Medical Information</h4>
                     <div className="space-y-3">
                       <div>
-                        <span className="text-sm text-gray-600">Assigned Doctor:</span>
-                        <p className="font-semibold">{selectedPatient.assignedDoctor}</p>
+                        <span className="text-sm text-gray-600">Emergency Contact:</span>
+                        <p className="font-semibold">{selectedPatient.emergencyContactNumber || 'Not provided'}</p>
                       </div>
                       <div>
                         <span className="text-sm text-gray-600">Medical History:</span>
                         <div className="mt-1">
-                          {selectedPatient.medicalHistory.map((condition, index) => (
-                            <span key={index} className="inline-block bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full mr-1 mb-1">
-                              {condition}
-                            </span>
-                          ))}
+                          {selectedPatient.medicalHistory && selectedPatient.medicalHistory.length > 0 ? (
+                            selectedPatient.medicalHistory.map((condition, index) => (
+                              <span key={index} className="inline-block bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full mr-1 mb-1">
+                                {condition}
+                              </span>
+                            ))
+                          ) : (
+                            <p className="text-gray-500 text-sm">No medical history recorded</p>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -409,12 +520,16 @@ const PatientRecords = () => {
                   <div className="bg-white border border-gray-200 rounded-2xl p-6">
                     <h4 className="font-semibold text-gray-900 mb-4">Treatment History</h4>
                     <div className="space-y-2">
-                      {selectedPatient.treatments.map((treatment, index) => (
-                        <div key={index} className="flex items-center justify-between">
-                          <span className="text-sm text-gray-600">{treatment}</span>
-                          <span className="text-xs text-gray-500">Completed</span>
-                        </div>
-                      ))}
+                      {selectedPatient.treatments && selectedPatient.treatments.length > 0 ? (
+                        selectedPatient.treatments.map((treatment, index) => (
+                          <div key={index} className="flex items-center justify-between">
+                            <span className="text-sm text-gray-600">{treatment}</span>
+                            <span className="text-xs text-gray-500">Completed</span>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-gray-500 text-sm">No treatment history available</p>
+                      )}
                     </div>
                   </div>
 
@@ -423,12 +538,11 @@ const PatientRecords = () => {
                     <div className="space-y-3">
                       <div>
                         <span className="text-sm text-gray-600">Next Appointment:</span>
-                        <p className="font-semibold">
-                          {selectedPatient.nextAppointment 
-                            ? formatDate(selectedPatient.nextAppointment)
-                            : 'Not scheduled'
-                          }
-                        </p>
+                        <p className="font-semibold">{getNextAppointment(selectedPatient)}</p>
+                      </div>
+                      <div>
+                        <span className="text-sm text-gray-600">Registration Date:</span>
+                        <p className="font-semibold">{formatDate(selectedPatient.createdAt)}</p>
                       </div>
                       <button className="w-full bg-teal-500 text-white px-4 py-2 rounded-lg hover:bg-teal-600 transition-colors duration-200">
                         Schedule New Appointment

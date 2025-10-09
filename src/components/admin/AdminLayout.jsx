@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { Toaster } from 'react-hot-toast'
 import { adminLogout } from '../../utils/adminAuth'
+import adminIcon from '../../assets/images/admin-icon.svg'
 
 const AdminLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -139,13 +140,15 @@ const AdminLayout = () => {
                   onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
                   className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200"
                 >
-                  <img
-                    className="h-8 w-8 rounded-full object-cover"
-                    src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
-                    alt="Admin profile"
-                  />
+                  <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center">
+                    <img
+                      src={adminIcon}
+                      alt="Admin profile"
+                      className="h-6 w-6 object-contain"
+                    />
+                  </div>
                   <div className="hidden md:block text-left">
-                    <p className="text-sm font-medium text-gray-900">Dr. Admin</p>
+                    <p className="text-sm font-medium text-gray-900">Admin</p>
                     <p className="text-xs text-gray-500">Administrator</p>
                   </div>
                   <ChevronDown className="h-4 w-4 text-gray-400" />
