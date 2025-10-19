@@ -40,7 +40,7 @@ const DoctorDashboard = () => {
       const doctorInfo = localStorage.getItem('doctorInfo')
 
       if (!token || !doctorInfo) {
-        navigate('/doctor/login')
+        navigate('/login') // Use main login instead of /doctor/login
         return
       }
 
@@ -51,7 +51,7 @@ const DoctorDashboard = () => {
         loadDashboardData()
       } catch (error) {
         console.error('Error parsing doctor info:', error)
-        navigate('/doctor/login')
+        navigate('/login') // Use main login instead of /doctor/login
         return
       }
     }
@@ -112,7 +112,7 @@ const DoctorDashboard = () => {
   const handleLogout = () => {
     localStorage.removeItem('doctorToken')
     localStorage.removeItem('doctorInfo')
-    navigate('/doctor/login')
+    navigate('/login') // Use main login instead of /doctor/login
   }
 
   const today = new Date().toISOString().split('T')[0]
