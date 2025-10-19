@@ -64,7 +64,7 @@ const Login = () => {
     if (message === 'password_reset_success') {
       setSuccess('Password reset successful! You can now log in with your new password.');
     }
-  }, [searchParams, navigate, checkAuthStatus]);
+  }, [searchParams, navigate]); // Removed checkAuthStatus from dependencies
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;

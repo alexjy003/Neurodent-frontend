@@ -35,30 +35,19 @@ const PatientDashboard = () => {
   useEffect(() => {
     const token = searchParams.get('token')
     if (token) {
-      console.log('🔑 Token received from Google OAuth:', token)
-      console.log('🔍 Current auth state before token handling:', { isAuthenticated, loading, user })
-      
       const handleTokenAuthentication = async () => {
         try {
           // Set token in apiService
           apiService.setToken(token)
-          console.log('✅ Token set in apiService')
-          
-          // Verify token is actually stored
-          const storedToken = localStorage.getItem('token')
-          console.log('🔍 Token stored in localStorage:', !!storedToken)
           
           // Small delay to ensure token is properly persisted
           await new Promise(resolve => setTimeout(resolve, 100))
           
           // Trigger auth context to check the token
-          console.log('🔄 Triggering auth status check...')
           await checkAuthStatus()
-          console.log('✅ Auth status check completed')
           
           // Clean up URL without refreshing
           window.history.replaceState({}, document.title, '/patient/dashboard')
-          console.log('✅ URL cleaned up')
         } catch (error) {
           console.error('❌ Error handling OAuth token:', error)
           // If there's an error with the token, redirect to login
@@ -68,31 +57,16 @@ const PatientDashboard = () => {
       
       handleTokenAuthentication()
     }
-  }, [searchParams, checkAuthStatus, navigate])
+  }, [searchParams, navigate]) // Removed checkAuthStatus from dependencies
 
   // Redirect to login if not authenticated (but not while loading or if we just got a token)
   useEffect(() => {
     const hasToken = searchParams.get('token')
     const hasStoredToken = localStorage.getItem('token')
 
-    console.log('🔍 Dashboard auth check:', {
-      loading,
-      isAuthenticated,
-      hasToken: !!hasToken,
-      hasStoredToken: !!hasStoredToken,
-      user: !!user
-    })
-
     // Don't redirect if we're still loading, just got a token, or are already authenticated
     if (!loading && !isAuthenticated && !hasToken && !hasStoredToken) {
-      console.log('🔄 Redirecting to login - not authenticated and no token')
       navigate('/login')
-    } else if (!loading && isAuthenticated && user) {
-      console.log('✅ User is authenticated, staying on dashboard')
-    } else if (loading) {
-      console.log('⏳ Still loading, waiting...')
-    } else if (hasToken) {
-      console.log('🔑 Has token, processing authentication...')
     }
   }, [loading, isAuthenticated, navigate, searchParams, user])
 

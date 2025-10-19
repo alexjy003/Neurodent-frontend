@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react'
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import apiService from '../services/api'
 import universalLogout from '../utils/universalLogout'
 
@@ -17,44 +17,32 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
 
-  useEffect(() => {
-    checkAuthStatus()
-  }, [])
-
-  const checkAuthStatus = async () => {
+  const checkAuthStatus = useCallback(async () => {
     try {
       // Refresh the token reference in case it was updated elsewhere
       apiService.token = apiService.getToken();
       
       // Check for any type of token using the API service method  
       const token = apiService.getToken();
-      console.log('🔍 Checking auth status, token exists:', !!token);
-      console.log('🔍 Token value (first 20 chars):', token ? token.substring(0, 20) + '...' : 'null');
 
       if (!token) {
-        console.log('❌ No token found');
         setUser(null);
         setIsAuthenticated(false);
         setLoading(false);
         return;
       }
-
-      console.log('🔑 Verifying token with backend...');
       // Verify token with backend using the universal verify endpoint
       const response = await apiService.request('/auth/verify');
       if (response.valid && response.user) {
-        console.log('✅ Token valid, user authenticated:', response.user);
         setUser(response.user);
         setIsAuthenticated(true);
       } else {
-        console.log('❌ Token invalid, removing...');
         // Invalid token, remove it
         apiService.removeToken();
         setUser(null);
         setIsAuthenticated(false);
       }
     } catch (error) {
-      console.error('❌ Auth check failed:', error);
       // Only clear tokens if it's actually an auth error, not a network issue
       if (error.response?.status === 401 || error.response?.status === 403) {
         apiService.removeToken();
@@ -62,14 +50,17 @@ export const AuthProvider = ({ children }) => {
         setIsAuthenticated(false);
       } else {
         // For network errors, keep existing auth state but still set loading to false
-        console.log('🔍 Network error during auth check, keeping existing state');
         setLoading(false);
         return;
       }
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    checkAuthStatus()
+  }, [checkAuthStatus])
 
   const login = async (credentials) => {
     try {

@@ -338,12 +338,8 @@ const Register = () => {
   }
 
   const handleGoogleSignup = () => {
-    console.log('📝 Initiating Google signup...')
-
     // Use the specific signup URL that forces account selection
     const googleSignupUrl = apiService.getGoogleSignupUrl()
-    console.log('🔗 Redirecting to:', googleSignupUrl)
-
     window.location.href = googleSignupUrl
   }
 
