@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { 
   Package, 
   AlertTriangle, 
@@ -21,6 +22,7 @@ import {
   Legend,
   ArcElement
 } from 'chart.js'
+import { getUserType, redirectToCorrectDashboard, validateUserAccess } from '../../utils/navigationGuard'
 
 ChartJS.register(
   CategoryScale,
@@ -34,6 +36,18 @@ ChartJS.register(
 )
 
 const PharmacistDashboard = () => {
+  const navigate = useNavigate()
+  
+  // Verify user is actually a pharmacist and redirect if not
+  useEffect(() => {
+    const userType = getUserType();
+    if (!validateUserAccess('pharmacist', userType)) {
+      console.warn(`🚫 Unauthorized access to pharmacist dashboard by ${userType} user`);
+      redirectToCorrectDashboard(navigate);
+      return;
+    }
+  }, [navigate]);
+
   const [dashboardData, setDashboardData] = useState({
     totalMedicines: 248,
     lowStock: 12,

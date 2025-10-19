@@ -10,37 +10,17 @@ const DoctorProtectedRoute = ({ children }) => {
       const token = localStorage.getItem('doctorToken')
       const doctorInfo = localStorage.getItem('doctorInfo')
       
-      // First check if we have a token
-      if (token) {
-        // If we have doctorInfo, try to parse it
-        if (doctorInfo) {
-          try {
-            JSON.parse(doctorInfo)
-            setIsAuthenticated(true)
-          } catch (error) {
-            console.error('Error parsing doctor info:', error)
-            // Clear invalid data
-            localStorage.removeItem('doctorToken')
-            localStorage.removeItem('doctorInfo')
-            setIsAuthenticated(false)
-          }
-        } else {
-          // If we have token but no doctorInfo yet, wait a moment for it to be set
-          setTimeout(() => {
-            const doctorInfo = localStorage.getItem('doctorInfo')
-            if (doctorInfo) {
-              try {
-                JSON.parse(doctorInfo)
-                setIsAuthenticated(true)
-              } catch (error) {
-                console.error('Error parsing doctor info:', error)
-                setIsAuthenticated(false)
-              }
-            } else {
-              setIsAuthenticated(true) // Allow access with just token for now
-            }
-          }, 100)
-          return // Don't set loading false yet
+      if (token && doctorInfo) {
+        try {
+          // Verify the doctor info can be parsed
+          JSON.parse(doctorInfo)
+          setIsAuthenticated(true)
+        } catch (error) {
+          console.error('Error parsing doctor info:', error)
+          // Clear invalid data
+          localStorage.removeItem('doctorToken')
+          localStorage.removeItem('doctorInfo')
+          setIsAuthenticated(false)
         }
       } else {
         setIsAuthenticated(false)

@@ -1,9 +1,9 @@
 import React, { useEffect } from 'react'
 import { Navigate, useLocation, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { getCorrectDashboardRoute, getUserType } from '../utils/navigationGuard'
+import { getCorrectDashboardRoute, getUserType, isAuthorizedForRoute } from '../utils/navigationGuard'
 
-const ProtectedRoute = ({ children, requireAuth = true }) => {
+const ProtectedRoute = ({ children, requireAuth = true, userType = null }) => {
   const { isAuthenticated, loading } = useAuth()
   const location = useLocation()
   const [searchParams] = useSearchParams()
@@ -79,6 +79,25 @@ const ProtectedRoute = ({ children, requireAuth = true }) => {
     const dashboardRoute = getCorrectDashboardRoute();
     console.log('🔄 User already authenticated, redirecting to:', dashboardRoute);
     return <Navigate to={dashboardRoute} replace />
+  }
+
+  // If route requires authentication and user is authenticated
+  if (requireAuth && isAuthenticated) {
+    const currentUserType = getUserType();
+    
+    // If this is a patient dashboard route, verify user is actually a patient
+    if (location.pathname.startsWith('/patient') && currentUserType !== 'patient') {
+      console.log(`🚫 Non-patient user (${currentUserType}) attempting to access patient dashboard, redirecting...`);
+      const correctRoute = getCorrectDashboardRoute(currentUserType);
+      return <Navigate to={correctRoute} replace />
+    }
+    
+    // General authorization check for the current route
+    if (!isAuthorizedForRoute(location.pathname, currentUserType)) {
+      console.log(`🚫 User type ${currentUserType} not authorized for route ${location.pathname}`);
+      const correctRoute = getCorrectDashboardRoute(currentUserType);
+      return <Navigate to={correctRoute} replace />
+    }
   }
 
   return children

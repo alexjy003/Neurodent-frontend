@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react'
 import { universalLogout } from '../../utils/universalLogout'
-import { getUserType, redirectToCorrectDashboard } from '../../utils/navigationGuard'
 import {
   Home,
   Calendar,
@@ -38,14 +37,6 @@ const DoctorLayout = () => {
 
   // Load doctor data from localStorage
   useEffect(() => {
-    // Verify user is actually a doctor
-    const userType = getUserType();
-    if (userType && userType !== 'doctor') {
-      console.warn(`🚫 Unauthorized access to doctor dashboard by ${userType} user`);
-      redirectToCorrectDashboard(navigate);
-      return;
-    }
-
     const doctorInfo = localStorage.getItem('doctorInfo')
     if (doctorInfo) {
       try {

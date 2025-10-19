@@ -3,7 +3,6 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import neurodentLogo from '../assets/images/neurodent-logo.png'
 import apiService from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
-import { getCorrectDashboardRoute } from '../utils/navigationGuard'
 
 const Register = () => {
   const navigate = useNavigate()
@@ -330,8 +329,7 @@ const Register = () => {
       await checkAuthStatus()
 
       console.log('🔄 Redirecting to dashboard...')
-      const dashboardRoute = getCorrectDashboardRoute()
-      navigate(dashboardRoute, { replace: true })
+      navigate('/patient/dashboard', { replace: true })
     } catch (err) {
       setError(err.message || 'Registration failed. Please try again.')
     } finally {

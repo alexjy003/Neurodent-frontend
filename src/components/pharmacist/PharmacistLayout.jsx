@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { universalLogout } from '../../utils/universalLogout'
-import { getUserType, redirectToCorrectDashboard } from '../../utils/navigationGuard'
 import { 
   LayoutDashboard, 
   Package, 
@@ -32,14 +31,6 @@ const PharmacistLayout = () => {
   useEffect(() => {
     const loadPharmacistData = async () => {
       try {
-        // Verify user is actually a pharmacist
-        const userType = getUserType();
-        if (userType && userType !== 'pharmacist') {
-          console.warn(`🚫 Unauthorized access to pharmacist dashboard by ${userType} user`);
-          redirectToCorrectDashboard(navigate);
-          return;
-        }
-
         // First try to get data from localStorage
         const storedData = pharmacistAPI.getStoredPharmacistData()
         if (storedData) {

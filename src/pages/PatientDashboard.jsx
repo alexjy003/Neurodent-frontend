@@ -8,7 +8,7 @@ import DoctorSearch from '../components/DoctorSearch'
 import AppointmentManagement from '../components/AppointmentManagement'
 import MedicalRecords from '../components/MedicalRecords'
 import usePreventBackNavigation from '../hooks/usePreventBackNavigation'
-import { getUserType, redirectToCorrectDashboard } from '../utils/navigationGuard'
+import { getUserType, redirectToCorrectDashboard, validateUserAccess } from '../utils/navigationGuard'
 import apiService from '../services/api'
 
 const PatientDashboard = () => {
@@ -16,16 +16,22 @@ const PatientDashboard = () => {
   const [searchParams] = useSearchParams()
   const { user, isAuthenticated, loading, checkAuthStatus, logout } = useAuth()
 
+  // Verify user is actually a patient and redirect if not
+  useEffect(() => {
+    // Only check if we're not loading and have checked authentication
+    if (!loading) {
+      const userType = getUserType();
+      
+      if (!validateUserAccess('patient', userType)) {
+        console.warn(`🚫 Unauthorized access to patient dashboard by ${userType} user`);
+        redirectToCorrectDashboard(navigate);
+        return;
+      }
+    }
+  }, [loading, navigate]);
+
   // Debug: Log user data to see profile picture status
   useEffect(() => {
-    // Verify user is actually a patient
-    const userType = getUserType();
-    if (userType && userType !== 'patient') {
-      console.warn(`🚫 Unauthorized access to patient dashboard by ${userType} user`);
-      redirectToCorrectDashboard(navigate);
-      return;
-    }
-
     console.log('🔍 PatientDashboard user debug:', {
       user: user,
       hasProfilePicture: !!user?.profilePicture,

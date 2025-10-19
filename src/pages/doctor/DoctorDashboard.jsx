@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import apiService from '../../services/api'
 import toast from 'react-hot-toast'
+import { getUserType, redirectToCorrectDashboard, validateUserAccess } from '../../utils/navigationGuard'
 
 const DoctorDashboard = () => {
   const navigate = useNavigate()
@@ -36,6 +37,14 @@ const DoctorDashboard = () => {
   // Check authentication and load doctor data
   useEffect(() => {
     const checkAuth = () => {
+      // First verify user type
+      const userType = getUserType();
+      if (!validateUserAccess('doctor', userType)) {
+        console.warn(`🚫 Unauthorized access to doctor dashboard by ${userType} user`);
+        redirectToCorrectDashboard(navigate);
+        return;
+      }
+
       const token = localStorage.getItem('doctorToken')
       const doctorInfo = localStorage.getItem('doctorInfo')
 

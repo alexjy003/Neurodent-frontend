@@ -1,4 +1,5 @@
-import React from 'react'
+import React, { useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { 
   Users, 
   UserCheck, 
@@ -22,6 +23,7 @@ import {
   ArcElement,
 } from 'chart.js'
 import { Bar, Line, Doughnut } from 'react-chartjs-2'
+import { getUserType, redirectToCorrectDashboard, validateUserAccess } from '../../utils/navigationGuard'
 
 ChartJS.register(
   CategoryScale,
@@ -36,6 +38,18 @@ ChartJS.register(
 )
 
 const AdminDashboard = () => {
+  const navigate = useNavigate()
+  
+  // Verify user is actually an admin and redirect if not
+  useEffect(() => {
+    const userType = getUserType();
+    if (!validateUserAccess('admin', userType)) {
+      console.warn(`🚫 Unauthorized access to admin dashboard by ${userType} user`);
+      redirectToCorrectDashboard(navigate);
+      return;
+    }
+  }, [navigate]);
+
   // Mock data for dashboard
   const stats = {
     appointmentsToday: 24,
