@@ -12,14 +12,14 @@ export const getApiBaseUrl = () => {
     return import.meta.env.VITE_API_BASE_URL;
   }
 
-  // Production environment: use relative path or fallback
+  // Production environment: use relative path
   if (import.meta.env.PROD) {
-    console.warn('⚠️ VITE_API_BASE_URL not set in production environment');
-    return import.meta.env.VITE_API_FALLBACK_URL || '/api';
+    console.warn('⚠️ VITE_API_BASE_URL not set in production environment, using relative path');
+    return '/api';
   }
 
-  // Development environment: use fallback or default localhost
-  return import.meta.env.VITE_API_FALLBACK_URL || 'http://localhost:5000/api';
+  // Development environment: use localhost
+  return 'http://localhost:5000/api';
 };
 
 /**
@@ -27,16 +27,9 @@ export const getApiBaseUrl = () => {
  * @returns {string} The frontend base URL
  */
 export const getFrontendBaseUrl = () => {
-  if (import.meta.env.VITE_FRONTEND_URL) {
-    return import.meta.env.VITE_FRONTEND_URL;
-  }
-
-  // Default based on environment
-  if (import.meta.env.PROD) {
-    return window.location.origin;
-  }
-
-  return import.meta.env.VITE_FRONTEND_FALLBACK_URL || 'http://localhost:3000';
+  // Use the same frontend URL variable, fallback to current origin in production
+  return import.meta.env.VITE_FRONTEND_URL || 
+         (import.meta.env.PROD ? window.location.origin : 'http://localhost:3000');
 };
 
 // Export the configured URLs for immediate use
