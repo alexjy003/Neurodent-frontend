@@ -63,5 +63,3 @@ export const universalLogout = () => {
   const timestamp = Date.now()
   window.location.replace(`/login?t=${timestamp}&logout=true`)
 }
-
-export default universalLogout

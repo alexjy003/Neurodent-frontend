@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { universalLogout } from '../utils/universalLogout'
+import { universalLogout } from '../../utils/universalLogout'
 import {
   Home,
   Calendar,

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import apiService from '../services/api'
-import universalLogout from '../utils/universalLogout'
+import { universalLogout } from '../utils/universalLogout'
 
 const AuthContext = createContext()
 
