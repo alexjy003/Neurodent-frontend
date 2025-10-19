@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import neurodentLogo from '../assets/images/neurodent-logo.png';
 import apiService from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
-import { getCorrectDashboardRoute } from '../utils/navigationGuard';
+import { getCorrectDashboardRoute, getUserType } from '../utils/navigationGuard';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -26,8 +26,49 @@ const Login = () => {
 
   // Helper function to determine the correct dashboard route based on user type
   const getDashboardRoute = () => {
-    return getCorrectDashboardRoute();
+    const route = getCorrectDashboardRoute();
+    console.log('🔍 Dashboard route detection - localStorage state:', {
+      adminAuth: !!localStorage.getItem('adminAuth'),
+      adminToken: !!localStorage.getItem('adminToken'),
+      doctorToken: !!localStorage.getItem('doctorToken'),
+      doctorInfo: !!localStorage.getItem('doctorInfo'),
+      pharmacistToken: !!localStorage.getItem('pharmacistToken'),
+      pharmacistData: !!localStorage.getItem('pharmacistData'),
+      patientToken: !!localStorage.getItem('token'),
+      patientUser: !!localStorage.getItem('user'),
+      detectedRoute: route
+    });
+    return route;
   };
+
+  // Debug utility - expose to window for debugging
+  useEffect(() => {
+    window.debugAuth = () => {
+      console.log('🔍 Current Authentication State:', {
+        localStorage: {
+          token: localStorage.getItem('token'),
+          adminToken: localStorage.getItem('adminToken'),
+          doctorToken: localStorage.getItem('doctorToken'),
+          pharmacistToken: localStorage.getItem('pharmacistToken'),
+          user: localStorage.getItem('user'),
+          adminUser: localStorage.getItem('adminUser'),
+          doctorInfo: localStorage.getItem('doctorInfo'),
+          pharmacistData: localStorage.getItem('pharmacistData'),
+          adminAuth: localStorage.getItem('adminAuth')
+        },
+        sessionStorage: Object.keys(sessionStorage).reduce((acc, key) => {
+          acc[key] = sessionStorage.getItem(key);
+          return acc;
+        }, {}),
+        detectedUserType: getUserType(),
+        correctDashboardRoute: getCorrectDashboardRoute()
+      });
+    };
+    
+    return () => {
+      delete window.debugAuth;
+    };
+  }, []);
 
   // Clear form data and browser autofill when component mounts
   useEffect(() => {
@@ -183,6 +224,14 @@ const Login = () => {
 
     try {
       console.log('🔐 Attempting universal login...');
+      console.log('🔍 Pre-login localStorage state:', {
+        keys: Object.keys(localStorage),
+        tokenExists: !!localStorage.getItem('token'),
+        adminTokenExists: !!localStorage.getItem('adminToken'),
+        doctorTokenExists: !!localStorage.getItem('doctorToken'),
+        pharmacistTokenExists: !!localStorage.getItem('pharmacistToken')
+      });
+      
       const response = await apiService.universalLogin({
         email: formData.email,
         password: formData.password
@@ -202,18 +251,50 @@ const Login = () => {
       if (passwordRef.current) passwordRef.current.value = '';
       if (formRef.current) formRef.current.reset();
       
-      // Determine correct dashboard route based on user type
-      const dashboardRoute = getDashboardRoute();
-      console.log('🔄 Login successful, redirecting to:', dashboardRoute);
+      // Wait a moment for localStorage to be updated, then determine route
+      setTimeout(() => {
+        // Determine correct dashboard route based on user type
+        const dashboardRoute = getDashboardRoute();
+        console.log('🔄 Login successful, user type detected, redirecting to:', dashboardRoute);
+        
+        // Double-check that we have the right user type
+        if (response.user && response.user.userType) {
+          const expectedRoute = getCorrectDashboardRoute(response.user.userType);
+          console.log('🔍 Expected route based on API response:', expectedRoute);
+          console.log('🔍 Detected route from localStorage:', dashboardRoute);
+          
+          // Use the route based on API response as fallback
+          const finalRoute = dashboardRoute !== '/patient/dashboard' ? dashboardRoute : expectedRoute;
+          console.log('🔄 Final redirect route:', finalRoute);
+          
+          navigate(finalRoute, { replace: true });
+        } else {
+          navigate(dashboardRoute, { replace: true });
+        }
+      }, 100);
       
       setLoading(false);
       
-      // Navigate to the correct dashboard based on user type
-      navigate(dashboardRoute, { replace: true });
-      
     } catch (err) {
       console.error('❌ Login failed:', err);
-      setError(err.message || 'Login failed. Please check your credentials.');
+      console.error('❌ Error details:', {
+        message: err.message,
+        response: err.response,
+        status: err.response?.status,
+        data: err.response?.data
+      });
+      
+      // Provide more specific error messages
+      let errorMessage = 'Login failed. Please check your credentials.';
+      if (err.response?.status === 400) {
+        errorMessage = err.message || 'Invalid email or password. Please check your credentials.';
+      } else if (err.response?.status === 500) {
+        errorMessage = 'Server error. Please try again in a moment.';
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
       setLoading(false);
     }
   };

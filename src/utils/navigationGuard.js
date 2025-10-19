@@ -2,17 +2,28 @@
 
 export const getUserType = () => {
   const adminAuth = localStorage.getItem('adminAuth');
+  const adminToken = localStorage.getItem('adminToken');
   const doctorToken = localStorage.getItem('doctorToken');
   const pharmacistToken = localStorage.getItem('pharmacistToken');
   const patientToken = localStorage.getItem('token');
   
-  if (adminAuth && localStorage.getItem('adminToken')) {
+  // Check admin first
+  if (adminAuth && adminToken) {
     return 'admin';
-  } else if (doctorToken && localStorage.getItem('doctorInfo')) {
+  }
+  
+  // Check doctor - be more lenient, token is enough if doctorInfo will be set
+  if (doctorToken) {
     return 'doctor';
-  } else if (pharmacistToken && localStorage.getItem('pharmacistData')) {
+  }
+  
+  // Check pharmacist - be more lenient, token is enough if pharmacistData will be set
+  if (pharmacistToken) {
     return 'pharmacist';
-  } else if (patientToken && localStorage.getItem('user')) {
+  }
+  
+  // Check patient - be more lenient, token is enough if user will be set
+  if (patientToken) {
     return 'patient';
   }
   
