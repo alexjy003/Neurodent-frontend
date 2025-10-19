@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
+import { universalLogout } from '../../utils/universalLogout'
 import { 
   LayoutDashboard, 
   Package, 
@@ -118,26 +119,10 @@ const PharmacistLayout = () => {
   ]
 
   const handleLogout = () => {
-    // Clear ALL authentication data (comprehensive cleanup)
-    pharmacistAPI.logout()
-    
-    // Also clear any additional data that might be cached
-    localStorage.removeItem('token')
-    localStorage.removeItem('adminToken')
-    localStorage.removeItem('doctorToken')
-    localStorage.removeItem('pharmacistToken')
-    localStorage.removeItem('user')
-    localStorage.removeItem('adminAuth')
-    localStorage.removeItem('adminUser')
-    localStorage.removeItem('doctorInfo')
-    localStorage.removeItem('pharmacistData')
-    localStorage.removeItem('patientInfo')
-    sessionStorage.clear()
-    
     toast.success('Logged out successfully')
     
-    // Force redirect to login and prevent back navigation
-    window.location.replace('/login')
+    // Use universal logout for comprehensive cleanup including form clearing
+    universalLogout()
   }
 
   // Show loading state while data is being fetched

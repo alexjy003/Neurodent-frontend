@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { universalLogout } from '../utils/universalLogout'
 import {
   Home,
   Calendar,
@@ -80,21 +81,8 @@ const DoctorLayout = () => {
   }, [])
 
   const handleLogout = () => {
-    // Clear ALL authentication data (comprehensive cleanup)
-    localStorage.removeItem('token')
-    localStorage.removeItem('adminToken')
-    localStorage.removeItem('doctorToken')
-    localStorage.removeItem('pharmacistToken')
-    localStorage.removeItem('user')
-    localStorage.removeItem('adminAuth')
-    localStorage.removeItem('adminUser')
-    localStorage.removeItem('doctorInfo')
-    localStorage.removeItem('pharmacistData')
-    localStorage.removeItem('patientInfo')
-    sessionStorage.clear()
-    
-    // Force redirect to login and prevent back navigation
-    window.location.replace('/login')
+    // Use universal logout for comprehensive cleanup including form clearing
+    universalLogout()
   }
 
   return (

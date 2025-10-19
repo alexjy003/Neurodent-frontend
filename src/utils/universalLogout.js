@@ -1,4 +1,5 @@
 // Universal logout utility for all user types
+import { clearLoginForms } from './formCleaner'
 
 export const universalLogout = () => {
   console.log('🚪 Universal logout initiated...')
@@ -35,6 +36,14 @@ export const universalLogout = () => {
     }
   })
   
+  // Clear browser form data and auto-fill to prevent credential persistence
+  clearLoginForms()
+  
+  // Clear browser history state to prevent back navigation to authenticated pages
+  if (typeof window !== 'undefined' && window.history) {
+    window.history.replaceState(null, '', '/login')
+  }
+  
   // Clear browser cache if available
   if ('caches' in window) {
     caches.keys().then(names => {
@@ -46,11 +55,13 @@ export const universalLogout = () => {
     })
   }
   
-  console.log('✅ All authentication data cleared')
+  console.log('✅ All authentication data and form data cleared')
   
   // Force redirect to login page and prevent back navigation
   // Using replace to prevent the current page from being in history
-  window.location.replace('/login')
+  // Add timestamp to prevent cached pages
+  const timestamp = Date.now()
+  window.location.replace(`/login?t=${timestamp}&logout=true`)
 }
 
 export default universalLogout

@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import neurodentLogo from '../assets/images/neurodent-logo.png';
 import apiService from '../services/api';
@@ -17,6 +17,89 @@ const Login = () => {
     password: '',
     rememberMe: false
   });
+  
+  // Refs for form inputs to manually clear them
+  const emailRef = useRef(null);
+  const passwordRef = useRef(null);
+  const formRef = useRef(null);
+
+  // Clear form data and browser autofill when component mounts
+  useEffect(() => {
+    const logout = searchParams.get('logout');
+    
+    // Clear form data state
+    setFormData({
+      email: '',
+      password: '',
+      rememberMe: false
+    });
+    
+    // Clear form fields manually to prevent browser autofill persistence
+    const clearForm = () => {
+      if (emailRef.current) {
+        emailRef.current.value = '';
+        emailRef.current.autocomplete = 'new-password';
+      }
+      if (passwordRef.current) {
+        passwordRef.current.value = '';
+        passwordRef.current.autocomplete = 'new-password';
+      }
+      if (formRef.current) {
+        formRef.current.reset();
+      }
+      
+      // Dispatch input events to ensure React state is synchronized
+      if (emailRef.current) {
+        const event = new Event('input', { bubbles: true });
+        emailRef.current.dispatchEvent(event);
+      }
+      if (passwordRef.current) {
+        const event = new Event('input', { bubbles: true });
+        passwordRef.current.dispatchEvent(event);
+      }
+    };
+    
+    // Clear immediately
+    clearForm();
+    
+    // Clear again after a delay to handle browser autofill
+    setTimeout(clearForm, 50);
+    setTimeout(clearForm, 200);
+    
+    // If coming from logout, show success message briefly
+    if (logout === 'true') {
+      setSuccess('You have been logged out successfully.');
+      setTimeout(() => setSuccess(''), 3000);
+      
+      // Clean up the URL
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, newUrl);
+    }
+  }, [searchParams]);
+
+  // Clear form data when page is about to unload or refresh
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (emailRef.current) emailRef.current.value = '';
+      if (passwordRef.current) passwordRef.current.value = '';
+      if (formRef.current) formRef.current.reset();
+    };
+    
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        handleBeforeUnload();
+      }
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      handleBeforeUnload(); // Clear when component unmounts
+    };
+  }, []);
 
     // Handle Google OAuth token and success from URL
   useEffect(() => {
@@ -72,6 +155,12 @@ const Login = () => {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+    
+    // Prevent browser from saving credentials by setting autocomplete
+    if (e.target.type === 'password' || e.target.name === 'email') {
+      e.target.autocomplete = 'new-password';
+    }
+    
     // Clear error when user starts typing
     if (error) setError('');
   };
@@ -90,6 +179,18 @@ const Login = () => {
       });
 
       console.log('✅ Login successful:', response);
+      
+      // Clear form data after successful login to prevent browser from saving
+      setFormData({
+        email: '',
+        password: '',
+        rememberMe: false
+      });
+      
+      // Clear form fields manually
+      if (emailRef.current) emailRef.current.value = '';
+      if (passwordRef.current) passwordRef.current.value = '';
+      if (formRef.current) formRef.current.reset();
       
       // Force a re-render to trigger ProtectedRoute re-evaluation
       setLoading(false);
@@ -178,7 +279,7 @@ const Login = () => {
             </div>
           )}
           
-          <form className="space-y-6" onSubmit={handleSubmit}>
+          <form ref={formRef} className="space-y-6" onSubmit={handleSubmit}>
             {/* Email Field */}
             <div className="transform transition-all duration-300 hover:scale-[1.02]">
               <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
@@ -186,10 +287,14 @@ const Login = () => {
               </label>
               <div className="relative group">
                 <input
+                  ref={emailRef}
                   id="email"
                   name="email"
                   type="text"
-                  autoComplete="email"
+                  autoComplete="new-password"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck="false"
                   required
                   value={formData.email}
                   onChange={handleInputChange}
@@ -211,10 +316,14 @@ const Login = () => {
               </label>
               <div className="relative group">
                 <input
+                  ref={passwordRef}
                   id="password"
                   name="password"
                   type={showPassword ? 'text' : 'password'}
-                  autoComplete="current-password"
+                  autoComplete="new-password"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck="false"
                   required
                   value={formData.password}
                   onChange={handleInputChange}
