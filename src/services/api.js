@@ -1,22 +1,7 @@
-// Determine API base URL based on environment
-const getApiBaseUrl = () => {
-  // Use environment variable if available
-  if (import.meta.env.VITE_API_BASE_URL) {
-    return import.meta.env.VITE_API_BASE_URL;
-  }
-  
-  // Fallback logic for production/development
-  if (import.meta.env.PROD) {
-    // Production fallback - use environment variable or error
-    console.error('⚠️ VITE_API_BASE_URL not set in production environment');
-    return '/api'; // Relative URL fallback for production
-  }
-  
-  // Development fallback
-  return 'http://localhost:5000/api';
-};
+// Import configuration utility
+import { API_BASE_URL } from '../utils/config.js';
 
-const API_BASE_URL = getApiBaseUrl();
+// API_BASE_URL is now imported from config
 
 console.log('🔧 API Service initialized with base URL:', API_BASE_URL);
 

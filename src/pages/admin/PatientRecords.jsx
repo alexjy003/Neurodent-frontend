@@ -18,6 +18,7 @@ import {
 import { Link } from 'react-router-dom'
 import apiService from '../../services/api'
 import toast from 'react-hot-toast'
+import { API_BASE_URL } from '../../utils/config.js'
 
 const PatientRecords = () => {
   const [patients, setPatients] = useState([])
@@ -50,8 +51,7 @@ const PatientRecords = () => {
       console.log('🔍 Debug - Admin Auth:', adminAuth)
       console.log('🔍 Debug - Admin User:', adminUser)
       
-      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
-        (import.meta.env.PROD ? '/api' : 'http://localhost:5000/api');
+      // API_BASE_URL is now imported from config
       
       console.log('🔍 Debug - API Base URL:', API_BASE_URL)
       

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import pharmacistAPI from '../services/pharmacistAPI'
 import toast from 'react-hot-toast'
+import { API_BASE_URL } from '../utils/config.js'
 
 const PharmacistProtectedRoute = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(null) // null = checking, true = authenticated, false = not authenticated
@@ -25,8 +26,7 @@ const PharmacistProtectedRoute = ({ children }) => {
         
         // Use the universal verify endpoint instead of pharmacist-specific one
         try {
-          const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
-            (import.meta.env.PROD ? '/api' : 'http://localhost:5000/api');
+          // API_BASE_URL is now imported from config
           
           const response = await fetch(`${API_BASE_URL}/auth/verify`, {
             method: 'GET',

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import AppointmentBookingModal from './AppointmentBookingModal'
+import { API_BASE_URL } from '../utils/config.js'
 
 const DoctorSearch = () => {
   const [searchQuery, setSearchQuery] = useState('')
@@ -28,8 +29,7 @@ const DoctorSearch = () => {
       setLoading(true)
       setError(null)
       
-      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
-        (import.meta.env.PROD ? '/api' : 'http://localhost:5000/api');
+      // API_BASE_URL is now imported from config
       
       const response = await axios.get(`${API_BASE_URL}/doctors`)
       if (response.data.success) {
