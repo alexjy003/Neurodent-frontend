@@ -7,8 +7,9 @@ const getApiBaseUrl = () => {
   
   // Fallback logic for production/development
   if (import.meta.env.PROD) {
-    // Production fallback - point to Render backend
-    return 'https://neurodent-backend.onrender.com/api';
+    // Production fallback - use environment variable or error
+    console.error('⚠️ VITE_API_BASE_URL not set in production environment');
+    return '/api'; // Relative URL fallback for production
   }
   
   // Development fallback

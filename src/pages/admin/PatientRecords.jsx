@@ -49,10 +49,14 @@ const PatientRecords = () => {
       console.log('🔍 Debug - Admin Token:', adminToken)
       console.log('🔍 Debug - Admin Auth:', adminAuth)
       console.log('🔍 Debug - Admin User:', adminUser)
-      console.log('🔍 Debug - API Base URL:', import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api')
+      
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
+        (import.meta.env.PROD ? '/api' : 'http://localhost:5000/api');
+      
+      console.log('🔍 Debug - API Base URL:', API_BASE_URL)
       
       // Try to make the API call and log full request/response details
-      console.log('🔍 Making API call to:', `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'}/patients`)
+      console.log('🔍 Making API call to:', `${API_BASE_URL}/patients`)
       console.log('🔍 With headers:', { Authorization: `Bearer ${adminToken}` })
       
       const response = await apiService.get('/patients')

@@ -20,6 +20,10 @@ import toast from 'react-hot-toast'
 import axios from 'axios'
 import { getAdminToken } from '../../utils/adminAuth'
 
+// API Base URL configuration
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
+  (import.meta.env.PROD ? '/api' : 'http://localhost:5000/api');
+
 const DoctorsManagement = () => {
   const [doctors, setDoctors] = useState([])
   const [loading, setLoading] = useState(true)
@@ -103,7 +107,7 @@ const DoctorsManagement = () => {
         return
       }
 
-      const response = await axios.get('http://localhost:5000/api/doctors', {
+      const response = await axios.get(`${API_BASE_URL}/doctors`, {
         headers: {
           'Authorization': `Bearer ${adminToken}`,
           'Content-Type': 'application/json'
@@ -268,7 +272,7 @@ const DoctorsManagement = () => {
 
       console.log('Sending doctor data with image:', selectedImage ? 'Image included' : 'No image')
 
-      const response = await axios.post('http://localhost:5000/api/doctors', formDataToSend, {
+      const response = await axios.post(`${API_BASE_URL}/doctors`, formDataToSend, {
         ...getAuthConfig(true),
         headers: {
           ...getAuthConfig(true).headers,
@@ -324,7 +328,7 @@ const DoctorsManagement = () => {
       console.log('Updating doctor data with image:', selectedImage ? 'Image included' : 'No new image')
       console.log('Form data being sent:', Object.fromEntries(formDataToSend.entries()))
 
-      const response = await axios.put(`http://localhost:5000/api/doctors/${editingDoctor._id}`, formDataToSend, {
+      const response = await axios.put(`${API_BASE_URL}/doctors/${editingDoctor._id}`, formDataToSend, {
         ...getAuthConfig(true),
         headers: {
           ...getAuthConfig(true).headers,
@@ -360,7 +364,7 @@ const DoctorsManagement = () => {
 
     if (userInput === 'DELETE') {
       try {
-        const response = await axios.delete(`http://localhost:5000/api/doctors/${doctor._id}`, getAuthConfig())
+        const response = await axios.delete(`${API_BASE_URL}/doctors/${doctor._id}`, getAuthConfig())
         if (response.data.success) {
           toast.success(`Dr. ${doctor.firstName} ${doctor.lastName} deleted successfully!`)
           fetchDoctors() // Refresh the doctors list
@@ -376,7 +380,7 @@ const DoctorsManagement = () => {
 
   const toggleDoctorStatus = async (id) => {
     try {
-      const response = await axios.patch(`http://localhost:5000/api/doctors/${id}/availability`, {}, getAuthConfig())
+      const response = await axios.patch(`${API_BASE_URL}/doctors/${id}/availability`, {}, getAuthConfig())
       if (response.data.success) {
         toast.success('Doctor status updated!')
         fetchDoctors() // Refresh the doctors list

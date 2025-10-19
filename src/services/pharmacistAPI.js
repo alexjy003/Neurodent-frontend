@@ -1,4 +1,18 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+// Determine API base URL based on environment
+const getApiBaseUrl = () => {
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+  
+  if (import.meta.env.PROD) {
+    console.error('⚠️ VITE_API_BASE_URL not set in production environment');
+    return '/api'; // Relative URL fallback for production
+  }
+  
+  return 'http://localhost:5000/api'; // Development fallback
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 class PharmacistAPIService {
   constructor() {

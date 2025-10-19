@@ -27,7 +27,11 @@ const DoctorSearch = () => {
     try {
       setLoading(true)
       setError(null)
-      const response = await axios.get('http://localhost:5000/api/doctors')
+      
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
+        (import.meta.env.PROD ? '/api' : 'http://localhost:5000/api');
+      
+      const response = await axios.get(`${API_BASE_URL}/doctors`)
       if (response.data.success) {
         // Transform the data to match the expected format
         const transformedDoctors = response.data.data.doctors.map(doctor => ({

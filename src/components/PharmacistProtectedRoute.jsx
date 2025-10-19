@@ -25,7 +25,10 @@ const PharmacistProtectedRoute = ({ children }) => {
         
         // Use the universal verify endpoint instead of pharmacist-specific one
         try {
-          const response = await fetch('http://localhost:5000/api/auth/verify', {
+          const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
+            (import.meta.env.PROD ? '/api' : 'http://localhost:5000/api');
+          
+          const response = await fetch(`${API_BASE_URL}/auth/verify`, {
             method: 'GET',
             headers: {
               'Authorization': `Bearer ${pharmacistToken}`,
