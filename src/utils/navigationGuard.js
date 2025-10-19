@@ -1,4 +1,90 @@
-// Navigation guard utilities to prevent unauthorized back navigation
+// Navigation guard utilities to prevent unauthorized back navigation and cross-user-type access
+
+export const getUserType = () => {
+  const adminAuth = localStorage.getItem('adminAuth');
+  const doctorToken = localStorage.getItem('doctorToken');
+  const pharmacistToken = localStorage.getItem('pharmacistToken');
+  const patientToken = localStorage.getItem('token');
+  
+  if (adminAuth && localStorage.getItem('adminToken')) {
+    return 'admin';
+  } else if (doctorToken && localStorage.getItem('doctorInfo')) {
+    return 'doctor';
+  } else if (pharmacistToken && localStorage.getItem('pharmacistData')) {
+    return 'pharmacist';
+  } else if (patientToken && localStorage.getItem('user')) {
+    return 'patient';
+  }
+  
+  return null;
+};
+
+export const getCorrectDashboardRoute = (userType = null) => {
+  const type = userType || getUserType();
+  
+  switch (type) {
+    case 'admin':
+      return '/admin/dashboard';
+    case 'doctor':
+      return '/doctor/dashboard';
+    case 'pharmacist':
+      return '/pharmacist/dashboard';
+    case 'patient':
+    default:
+      return '/patient/dashboard';
+  }
+};
+
+export const isAuthorizedForRoute = (currentPath, userType = null) => {
+  const type = userType || getUserType();
+  
+  if (!type) return false;
+  
+  // Check if user is trying to access the correct user type routes
+  if (currentPath.startsWith('/admin') && type !== 'admin') {
+    return false;
+  }
+  
+  if (currentPath.startsWith('/doctor') && type !== 'doctor') {
+    return false;
+  }
+  
+  if (currentPath.startsWith('/pharmacist') && type !== 'pharmacist') {
+    return false;
+  }
+  
+  if (currentPath.startsWith('/patient') && type !== 'patient') {
+    return false;
+  }
+  
+  return true;
+};
+
+export const redirectToCorrectDashboard = (navigate) => {
+  const userType = getUserType();
+  const correctRoute = getCorrectDashboardRoute(userType);
+  
+  console.log(`🔄 Redirecting ${userType} user to:`, correctRoute);
+  
+  // Use replace to prevent back navigation to unauthorized route
+  navigate(correctRoute, { replace: true });
+};
+
+export const validateUserAccess = (requiredUserType, currentUserType = null) => {
+  const type = currentUserType || getUserType();
+  
+  if (!type) {
+    console.warn('🚫 No user type detected, access denied');
+    return false;
+  }
+  
+  if (requiredUserType && type !== requiredUserType) {
+    console.warn(`🚫 Access denied: Required ${requiredUserType}, but user is ${type}`);
+    return false;
+  }
+  
+  return true;
+};
 
 export const preventBackNavigation = () => {
   // Push multiple states to make it harder to go back

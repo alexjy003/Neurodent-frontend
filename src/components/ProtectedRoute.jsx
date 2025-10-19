@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react'
 import { Navigate, useLocation, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { getCorrectDashboardRoute, getUserType } from '../utils/navigationGuard'
 
 const ProtectedRoute = ({ children, requireAuth = true }) => {
   const { isAuthenticated, loading } = useAuth()
@@ -74,20 +75,10 @@ const ProtectedRoute = ({ children, requireAuth = true }) => {
 
   // If route requires no authentication (like login/register) and user is authenticated
   if (!requireAuth && isAuthenticated) {
-    // Determine the correct dashboard based on user type
-    const adminAuth = localStorage.getItem('adminAuth');
-    const doctorToken = localStorage.getItem('doctorToken');
-    const pharmacistToken = localStorage.getItem('pharmacistToken');
-    
-    if (adminAuth) {
-      return <Navigate to="/admin/dashboard" replace />
-    } else if (doctorToken) {
-      return <Navigate to="/doctor/dashboard" replace />
-    } else if (pharmacistToken) {
-      return <Navigate to="/pharmacist/dashboard" replace />
-    } else {
-      return <Navigate to="/patient/dashboard" replace />
-    }
+    // Use the utility to determine the correct dashboard
+    const dashboardRoute = getCorrectDashboardRoute();
+    console.log('🔄 User already authenticated, redirecting to:', dashboardRoute);
+    return <Navigate to={dashboardRoute} replace />
   }
 
   return children

@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import neurodentLogo from '../assets/images/neurodent-logo.png';
 import apiService from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { getCorrectDashboardRoute } from '../utils/navigationGuard';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -22,6 +23,11 @@ const Login = () => {
   const emailRef = useRef(null);
   const passwordRef = useRef(null);
   const formRef = useRef(null);
+
+  // Helper function to determine the correct dashboard route based on user type
+  const getDashboardRoute = () => {
+    return getCorrectDashboardRoute();
+  };
 
   // Clear form data and browser autofill when component mounts
   useEffect(() => {
@@ -114,9 +120,11 @@ const Login = () => {
         apiService.setToken(token);
         // Trigger auth context to check the token and get user info
         checkAuthStatus().then(() => {
-          console.log('✅ Auth status check completed, redirecting to patient dashboard');
-          // Clean up URL and redirect to patient dashboard
-          navigate('/patient/dashboard', { replace: true });
+          console.log('✅ Auth status check completed, redirecting to appropriate dashboard');
+          // Get correct dashboard route based on user type
+          const dashboardRoute = getDashboardRoute();
+          console.log('🔄 Redirecting to:', dashboardRoute);
+          navigate(dashboardRoute, { replace: true });
         }).catch((error) => {
           console.error('❌ Auth status check failed:', error);
           setError('Authentication failed. Please try logging in again.');
@@ -131,7 +139,9 @@ const Login = () => {
     } else if (token && !googleAuth) {
       // Direct token from login (not signup)
       apiService.setToken(token);
-      navigate('/patient/dashboard', { replace: true });
+      const dashboardRoute = getDashboardRoute();
+      console.log('🔄 Direct token redirect to:', dashboardRoute);
+      navigate(dashboardRoute, { replace: true });
       return;
     }
 
@@ -192,13 +202,14 @@ const Login = () => {
       if (passwordRef.current) passwordRef.current.value = '';
       if (formRef.current) formRef.current.reset();
       
-      // Force a re-render to trigger ProtectedRoute re-evaluation
+      // Determine correct dashboard route based on user type
+      const dashboardRoute = getDashboardRoute();
+      console.log('🔄 Login successful, redirecting to:', dashboardRoute);
+      
       setLoading(false);
-      // Small delay to ensure tokens are stored, then force navigation
-      setTimeout(() => {
-        // Force a page reload to ensure clean state
-        window.location.reload();
-      }, 100);
+      
+      // Navigate to the correct dashboard based on user type
+      navigate(dashboardRoute, { replace: true });
       
     } catch (err) {
       console.error('❌ Login failed:', err);
