@@ -1,4 +1,23 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+// Determine API base URL based on environment
+const getApiBaseUrl = () => {
+  // Use environment variable if available
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+  
+  // Fallback logic for production/development
+  if (import.meta.env.PROD) {
+    // Production fallback - point to Render backend
+    return 'https://neurodent-backend.onrender.com/api';
+  }
+  
+  // Development fallback
+  return 'http://localhost:5000/api';
+};
+
+const API_BASE_URL = getApiBaseUrl();
+
+console.log('🔧 API Service initialized with base URL:', API_BASE_URL);
 
 class ApiService {
   constructor() {
