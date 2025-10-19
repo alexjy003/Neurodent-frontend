@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import appointmentService from '../services/appointmentService';
+import paymentService from '../services/paymentService';
+import { useAuth } from '../contexts/AuthContext';
 
 const AppointmentBookingModal = ({ isOpen, onClose, doctor, onSuccess }) => {
+  const { user } = useAuth();
   const [selectedDate, setSelectedDate] = useState('');
   const [availableSlots, setAvailableSlots] = useState([]);
   const [selectedSlot, setSelectedSlot] = useState(null);
@@ -10,6 +13,7 @@ const AppointmentBookingModal = ({ isOpen, onClose, doctor, onSuccess }) => {
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('');
+  const [paymentProcessing, setPaymentProcessing] = useState(false);
 
   // Reset modal state when opening/closing
   useEffect(() => {
@@ -85,7 +89,7 @@ const AppointmentBookingModal = ({ isOpen, onClose, doctor, onSuccess }) => {
     }
   };
 
-  const handleBookAppointment = async () => {
+  const handlePaymentAndBooking = async () => {
     if (!selectedSlot) {
       setMessage('Please select a time slot');
       setMessageType('error');
@@ -99,8 +103,14 @@ const AppointmentBookingModal = ({ isOpen, onClose, doctor, onSuccess }) => {
       return;
     }
 
+    if (!user) {
+      setMessage('Please log in to book appointments');
+      setMessageType('error');
+      return;
+    }
+
     try {
-      setLoading(true);
+      setPaymentProcessing(true);
       setMessage('');
 
       const appointmentData = {
@@ -120,41 +130,40 @@ const AppointmentBookingModal = ({ isOpen, onClose, doctor, onSuccess }) => {
         return;
       }
 
-      const response = await appointmentService.bookAppointment(appointmentData);
+      // Initiate Razorpay payment
+      setMessage('Redirecting to payment gateway...');
+      setMessageType('info');
 
-      if (response.success) {
-        setMessage('Appointment booked successfully!');
+      const paymentResult = await paymentService.initiatePayment(appointmentData, user);
+
+      if (paymentResult.success) {
+        setMessage('Payment successful! Appointment booked successfully!');
         setMessageType('success');
         
         // Call success callback after a short delay
         setTimeout(() => {
-          onSuccess && onSuccess(response.appointment);
+          onSuccess && onSuccess(paymentResult.appointment);
           onClose();
         }, 1500);
       } else {
-        setMessage(response.message || 'Failed to book appointment');
+        setMessage(paymentResult.message || 'Payment failed. Please try again.');
         setMessageType('error');
       }
     } catch (error) {
-      console.error('Error booking appointment:', error);
+      console.error('Error processing payment and booking:', error);
       
-      if (error.response?.status === 409) {
-        setMessage('Time slot not available. Another patient may have booked it.');
-        setMessageType('error');
-        // Refresh slots to show updated availability
-        fetchAvailableSlots();
-      } else if (error.response?.status === 401) {
-        setMessage('Please log in to book appointments');
-        setMessageType('error');
-      } else if (error.response?.data?.errors) {
-        setMessage(error.response.data.errors[0].msg || 'Validation failed');
+      if (error.message === 'Payment cancelled by user') {
+        setMessage('Payment was cancelled. Please try again if you want to book the appointment.');
+        setMessageType('warning');
+      } else if (error.message === 'Failed to load Razorpay SDK') {
+        setMessage('Payment gateway not available. Please try again later.');
         setMessageType('error');
       } else {
-        setMessage('Error booking appointment. Please try again.');
+        setMessage('Error processing payment. Please try again.');
         setMessageType('error');
       }
     } finally {
-      setLoading(false);
+      setPaymentProcessing(false);
     }
   };
 
@@ -319,27 +328,48 @@ const AppointmentBookingModal = ({ isOpen, onClose, doctor, onSuccess }) => {
             </div>
           )}
 
+          {/* Payment Info */}
+          {selectedSlot && (
+            <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-semibold text-green-800">Appointment Fee</h4>
+                  <p className="text-sm text-green-600">Consultation charges</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-green-800">{paymentService.getAppointmentFee()}</p>
+                  <p className="text-xs text-green-600">Secure payment via Razorpay</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Action Buttons */}
           <div className="flex gap-3">
             <button
               onClick={handleClose}
-              disabled={loading}
+              disabled={loading || paymentProcessing}
               className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Cancel
             </button>
             <button
-              onClick={handleBookAppointment}
-              disabled={!selectedSlot || loading || messageType === 'success'}
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
+              onClick={handlePaymentAndBooking}
+              disabled={!selectedSlot || loading || paymentProcessing || messageType === 'success'}
+              className="flex-1 px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-md hover:from-green-700 hover:to-green-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center transition-colors font-semibold"
             >
-              {loading ? (
+              {paymentProcessing ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Booking...
+                  Processing...
                 </>
               ) : (
-                'Book Appointment'
+                <>
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a3 3 0 00-3 3v6a3 3 0 003 3h10a2 2 0 002-2v-2M17 9h4l-4 4-4-4h4z" />
+                  </svg>
+                  Go to Payment
+                </>
               )}
             </button>
           </div>
