@@ -860,33 +860,52 @@ const Appointments = () => {
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    {(appointment.status === 'scheduled' || appointment.status === 'confirmed') && (
-                      <>
-                        <div className="relative">
+                    {(appointment.status === 'scheduled' || appointment.status === 'confirmed') && (() => {
+                      // Check if appointment is today
+                      const appointmentDate = new Date(appointment.appointmentDate).toDateString();
+                      const today = new Date().toDateString();
+                      const isToday = appointmentDate === today;
+
+                      return (
+                        <>
+                          <div className="relative">
+                            <button
+                              onClick={() => isToday && handleOpenPrescription(appointment)}
+                              disabled={!isToday}
+                              className={`inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded transition-colors ${
+                                isToday
+                                  ? 'text-white bg-purple-600 hover:bg-purple-700 cursor-pointer'
+                                  : 'text-gray-400 bg-gray-200 cursor-not-allowed opacity-60'
+                              }`}
+                              title={!isToday ? 'Prescription can only be created on the appointment date' : 'Create prescription'}
+                            >
+                              <FileText className="w-3 h-3 mr-1" />
+                              Prescription
+                            </button>
+                          </div>
                           <button
-                            onClick={() => handleOpenPrescription(appointment)}
-                            className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-purple-600 hover:bg-purple-700 transition-colors"
+                            onClick={() => isToday && handleCompleteAppointment(appointment)}
+                            disabled={!isToday}
+                            className={`inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded transition-colors ${
+                              isToday
+                                ? 'text-white bg-blue-600 hover:bg-blue-700 cursor-pointer'
+                                : 'text-gray-400 bg-gray-200 cursor-not-allowed opacity-60'
+                            }`}
+                            title={!isToday ? 'Appointment can only be completed on the appointment date' : 'Mark as complete'}
                           >
-                            <FileText className="w-3 h-3 mr-1" />
-                            Prescription
+                            <CheckCircle className="w-3 h-3 mr-1" />
+                            Complete
                           </button>
-                        </div>
-                        <button
-                          onClick={() => handleCompleteAppointment(appointment)}
-                          className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-blue-600 hover:bg-blue-700 transition-colors"
-                        >
-                          <CheckCircle className="w-3 h-3 mr-1" />
-                          Complete
-                        </button>
-                        <button
-                          onClick={() => handleReschedule(appointment)}
-                          className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 transition-colors"
-                        >
-                          <RotateCcw className="w-3 h-3 mr-1" />
-                          Reschedule
-                        </button>
-                      </>
-                    )}
+                          <button
+                            onClick={() => handleReschedule(appointment)}
+                            className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                          >
+                            <RotateCcw className="w-3 h-3 mr-1" />
+                            Reschedule
+                          </button>
+                        </>
+                      );
+                    })()}
                     {appointment.status === 'completed' && (
                       <button 
                         onClick={() => handleViewDetails(appointment)}
@@ -1005,19 +1024,21 @@ const Appointments = () => {
                   <div className="flex items-center space-x-2">
                     <div className="relative">
                       <button
-                        onClick={() => handleOpenPrescription(appointment)}
-                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-purple-600 hover:bg-purple-700 transition-colors"
+                        disabled={true}
+                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-gray-400 bg-gray-200 cursor-not-allowed opacity-60"
+                        title="Prescription cannot be created for past appointments"
                       >
                         <FileText className="w-3 h-3 mr-1" />
                         Prescription
                       </button>
                     </div>
                     <button
-                      onClick={() => handleCompleteAppointment(appointment)}
-                      className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 transition-colors"
+                      disabled={true}
+                      className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-gray-400 bg-gray-200 cursor-not-allowed opacity-60"
+                      title="Past appointments cannot be marked as complete"
                     >
                       <CheckCircle className="w-3 h-3 mr-1" />
-                      Mark Complete
+                      Complete
                     </button>
                     <button
                       onClick={() => handleReschedule(appointment)}

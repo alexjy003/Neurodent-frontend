@@ -26,27 +26,9 @@ const MedicalRecords = ({ user }) => {
       const appointmentsResponse = await apiService.get("/appointments/my-appointments?limit=50")
       console.log("Appointments response:", appointmentsResponse)
       
-      let treatments = []
-      if (appointmentsResponse && appointmentsResponse.success && appointmentsResponse.appointments) {
-        treatments = appointmentsResponse.appointments
-          .filter(apt => apt.status === "completed")
-          .map(apt => ({
-            id: apt.id || apt._id,
-            date: apt.appointmentDate || apt.date,
-            doctor: apt.doctorName || "Doctor",
-            type: apt.slotType || "General Appointment",
-            description: apt.symptoms || "Routine dental appointment",
-            findings: "Treatment completed successfully",
-            treatment: apt.slotType || "General treatment",
-            status: "completed",
-            cost: "N/A",
-            attachments: []
-          }))
-        console.log("Processed treatments:", treatments.length)
-      }
-
-      // Fetch prescriptions
+      // Fetch prescriptions first
       let prescriptions = []
+      let prescriptionMap = new Map() // Map to store prescriptions by date and doctor for matching
       try {
         const prescriptionsResponse = await apiService.get("/prescriptions/my-prescriptions")
         console.log("Prescriptions response:", prescriptionsResponse)
@@ -60,12 +42,46 @@ const MedicalRecords = ({ user }) => {
             medications: presc.medications,
             instructions: presc.generalInstructions,
             status: presc.status || "active",
-            isAIGenerated: presc.isAIGenerated || false
+            isAIGenerated: presc.isAIGenerated || false,
+            doctorId: presc.doctorId?._id
           }))
+          
+          // Create a map for quick lookup
+          prescriptions.forEach(presc => {
+            const key = `${presc.doctorId}-${new Date(presc.date).toDateString()}`
+            prescriptionMap.set(key, presc)
+          })
+          
           console.log("Processed prescriptions:", prescriptions.length)
         }
       } catch (prescError) {
         console.error("Error fetching prescriptions:", prescError)
+      }
+      
+      let treatments = []
+      if (appointmentsResponse && appointmentsResponse.success && appointmentsResponse.appointments) {
+        treatments = appointmentsResponse.appointments
+          .filter(apt => apt.status === "completed")
+          .map(apt => {
+            // Try to find matching prescription
+            const aptDate = new Date(apt.appointmentDate || apt.date).toDateString()
+            const key = `${apt.doctorId}-${aptDate}`
+            const matchingPrescription = prescriptionMap.get(key)
+            
+            return {
+              id: apt.id || apt._id,
+              date: apt.appointmentDate || apt.date,
+              doctor: apt.doctorName || "Doctor",
+              type: apt.slotType || "General Appointment",
+              description: apt.symptoms || "Routine dental appointment",
+              findings: matchingPrescription ? matchingPrescription.diagnosis : "Treatment completed successfully",
+              treatment: apt.slotType || "General treatment",
+              status: "completed",
+              cost: "₹500",
+              attachments: []
+            }
+          })
+        console.log("Processed treatments:", treatments.length)
       }
 
       const images = []
