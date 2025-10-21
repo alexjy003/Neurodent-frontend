@@ -22,6 +22,7 @@ const MedicalRecords = ({ user }) => {
       setLoading(true)
       console.log("Loading medical records for patient:", user?._id)
 
+      // Fetch appointments
       const appointmentsResponse = await apiService.get("/appointments/my-appointments?limit=50")
       console.log("Appointments response:", appointmentsResponse)
       
@@ -44,7 +45,29 @@ const MedicalRecords = ({ user }) => {
         console.log("Processed treatments:", treatments.length)
       }
 
-      const prescriptions = []
+      // Fetch prescriptions
+      let prescriptions = []
+      try {
+        const prescriptionsResponse = await apiService.get("/prescriptions/my-prescriptions")
+        console.log("Prescriptions response:", prescriptionsResponse)
+        
+        if (prescriptionsResponse && prescriptionsResponse.success && prescriptionsResponse.prescriptions) {
+          prescriptions = prescriptionsResponse.prescriptions.map(presc => ({
+            id: presc._id,
+            date: presc.prescriptionDate,
+            doctor: presc.doctorId ? `Dr. ${presc.doctorId.firstName} ${presc.doctorId.lastName}` : "Doctor",
+            diagnosis: presc.diagnosis,
+            medications: presc.medications,
+            instructions: presc.generalInstructions,
+            status: presc.status || "active",
+            isAIGenerated: presc.isAIGenerated || false
+          }))
+          console.log("Processed prescriptions:", prescriptions.length)
+        }
+      } catch (prescError) {
+        console.error("Error fetching prescriptions:", prescError)
+      }
+
       const images = []
 
       setMedicalData({
@@ -86,6 +109,43 @@ const MedicalRecords = ({ user }) => {
 
   const downloadFile = (filename) => {
     console.log("Downloading file:", filename)
+  }
+
+  const downloadPrescription = async (prescriptionId) => {
+    try {
+      console.log("Downloading prescription:", prescriptionId)
+      
+      const token = localStorage.getItem("token")
+      if (!token) {
+        console.error("No token found")
+        return
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/prescriptions/${prescriptionId}/pdf-patient`, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to download prescription")
+      }
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `prescription-${prescriptionId}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      
+      console.log("✅ Prescription downloaded successfully")
+    } catch (error) {
+      console.error("Error downloading prescription:", error)
+    }
   }
 
   const tabs = [
@@ -174,10 +234,76 @@ const MedicalRecords = ({ user }) => {
                 )
             ) :
             activeTab === "prescriptions" ?
-              React.createElement("div", {className: "text-center py-12"}, [
-                React.createElement("h3", {key: "no-prescriptions-title", className: "text-lg font-medium text-gray-900 mb-2"}, "No Prescriptions"),
-                React.createElement("p", {key: "no-prescriptions-text", className: "text-gray-600"}, "Your prescription history will appear here.")
-              ]) :
+              React.createElement("div", {className: "space-y-4"},
+                medicalData.prescriptions.length === 0 ?
+                  React.createElement("div", {className: "text-center py-12"}, [
+                    React.createElement("h3", {key: "no-prescriptions-title", className: "text-lg font-medium text-gray-900 mb-2"}, "No Prescriptions"),
+                    React.createElement("p", {key: "no-prescriptions-text", className: "text-gray-600"}, "Your prescription history will appear here.")
+                  ]) :
+                  medicalData.prescriptions.map((prescription) =>
+                    React.createElement("div", {
+                      key: prescription.id,
+                      className: "border border-gray-200 rounded-lg p-6 hover:shadow-sm transition-shadow duration-200"
+                    }, [
+                      React.createElement("div", {key: "header", className: "flex items-center justify-between mb-4"}, [
+                        React.createElement("div", {key: "info"}, [
+                          React.createElement("h3", {key: "diagnosis", className: "text-lg font-semibold text-gray-900"}, prescription.diagnosis),
+                          React.createElement("p", {key: "doctor", className: "text-dental-primary font-medium"}, prescription.doctor),
+                          prescription.isAIGenerated && 
+                            React.createElement("span", {key: "ai-badge", className: "inline-block mt-1 px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full"}, "✨ AI Generated")
+                        ]),
+                        React.createElement("div", {key: "status", className: "text-right"}, [
+                          getStatusBadge(prescription.status),
+                          React.createElement("p", {key: "date", className: "text-sm text-gray-600 mt-1"}, formatDate(prescription.date))
+                        ])
+                      ]),
+                      React.createElement("div", {key: "medications", className: "mb-4"}, [
+                        React.createElement("h4", {key: "med-title", className: "font-medium text-gray-900 mb-2"}, "Medications"),
+                        React.createElement("div", {key: "med-list", className: "space-y-2"},
+                          prescription.medications.map((med, idx) =>
+                            React.createElement("div", {key: idx, className: "bg-gray-50 p-3 rounded-lg"}, [
+                              React.createElement("div", {key: "med-name", className: "font-semibold text-gray-900"}, med.name),
+                              React.createElement("div", {key: "med-details", className: "text-sm text-gray-600 mt-1"}, [
+                                React.createElement("span", {key: "dosage"}, `${med.dosage} • ${med.duration}`),
+                                med.frequency && React.createElement("span", {key: "freq"}, ` • ${med.frequency}`)
+                              ]),
+                              med.instructions &&
+                                React.createElement("p", {key: "med-instructions", className: "text-sm text-gray-600 mt-1 italic"}, med.instructions)
+                            ])
+                          )
+                        )
+                      ]),
+                      prescription.instructions &&
+                        React.createElement("div", {key: "instructions", className: "mb-4"}, [
+                          React.createElement("h4", {key: "inst-title", className: "font-medium text-gray-900 mb-2"}, "General Instructions"),
+                          React.createElement("p", {key: "inst-text", className: "text-sm text-gray-600"}, prescription.instructions)
+                        ]),
+                      React.createElement("div", {key: "actions", className: "flex gap-2 mt-4 pt-4 border-t border-gray-200"}, [
+                        React.createElement("button", {
+                          key: "download",
+                          onClick: () => downloadPrescription(prescription.id),
+                          className: "px-4 py-2 bg-dental-primary text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
+                        }, [
+                          React.createElement("svg", {
+                            key: "icon",
+                            className: "w-4 h-4",
+                            fill: "none",
+                            stroke: "currentColor",
+                            viewBox: "0 0 24 24"
+                          }, 
+                            React.createElement("path", {
+                              strokeLinecap: "round",
+                              strokeLinejoin: "round",
+                              strokeWidth: 2,
+                              d: "M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                            })
+                          ),
+                          React.createElement("span", {key: "text"}, "Download PDF")
+                        ])
+                      ])
+                    ])
+                  )
+              ) :
               React.createElement("div", {className: "text-center py-12"}, [
                 React.createElement("h3", {key: "no-images-title", className: "text-lg font-medium text-gray-900 mb-2"}, "No Images Available"),
                 React.createElement("p", {key: "no-images-text", className: "text-gray-600"}, "X-rays and dental images will appear here.")
