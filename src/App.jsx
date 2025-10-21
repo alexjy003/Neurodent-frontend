@@ -29,7 +29,6 @@ import DoctorsManagement from './pages/admin/DoctorsManagement'
 import EmployeesManagement from './pages/admin/EmployeesManagement'
 import AdminPatientRecords from './pages/admin/PatientRecords'
 import AppointmentsAnalytics from './pages/admin/AppointmentsAnalytics'
-import PayrollManagement from './pages/admin/PayrollManagement'
 import MedicineInventory from './pages/admin/MedicineInventory'
 import NotificationsCenter from './pages/admin/NotificationsCenter'
 import AdminSettings from './pages/admin/AdminSettings'
@@ -105,7 +104,6 @@ function App() {
             <Route path="employees" element={<EmployeesManagement />} />
             <Route path="patients" element={<AdminPatientRecords />} />
             <Route path="appointments" element={<AppointmentsAnalytics />} />
-            <Route path="payroll" element={<PayrollManagement />} />
             <Route path="inventory" element={<MedicineInventory />} />
             <Route path="notifications" element={<NotificationsCenter />} />
             <Route path="settings" element={<AdminSettings />} />
@@ -150,7 +148,6 @@ function App() {
             <Route path="employees" element={<EmployeesManagement />} />
             <Route path="patients" element={<AdminPatientRecords />} />
             <Route path="appointments" element={<AppointmentsAnalytics />} />
-            <Route path="payroll" element={<PayrollManagement />} />
             <Route path="inventory" element={<MedicineInventory />} />
             <Route path="notifications" element={<NotificationsCenter />} />
             <Route path="settings" element={<AdminSettings />} />

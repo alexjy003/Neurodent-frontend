@@ -1,9 +1,50 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import pdIcon from '../assets/images/pd.png'
 import dentistImage from '../assets/images/dentist.jpg'
+import doctorAPIService from '../services/doctorAPI'
 
 const Home = () => {
+  const [topDentists, setTopDentists] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [totalDoctors, setTotalDoctors] = useState(50); // Default fallback
+
+  // Fetch doctors on component mount
+  useEffect(() => {
+    fetchTopDoctors();
+  }, []);
+
+  const fetchTopDoctors = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const result = await doctorAPIService.getAllDoctors();
+      
+      if (result.success && result.doctors) {
+        // Set total doctors count
+        setTotalDoctors(result.doctors.filter(doctor => doctor.availability === 'active').length);
+        
+        // Format doctors for display and limit to top 4
+        const formattedDoctors = result.doctors
+          .filter(doctor => doctor.availability === 'active') // Only show active doctors
+          .slice(0, 4) // Limit to 4 doctors
+          .map(doctor => doctorAPIService.formatDoctorForDisplay(doctor));
+        
+        setTopDentists(formattedDoctors);
+      } else {
+        setError('Failed to load doctors');
+        console.error('Failed to fetch doctors:', result.error);
+      }
+    } catch (error) {
+      setError('Failed to load doctors');
+      console.error('Error fetching doctors:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const specializations = [
     {
       name: "General Dentistry",
@@ -39,45 +80,6 @@ const Home = () => {
       name: "Endodontics",
       description: "Root canal treatment and therapy",
       icon: "🎯"
-    }
-  ]
-
-  const topDentists = [
-    {
-      id: 1,
-      name: "Dr. Sarah Johnson",
-      specialization: "General Dentistry",
-      experience: "15+ years",
-      rating: 4.9,
-      availability: "Available Today",
-      image: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=300&h=300&fit=crop&crop=face"
-    },
-    {
-      id: 2,
-      name: "Dr. Michael Chen",
-      specialization: "Orthodontics",
-      experience: "12+ years",
-      rating: 4.8,
-      availability: "Available Tomorrow",
-      image: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=300&h=300&fit=crop&crop=face"
-    },
-    {
-      id: 3,
-      name: "Dr. Emily Rodriguez",
-      specialization: "Cosmetic Dentistry",
-      experience: "10+ years",
-      rating: 4.9,
-      availability: "Available Today",
-      image: "https://images.unsplash.com/photo-1594824723662-1b93d3bb5ec5?w=300&h=300&fit=crop&crop=face"
-    },
-    {
-      id: 4,
-      name: "Dr. David Kim",
-      specialization: "Pediatric Dentistry",
-      experience: "8+ years",
-      rating: 4.7,
-      availability: "Available This Week",
-      image: "https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=300&h=300&fit=crop&crop=face"
     }
   ]
 
@@ -174,47 +176,82 @@ const Home = () => {
             </p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {topDentists.map((dentist) => (
-              <div key={dentist.id} className="bg-white rounded-xl p-6 card-hover dental-shadow">
-                <div className="text-center">
-                  <img
-                    src={dentist.image}
-                    alt={dentist.name}
-                    className="w-24 h-24 rounded-full mx-auto mb-4 object-cover border-4 border-dental-light"
-                  />
-                  <h3 className="font-semibold text-gray-900 mb-1">{dentist.name}</h3>
-                  <p className="text-dental-primary font-medium mb-2">{dentist.specialization}</p>
-                  <p className="text-sm text-gray-600 mb-2">{dentist.experience} Experience</p>
-                  
-                  <div className="flex items-center justify-center mb-3">
-                    <div className="flex items-center space-x-1">
-                      {[...Array(5)].map((_, i) => (
-                        <svg key={i} className="w-4 h-4 text-yellow-400 fill-current" viewBox="0 0 20 20">
-                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                        </svg>
-                      ))}
+          {/* Loading State */}
+          {loading && (
+            <div className="text-center">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-dental-primary"></div>
+              <p className="mt-4 text-gray-600">Loading our top dentists...</p>
+            </div>
+          )}
+
+          {/* Error State */}
+          {error && (
+            <div className="text-center">
+              <p className="text-red-600 mb-4">{error}</p>
+              <button 
+                onClick={fetchTopDoctors}
+                className="btn-primary"
+              >
+                Try Again
+              </button>
+            </div>
+          )}
+
+          {/* Doctors Grid */}
+          {!loading && !error && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+              {topDentists.length > 0 ? (
+                topDentists.map((dentist) => (
+                  <div key={dentist.id} className="bg-white rounded-xl p-6 card-hover dental-shadow">
+                    <div className="text-center">
+                      <img
+                        src={dentist.image}
+                        alt={dentist.name}
+                        className="w-24 h-24 rounded-full mx-auto mb-4 object-cover border-4 border-dental-light"
+                        onError={(e) => {
+                          e.target.src = 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=300&h=300&fit=crop&crop=face&auto=format&q=80';
+                        }}
+                      />
+                      <h3 className="font-semibold text-gray-900 mb-1">{dentist.name}</h3>
+                      <p className="text-dental-primary font-medium mb-2">{dentist.specialization}</p>
+                      <p className="text-sm text-gray-600 mb-2">{dentist.experience} Experience</p>
+                      
+                      <div className="flex items-center justify-center mb-3">
+                        <div className="flex items-center space-x-1">
+                          {[...Array(5)].map((_, i) => (
+                            <svg key={i} className="w-4 h-4 text-yellow-400 fill-current" viewBox="0 0 20 20">
+                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                          ))}
+                        </div>
+                        <span className="ml-2 text-sm text-gray-600">{dentist.rating}</span>
+                      </div>
+                      
+                      <div className="mb-4">
+                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
+                          dentist.availability === 'Available Today' 
+                            ? 'bg-green-100 text-green-800' 
+                            : dentist.availability === 'Available Tomorrow'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {dentist.availability}
+                        </span>
+                      </div>
+                      
+                      <Link to="/register" className="w-full btn-secondary text-sm inline-block text-center">
+                        Book Appointment
+                      </Link>
                     </div>
-                    <span className="ml-2 text-sm text-gray-600">{dentist.rating}</span>
                   </div>
-                  
-                  <div className="mb-4">
-                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
-                      dentist.availability === 'Available Today' 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-blue-100 text-blue-800'
-                    }`}>
-                      {dentist.availability}
-                    </span>
-                  </div>
-                  
-                  <Link to="/register" className="w-full btn-secondary text-sm inline-block text-center">
-                    Book Appointment
-                  </Link>
+                ))
+              ) : (
+                <div className="col-span-full text-center">
+                  <p className="text-gray-600">No doctors available at the moment. Please check back later.</p>
                 </div>
-              </div>
-            ))}
-          </div>
+              )}
+            </div>
+          )}
         </div>
       </section>
 
@@ -222,7 +259,7 @@ const Home = () => {
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-dental-primary">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-black mb-6">
-            Book Appointment With 50+ Trusted Dental Specialists
+            Book Appointment With {totalDoctors}+ Trusted Dental Specialists
           </h2>
           <p className="text-xl text-black mb-8 leading-relaxed">
             Join thousands of satisfied patients who trust Neurodent for their dental care. 
@@ -242,7 +279,7 @@ const Home = () => {
           
           <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
             <div>
-              <div className="text-3xl font-bold text-black mb-2">50+</div>
+              <div className="text-3xl font-bold text-black mb-2">{totalDoctors}+</div>
               <div className="text-black">Dental Specialists</div>
             </div>
             <div>

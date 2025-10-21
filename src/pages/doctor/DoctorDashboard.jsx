@@ -73,8 +73,8 @@ const DoctorDashboard = () => {
       setLoading(true)
       console.log('🔍 Loading dashboard data...')
 
-      // Fetch appointments
-      const appointmentsResponse = await apiService.get('/appointments/doctor/my-appointments?limit=50')
+      // Fetch appointments - get all appointments to have complete data
+      const appointmentsResponse = await apiService.get('/appointments/doctor/my-appointments?limit=100&status=all&appointmentType=all')
       console.log('📅 Appointments response:', appointmentsResponse)
       
       if (appointmentsResponse.success) {
@@ -126,16 +126,30 @@ const DoctorDashboard = () => {
 
   const today = new Date().toISOString().split('T')[0]
 
+  // Debug: Log all unique status values to understand what's in the data
+  const uniqueStatuses = [...new Set(appointments.map(apt => apt.status))];
+  console.log('🔍 Unique appointment statuses found:', uniqueStatuses);
+  console.log('📊 Total appointments loaded:', appointments.length);
+
   const stats = {
     todayAppointments: todaysAppointments.length,
-    pendingAppointments: todaysAppointments.filter(apt => 
-      apt.status === 'pending' || apt.status === 'scheduled' || apt.status === 'confirmed'
+    pendingAppointments: appointments.filter(apt => 
+      apt.status === 'pending' || 
+      apt.status === 'scheduled' || 
+      apt.status === 'confirmed' ||
+      apt.status === 'booked' ||
+      (apt.status !== 'completed' && apt.status !== 'cancelled')
     ).length,
-    completedAppointments: todaysAppointments.filter(apt => apt.status === 'completed').length,
-    cancelledAppointments: todaysAppointments.filter(apt => apt.status === 'cancelled').length,
+    completedAppointments: appointments.filter(apt => 
+      apt.status === 'completed' || apt.status === 'done' || apt.status === 'finished'
+    ).length,
+    cancelledAppointments: appointments.filter(apt => apt.status === 'cancelled').length,
     totalPatients: patients.length,
     patientSatisfaction: 4.8 // Keep as mock for now
   }
+
+  // Debug: Log calculated stats
+  console.log('📊 Calculated stats:', stats);
 
 
 
@@ -307,7 +321,7 @@ const DoctorDashboard = () => {
                   <div className="w-20 h-2 bg-gray-200 rounded-full">
                     <div
                       className="h-2 bg-yellow-500 rounded-full"
-                      style={{ width: `${(stats.pendingAppointments / stats.todayAppointments) * 100}%` }}
+                      style={{ width: `${appointments.length > 0 ? (stats.pendingAppointments / appointments.length) * 100 : 0}%` }}
                     ></div>
                   </div>
                 </div>
@@ -324,7 +338,7 @@ const DoctorDashboard = () => {
                   <div className="w-20 h-2 bg-gray-200 rounded-full">
                     <div
                       className="h-2 bg-green-500 rounded-full"
-                      style={{ width: `${(stats.completedAppointments / stats.todayAppointments) * 100}%` }}
+                      style={{ width: `${appointments.length > 0 ? (stats.completedAppointments / appointments.length) * 100 : 0}%` }}
                     ></div>
                   </div>
                 </div>
@@ -341,7 +355,7 @@ const DoctorDashboard = () => {
                   <div className="w-20 h-2 bg-gray-200 rounded-full">
                     <div
                       className="h-2 bg-red-500 rounded-full"
-                      style={{ width: `${stats.todayAppointments > 0 ? (stats.cancelledAppointments / stats.todayAppointments) * 100 : 0}%` }}
+                      style={{ width: `${appointments.length > 0 ? (stats.cancelledAppointments / appointments.length) * 100 : 0}%` }}
                     ></div>
                   </div>
                 </div>
@@ -356,7 +370,7 @@ const DoctorDashboard = () => {
               <Clock className="w-5 h-5 text-gray-500" />
             </div>
             {todaysAppointments.filter(apt => 
-              apt.status === 'pending' || apt.status === 'scheduled' || apt.status === 'confirmed'
+              apt.status === 'pending' || apt.status === 'scheduled' || apt.status === 'confirmed' || apt.status === 'booked' || (apt.status !== 'completed' && apt.status !== 'cancelled')
             ).length > 0 ? (
               <div className="space-y-4">
                 {todaysAppointments

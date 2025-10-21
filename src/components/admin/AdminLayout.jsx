@@ -39,7 +39,6 @@ const AdminLayout = () => {
     { name: 'Pharmacist Management', href: '/admin/employees', icon: Users },
     { name: 'Patient Records', href: '/admin/patients', icon: Users },
     { name: 'Appointments & Analytics', href: '/admin/appointments', icon: Calendar },
-    { name: 'Payroll', href: '/admin/payroll', icon: DollarSign },
     { name: 'Medicine Inventory', href: '/admin/inventory', icon: Pill },
     { name: 'Notifications Center', href: '/admin/notifications', icon: Bell },
     { name: 'Settings', href: '/admin/settings', icon: Settings },

@@ -53,7 +53,7 @@ const AdminDashboard = () => {
   // Mock data for dashboard
   const stats = {
     appointmentsToday: 24,
-    revenueThisMonth: 45620,
+    revenueThisMonth: 0,
     activeDoctors: 8,
     patientsToday: 18
   }
@@ -189,7 +189,7 @@ const AdminDashboard = () => {
             </div>
             <div className="ml-4">
               <p className="text-sm font-semibold text-gray-600">Revenue This Month</p>
-              <p className="text-3xl font-bold text-gray-900">${stats.revenueThisMonth.toLocaleString()}</p>
+              <p className="text-3xl font-bold text-gray-900">₹{stats.revenueThisMonth.toLocaleString()}</p>
               <div className="flex items-center mt-1">
                 <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
                 <span className="text-sm text-green-600 font-medium">+8.5% from last month</span>

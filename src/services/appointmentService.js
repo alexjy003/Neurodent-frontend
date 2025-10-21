@@ -94,13 +94,20 @@ class AppointmentService {
   }
 
   /**
-   * Get minimum bookable date (tomorrow)
-   * @returns {string} Tomorrow's date in YYYY-MM-DD format
+   * Get minimum bookable date (today if there's still time, otherwise tomorrow)
+   * @returns {string} Today's or tomorrow's date in YYYY-MM-DD format
    */
   getMinBookingDate() {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return this.formatDateForAPI(tomorrow);
+    const now = new Date();
+    // Allow same-day booking if current time is before 11 PM (giving 1 hour buffer)
+    if (now.getHours() < 23) {
+      return this.formatDateForAPI(now);
+    } else {
+      // If it's too late today, start from tomorrow
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      return this.formatDateForAPI(tomorrow);
+    }
   }
 
   /**

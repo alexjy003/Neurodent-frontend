@@ -23,6 +23,60 @@ const DoctorSearch = () => {
   const [bookingMessage, setBookingMessage] = useState('')
   const [messageType, setMessageType] = useState('')
 
+  // Helper function to format availability based on nextAvailableSlot
+  const formatAvailability = (nextAvailableSlot) => {
+    if (!nextAvailableSlot || nextAvailableSlot === 'Not available') {
+      return {
+        text: 'Not available',
+        style: 'bg-red-100 text-red-800'
+      };
+    }
+
+    // Parse the date from nextAvailableSlot (format: "MM/DD/YYYY HH:MM AM/PM")
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+
+    const todayStr = today.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: '2-digit', 
+      day: '2-digit' 
+    });
+    const tomorrowStr = tomorrow.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: '2-digit', 
+      day: '2-digit' 
+    });
+
+    if (nextAvailableSlot.includes(todayStr)) {
+      return {
+        text: 'Available Today',
+        style: 'bg-green-100 text-green-800'
+      };
+    } else if (nextAvailableSlot.includes(tomorrowStr)) {
+      return {
+        text: 'Available Tomorrow',
+        style: 'bg-yellow-100 text-yellow-800'
+      };
+    } else {
+      // Check if within this week (next 7 days)
+      const slotDate = new Date(nextAvailableSlot.split(' ')[0]);
+      const daysDiff = Math.ceil((slotDate - today) / (1000 * 60 * 60 * 24));
+      
+      if (daysDiff <= 7) {
+        return {
+          text: 'Available This Week',
+          style: 'bg-blue-100 text-blue-800'
+        };
+      } else {
+        return {
+          text: 'Limited Availability',
+          style: 'bg-gray-100 text-gray-800'
+        };
+      }
+    }
+  };
+
   // Fetch doctors from backend
   const fetchDoctors = async () => {
     try {
@@ -34,29 +88,34 @@ const DoctorSearch = () => {
       const response = await axios.get(`${API_BASE_URL}/doctors`)
       if (response.data.success) {
         // Transform the data to match the expected format
-        const transformedDoctors = response.data.data.doctors.map(doctor => ({
-          id: doctor._id,
-          _id: doctor._id, // Keep original _id for API calls
-          name: `Dr. ${doctor.firstName} ${doctor.lastName}`,
-          specialization: doctor.specialization,
-          rating: 4.5 + Math.random() * 0.5, // Generate random rating between 4.5-5.0
-          experience: parseInt(doctor.experience) || 5,
-          location: 'Neurodent Clinic', // Default location
-          image: doctor.profileImage || `https://ui-avatars.com/api/?name=${doctor.firstName}+${doctor.lastName}&background=0d9488&color=fff`,
-          availability: doctor.availability === 'active' ? 'Available Today' : 'Limited Availability',
-          nextSlot: doctor.nextAvailableSlot || 'Not available',
-          about: doctor.bio || `Experienced ${doctor.specialization.toLowerCase()} specialist providing quality dental care.`,
-          qualifications: [`${doctor.position}`, `Specialization in ${doctor.specialization}`],
-          languages: ['English'],
-          services: getServicesForSpecialization(doctor.specialization),
-          position: doctor.position,
-          phone: doctor.phone,
-          email: doctor.email,
-          gender: doctor.gender,
-          dateOfBirth: doctor.dateOfBirth,
-          firstName: doctor.firstName,
-          lastName: doctor.lastName
-        }))
+        const transformedDoctors = response.data.data.doctors.map(doctor => {
+          const availability = formatAvailability(doctor.nextAvailableSlot);
+          
+          return {
+            id: doctor._id,
+            _id: doctor._id, // Keep original _id for API calls
+            name: `Dr. ${doctor.firstName} ${doctor.lastName}`,
+            specialization: doctor.specialization,
+            rating: 4.5 + Math.random() * 0.5, // Generate random rating between 4.5-5.0
+            experience: parseInt(doctor.experience) || 5,
+            location: 'Neurodent Clinic', // Default location
+            image: doctor.profileImage || `https://ui-avatars.com/api/?name=${doctor.firstName}+${doctor.lastName}&background=0d9488&color=fff`,
+            availability: availability.text,
+            availabilityStyle: availability.style,
+            nextSlot: doctor.nextAvailableSlot || 'Not available',
+            about: doctor.bio || `Experienced ${doctor.specialization.toLowerCase()} specialist providing quality dental care.`,
+            qualifications: [`${doctor.position}`, `Specialization in ${doctor.specialization}`],
+            languages: ['English'],
+            services: getServicesForSpecialization(doctor.specialization),
+            position: doctor.position,
+            phone: doctor.phone,
+            email: doctor.email,
+            gender: doctor.gender,
+            dateOfBirth: doctor.dateOfBirth,
+            firstName: doctor.firstName,
+            lastName: doctor.lastName
+          };
+        });
         console.log('Transformed doctors:', transformedDoctors)
         setDoctors(transformedDoctors)
       }
@@ -141,7 +200,17 @@ const DoctorSearch = () => {
     const matchesRating = !filters.rating || doctor.rating >= parseFloat(filters.rating)
     const matchesExperience = !filters.experience || doctor.experience >= parseInt(filters.experience)
     
-    return matchesSearch && matchesSpecialization && matchesRating && matchesExperience
+    // Update availability filter to work with real data
+    const matchesAvailability = !filters.availability || 
+      (filters.availability === 'today' && doctor.availability === 'Available Today') ||
+      (filters.availability === 'tomorrow' && doctor.availability === 'Available Tomorrow') ||
+      (filters.availability === 'week' && (
+        doctor.availability === 'Available Today' || 
+        doctor.availability === 'Available Tomorrow' || 
+        doctor.availability === 'Available This Week'
+      ))
+    
+    return matchesSearch && matchesSpecialization && matchesRating && matchesExperience && matchesAvailability
   })
 
   const getRatingStars = (rating) => {
@@ -350,9 +419,7 @@ const DoctorSearch = () => {
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-lg font-semibold text-gray-900">{doctor.name}</h3>
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    doctor.availability === 'Available Today' ? 'bg-green-100 text-green-800' :
-                    doctor.availability === 'Available Tomorrow' ? 'bg-blue-100 text-blue-800' :
-                    'bg-yellow-100 text-yellow-800'
+                    doctor.availabilityStyle || 'bg-gray-100 text-gray-800'
                   }`}>
                     {doctor.availability}
                   </span>
@@ -573,9 +640,7 @@ const DoctorSearch = () => {
                     <p className="text-blue-600 font-medium">{selectedDoctor.nextSlot}</p>
                   </div>
                   <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                    selectedDoctor.availability === 'Available Today' ? 'bg-green-100 text-green-800' :
-                    selectedDoctor.availability === 'Available Tomorrow' ? 'bg-blue-100 text-blue-800' :
-                    'bg-yellow-100 text-yellow-800'
+                    selectedDoctor.availabilityStyle || 'bg-gray-100 text-gray-800'
                   }`}>
                     {selectedDoctor.availability}
                   </span>

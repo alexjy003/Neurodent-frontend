@@ -188,9 +188,7 @@ const AppointmentsAnalytics = () => {
   const totalAppointments = appointments.length
   const completedAppointments = appointments.filter(apt => apt.status === 'completed').length
   const scheduledAppointments = appointments.filter(apt => apt.status === 'scheduled').length
-  const totalRevenue = appointments
-    .filter(apt => apt.status === 'completed')
-    .reduce((sum, apt) => sum + apt.revenue, 0)
+  const totalRevenue = 0
 
   const chartOptions = {
     responsive: true,
@@ -286,7 +284,7 @@ const AppointmentsAnalytics = () => {
             </div>
             <div className="ml-4">
               <p className="text-sm font-semibold text-gray-600">Revenue</p>
-              <p className="text-2xl font-bold text-gray-900">${totalRevenue.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-gray-900">₹{totalRevenue.toLocaleString()}</p>
               <div className="flex items-center mt-1">
                 <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
                 <span className="text-sm text-green-600 font-medium">+8.5% this month</span>
