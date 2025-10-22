@@ -75,9 +75,10 @@ const Register = () => {
   }
 
   const validatePhone = (phone) => {
-    // Allow various phone formats: +1234567890, (123) 456-7890, 123-456-7890, etc.
-    const phoneRegex = /^[\+]?[1-9][\d]{0,15}$|^[\+]?[(]?[\d\s\-\(\)]{10,}$/
-    return phoneRegex.test(phone.replace(/[\s\-\(\)]/g, ''))
+    // Indian phone numbers: exactly 10 digits
+    const phoneRegex = /^[6-9]\d{9}$/
+    const cleanedPhone = phone.replace(/[\s\-\(\)]/g, '')
+    return phoneRegex.test(cleanedPhone)
   }
 
   const validatePassword = (password) => {
@@ -113,7 +114,9 @@ const Register = () => {
   }
 
   const validateAge = (dateOfBirth) => {
-    if (!dateOfBirth) return [] // Optional field
+    if (!dateOfBirth) {
+      return ['Date of birth is required']
+    }
 
     const today = new Date()
     const birthDate = new Date(dateOfBirth)
@@ -256,13 +259,16 @@ const Register = () => {
       isValid = false
     }
 
-    // Validate phone (optional but if provided, must be valid)
-    if (formData.phone.trim() && !validatePhone(formData.phone.trim())) {
+    // Validate phone (required)
+    if (!formData.phone.trim()) {
+      errors.phone = ['Phone number is required']
+      isValid = false
+    } else if (!validatePhone(formData.phone.trim())) {
       errors.phone = ['Please enter a valid phone number']
       isValid = false
     }
 
-    // Validate date of birth (optional but if provided, must be valid)
+    // Validate date of birth (required)
     const ageErrors = validateAge(formData.dateOfBirth)
     if (ageErrors.length > 0) {
       errors.dateOfBirth = ageErrors
@@ -315,7 +321,7 @@ const Register = () => {
         email: formData.email.trim(),
         password: formData.password,
         phone: formData.phone.trim(),
-        dateOfBirth: formData.dateOfBirth || undefined,
+        dateOfBirth: formData.dateOfBirth,
         agreeToTerms: formData.agreeToTerms
       }
 
@@ -705,17 +711,19 @@ const Register = () => {
             {/* Phone Field */}
             <div className="transform transition-all duration-300 hover:scale-[1.02]">
               <label htmlFor="phone" className="block text-sm font-semibold text-gray-700 mb-2">
-                Phone Number <span className="text-gray-500 text-xs font-normal">(Optional)</span>
+                Phone Number <span className="text-red-500">*</span>
               </label>
               <div className="relative group">
                 <input
                   id="phone"
                   name="phone"
                   type="tel"
+                  required
                   value={formData.phone}
                   onChange={handleInputChange}
+                  maxLength="10"
                   className={getInputClassName('phone', 'appearance-none block w-full px-4 py-3 pl-12 border rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent sm:text-sm transition-all duration-300 group-hover:shadow-md bg-white/80')}
-                  placeholder="+1 (555) 123-4567"
+                  placeholder="Enter 10-digit mobile number"
                 />
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center">
                   <svg className="h-5 w-5 text-gray-400 group-focus-within:text-dental-primary transition-colors duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -729,13 +737,14 @@ const Register = () => {
             {/* Date of Birth */}
             <div className="transform transition-all duration-300 hover:scale-[1.02]">
               <label htmlFor="dateOfBirth" className="block text-sm font-semibold text-gray-700 mb-2">
-                Date of Birth <span className="text-gray-500 text-xs font-normal">(Optional)</span>
+                Date of Birth <span className="text-red-500">*</span>
               </label>
               <div className="relative group">
                 <input
                   id="dateOfBirth"
                   name="dateOfBirth"
                   type="date"
+                  required
                   value={formData.dateOfBirth}
                   onChange={handleInputChange}
                   className={getInputClassName('dateOfBirth', 'appearance-none block w-full px-4 py-3 pl-12 border rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent sm:text-sm transition-all duration-300 group-hover:shadow-md bg-white/80')}
