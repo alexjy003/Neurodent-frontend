@@ -1,5 +1,6 @@
 ﻿import React, { useState, useEffect } from "react"
 import apiService from "../services/api"
+import { API_BASE_URL } from "../utils/config"
 
 const MedicalRecords = ({ user }) => {
   const [activeTab, setActiveTab] = useState("treatments")
@@ -137,7 +138,7 @@ const MedicalRecords = ({ user }) => {
         return
       }
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/prescriptions/${prescriptionId}/pdf-patient`, {
+      const response = await fetch(`${API_BASE_URL}/prescriptions/${prescriptionId}/pdf-patient`, {
         method: "GET",
         headers: {
           "Authorization": `Bearer ${token}`

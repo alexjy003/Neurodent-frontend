@@ -1,4 +1,5 @@
 // Razorpay payment service for appointment bookings
+import { API_BASE_URL } from '../utils/config';
 
 class PaymentService {
   constructor() {
@@ -30,17 +31,16 @@ class PaymentService {
   // Create payment order on backend
   async createPaymentOrder(appointmentData) {
     try {
-      const API_BASE_URL = 'http://localhost:5000';
       const token = localStorage.getItem('token') || 
                    localStorage.getItem('adminToken') || 
                    localStorage.getItem('doctorToken') || 
                    localStorage.getItem('pharmacistToken');
       
       console.log('🔑 Token found:', token ? 'Yes' : 'No');
-      console.log('📡 Making request to:', `${API_BASE_URL}/api/payments/create-order`);
+      console.log('📡 Making request to:', `${API_BASE_URL}/payments/create-order`);
       console.log('📝 Request data:', { amount: this.appointmentFee, currency: 'INR', appointmentData });
       
-      const response = await fetch(`${API_BASE_URL}/api/payments/create-order`, {
+      const response = await fetch(`${API_BASE_URL}/payments/create-order`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -129,7 +129,6 @@ class PaymentService {
   // Verify payment on backend and book appointment
   async verifyPayment(paymentResponse, appointmentData) {
     try {
-      const API_BASE_URL = 'http://localhost:5000';
       const token = localStorage.getItem('token') || 
                    localStorage.getItem('adminToken') || 
                    localStorage.getItem('doctorToken') || 
@@ -137,7 +136,7 @@ class PaymentService {
       
       console.log('🔍 Verifying payment with token:', token ? 'Yes' : 'No');
       
-      const response = await fetch(`${API_BASE_URL}/api/payments/verify`, {
+      const response = await fetch(`${API_BASE_URL}/payments/verify`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
