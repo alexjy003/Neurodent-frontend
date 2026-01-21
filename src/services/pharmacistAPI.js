@@ -86,7 +86,7 @@ class PharmacistAPIService {
   }
 
   async getProfile() {
-    return this.request('/pharmacist-auth/profile');
+    return this.request('/pharmacists/profile/me');
   }
 
   logout() {

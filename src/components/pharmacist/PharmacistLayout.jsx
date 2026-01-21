@@ -6,7 +6,6 @@ import {
   Package, 
   FileText, 
   History, 
-  Bell, 
   User,
   Menu,
   X,
@@ -20,7 +19,6 @@ import pharmacistAPI from '../../services/pharmacistAPI'
 const PharmacistLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
-  const [notificationCount, setNotificationCount] = useState(3)
   const [pharmacistData, setPharmacistData] = useState(null)
   const [loading, setLoading] = useState(true)
   const location = useLocation()
@@ -103,12 +101,6 @@ const PharmacistLayout = () => {
       href: '/pharmacist/logs',
       icon: History,
       description: 'Stock & Activity Logs'
-    },
-    {
-      name: 'Notifications',
-      href: '/pharmacist/notifications',
-      icon: Bell,
-      description: 'Alerts & Messages'
     },
     {
       name: 'Profile',
@@ -200,14 +192,7 @@ const PharmacistLayout = () => {
               >
                 <Icon className={`mr-4 h-6 w-6 ${isActive ? 'text-[#C33764]' : 'text-gray-400 group-hover:text-[#C33764]'}`} />
                 <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-base">{item.name}</span>
-                    {item.name === 'Notifications' && notificationCount > 0 && (
-                      <span className="bg-red-500 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center">
-                        {notificationCount}
-                      </span>
-                    )}
-                  </div>
+                  <span className="text-base">{item.name}</span>
                   <p className="text-sm text-gray-400 mt-1">{item.description}</p>
                 </div>
               </Link>
@@ -278,16 +263,6 @@ const PharmacistLayout = () => {
 
               {/* Right side */}
               <div className="flex items-center space-x-4">
-                {/* Notifications */}
-                <button className="relative p-2 text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-lg transition-colors">
-                  <Bell className="w-5 h-5" />
-                  {notificationCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                      {notificationCount}
-                    </span>
-                  )}
-                </button>
-
                 {/* Profile Dropdown */}
                 <div className="relative" ref={dropdownRef}>
                   <button
