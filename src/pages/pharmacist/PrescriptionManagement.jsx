@@ -10,130 +10,107 @@ import {
   Calendar,
   Pill,
   Download,
-  AlertTriangle
+  AlertTriangle,
+  Loader2
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { API_BASE_URL } from '../../utils/config'
 
 const PrescriptionManagement = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [selectedPrescription, setSelectedPrescription] = useState(null)
   const [showModal, setShowModal] = useState(false)
+  const [prescriptions, setPrescriptions] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  const [prescriptions, setPrescriptions] = useState([
-    {
-      id: 'PX-001',
-      patientName: 'John Smith',
-      patientId: 'P001',
-      doctorName: 'Dr. Wilson',
-      doctorId: 'D001',
-      date: '2025-08-31',
-      time: '09:30 AM',
-      status: 'pending',
-      priority: 'normal',
-      medicines: [
-        { name: 'Amoxicillin 500mg', dosage: '1 tablet', frequency: 'Twice daily', duration: '7 days', quantity: 14 },
-        { name: 'Ibuprofen 400mg', dosage: '1 tablet', frequency: 'As needed', duration: '5 days', quantity: 10 }
-      ],
-      notes: 'Take with food. Complete the full course of antibiotics.',
-      allergies: 'None known',
-      dispensedBy: null,
-      dispensedAt: null
-    },
-    {
-      id: 'PX-002',
-      patientName: 'Sarah Johnson',
-      patientId: 'P002',
-      doctorName: 'Dr. Martinez',
-      doctorId: 'D002',
-      date: '2025-08-31',
-      time: '10:15 AM',
-      status: 'processing',
-      priority: 'urgent',
-      medicines: [
-        { name: 'Paracetamol 500mg', dosage: '1-2 tablets', frequency: 'Every 6 hours', duration: '3 days', quantity: 12 }
-      ],
-      notes: 'For pain relief post dental surgery.',
-      allergies: 'Penicillin',
-      dispensedBy: 'Sarah (Pharmacist)',
-      dispensedAt: null
-    },
-    {
-      id: 'PX-003',
-      patientName: 'Michael Brown',
-      patientId: 'P003',
-      doctorName: 'Dr. Wilson',
-      doctorId: 'D001',
-      date: '2025-08-30',
-      time: '02:45 PM',
-      status: 'dispensed',
-      priority: 'normal',
-      medicines: [
-        { name: 'Dental Fluoride Gel', dosage: 'Apply thin layer', frequency: 'Twice daily', duration: '14 days', quantity: 1 },
-        { name: 'Chlorhexidine Mouthwash', dosage: '10ml', frequency: 'Twice daily', duration: '7 days', quantity: 1 }
-      ],
-      notes: 'For gum inflammation. Use fluoride gel after brushing.',
-      allergies: 'None known',
-      dispensedBy: 'Sarah (Pharmacist)',
-      dispensedAt: '2025-08-30 03:15 PM'
-    },
-    {
-      id: 'PX-004',
-      patientName: 'Emma Davis',
-      patientId: 'P004',
-      doctorName: 'Dr. Rodriguez',
-      doctorId: 'D003',
-      date: '2025-08-30',
-      time: '11:20 AM',
-      status: 'pending',
-      priority: 'high',
-      medicines: [
-        { name: 'Metronidazole 400mg', dosage: '1 tablet', frequency: 'Three times daily', duration: '5 days', quantity: 15 }
-      ],
-      notes: 'For dental abscess. Take with meals.',
-      allergies: 'Sulfa drugs',
-      dispensedBy: null,
-      dispensedAt: null
-    },
-    {
-      id: 'PX-005',
-      patientName: 'David Wilson',
-      patientId: 'P005',
-      doctorName: 'Dr. Martinez',
-      doctorId: 'D002',
-      date: '2025-08-29',
-      time: '04:30 PM',
-      status: 'dispensed',
-      priority: 'normal',
-      medicines: [
-        { name: 'Vitamin D3 1000IU', dosage: '1 capsule', frequency: 'Once daily', duration: '30 days', quantity: 30 }
-      ],
-      notes: 'Vitamin supplement for bone health.',
-      allergies: 'None known',
-      dispensedBy: 'Sarah (Pharmacist)',
-      dispensedAt: '2025-08-29 04:45 PM'
+  // Fetch prescriptions from API
+  useEffect(() => {
+    fetchPrescriptions()
+  }, [statusFilter])
+
+  const fetchPrescriptions = async () => {
+    try {
+      setLoading(true)
+      const token = localStorage.getItem('pharmacistToken')
+      
+      if (!token) {
+        toast.error('Please login to view prescriptions')
+        return
+      }
+
+      const params = new URLSearchParams({
+        page: 1,
+        limit: 50
+      })
+      
+      if (statusFilter !== 'all') {
+        params.append('status', statusFilter)
+      }
+      
+      if (searchTerm) {
+        params.append('search', searchTerm)
+      }
+
+      const response = await fetch(
+        `${API_BASE_URL}/prescriptions/pharmacist/my-prescriptions?${params}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      )
+
+      const data = await response.json()
+
+      if (data.success && data.prescriptions) {
+        setPrescriptions(data.prescriptions)
+      } else {
+        toast.error(data.message || 'Failed to fetch prescriptions')
+      }
+    } catch (error) {
+      console.error('Error fetching prescriptions:', error)
+      toast.error('Error loading prescriptions')
+    } finally {
+      setLoading(false)
     }
-  ])
+  }
 
-  const filteredPrescriptions = prescriptions.filter(prescription => {
-    const matchesSearch = 
-      prescription.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      prescription.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      prescription.doctorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      prescription.medicines.some(med => med.name.toLowerCase().includes(searchTerm.toLowerCase()))
+  // Re-fetch when search term changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchTerm !== undefined) {
+        fetchPrescriptions()
+      }
+    }, 500)
     
-    const matchesStatus = statusFilter === 'all' || prescription.status === statusFilter
-    
-    return matchesSearch && matchesStatus
-  })
+    return () => clearTimeout(timer)
+  }, [searchTerm])
+
+  const filteredPrescriptions = prescriptions
 
   const getStatusColor = (status) => {
     switch(status) {
+      case 'active':
       case 'pending': return 'bg-yellow-100 text-yellow-800'
       case 'processing': return 'bg-blue-100 text-blue-800'
+      case 'completed':
       case 'dispensed': return 'bg-green-100 text-green-800'
       case 'cancelled': return 'bg-red-100 text-red-800'
       default: return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const getDisplayStatus = (status) => {
+    switch(status) {
+      case 'active': return 'Pending'
+      case 'completed': return 'Dispensed'
+      case 'pending': return 'Pending'
+      case 'processing': return 'Processing'
+      case 'dispensed': return 'Dispensed'
+      case 'cancelled': return 'Cancelled'
+      default: return status.charAt(0).toUpperCase() + status.slice(1)
     }
   }
 
@@ -146,25 +123,43 @@ const PrescriptionManagement = () => {
     }
   }
 
-  const updatePrescriptionStatus = (id, newStatus) => {
-    setPrescriptions(prev => prev.map(prescription => 
-      prescription.id === id 
-        ? { 
-            ...prescription, 
-            status: newStatus,
-            dispensedBy: newStatus === 'dispensed' ? 'Sarah (Pharmacist)' : prescription.dispensedBy,
-            dispensedAt: newStatus === 'dispensed' ? new Date().toLocaleString() : prescription.dispensedAt
-          }
-        : prescription
-    ))
-    
-    const statusMessage = {
-      'processing': 'Prescription marked as processing',
-      'dispensed': 'Prescription dispensed successfully',
-      'cancelled': 'Prescription cancelled'
+  const updatePrescriptionStatus = async (id, newStatus) => {
+    try {
+      const token = localStorage.getItem('pharmacistToken')
+      
+      const response = await fetch(`${API_BASE_URL}/prescriptions/${id}/status`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status: newStatus })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        // Update local state
+        setPrescriptions(prev => prev.map(prescription => 
+          prescription._id === id 
+            ? { ...prescription, status: newStatus }
+            : prescription
+        ))
+        
+        const statusMessage = {
+          'processing': 'Prescription marked as processing',
+          'dispensed': 'Prescription dispensed successfully',
+          'cancelled': 'Prescription cancelled'
+        }
+        
+        toast.success(statusMessage[newStatus] || 'Status updated')
+      } else {
+        toast.error(data.message || 'Failed to update status')
+      }
+    } catch (error) {
+      console.error('Error updating status:', error)
+      toast.error('Failed to update prescription status')
     }
-    
-    toast.success(statusMessage[newStatus] || 'Status updated')
   }
 
   const downloadPrescription = (prescription) => {
@@ -181,7 +176,18 @@ const PrescriptionManagement = () => {
   }
 
   const getTotalQuantity = (medicines) => {
-    return medicines.reduce((total, med) => total + med.quantity, 0)
+    return medicines.reduce((total, med) => total + (med.quantity || 0), 0)
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-purple-600 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Loading prescriptions...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -208,7 +214,7 @@ const PrescriptionManagement = () => {
             <div>
               <p className="text-sm text-gray-600">Pending</p>
               <p className="text-2xl font-bold text-yellow-600">
-                {prescriptions.filter(p => p.status === 'pending').length}
+                {prescriptions.filter(p => p.status === 'pending' || p.status === 'active').length}
               </p>
             </div>
             <Clock className="w-8 h-8 text-yellow-500" />
@@ -219,7 +225,7 @@ const PrescriptionManagement = () => {
             <div>
               <p className="text-sm text-gray-600">Processing</p>
               <p className="text-2xl font-bold text-blue-600">
-                {prescriptions.filter(p => p.status === 'processing').length}
+                {prescriptions.filter(p => p.status === 'pending' || p.status === 'active').length}
               </p>
             </div>
             <FileText className="w-8 h-8 text-blue-500" />
@@ -230,8 +236,8 @@ const PrescriptionManagement = () => {
             <div>
               <p className="text-sm text-gray-600">Dispensed Today</p>
               <p className="text-2xl font-bold text-green-600">
-                {prescriptions.filter(p => p.status === 'dispensed' && 
-                  new Date(p.date).toDateString() === new Date().toDateString()).length}
+                {prescriptions.filter(p => (p.status === 'dispensed' || p.status === 'completed') && 
+                  p.sentToPharmacyAt && new Date(p.sentToPharmacyAt).toDateString() === new Date().toDateString()).length}
               </p>
             </div>
             <CheckCircle className="w-8 h-8 text-green-500" />
@@ -289,7 +295,7 @@ const PrescriptionManagement = () => {
               <div className="flex items-center space-x-3">
                 <h3 className="text-lg font-semibold text-gray-900">{prescription.id}</h3>
                 <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(prescription.status)}`}>
-                  {prescription.status.charAt(0).toUpperCase() + prescription.status.slice(1)}
+                  {getDisplayStatus(prescription.status)}
                 </span>
                 <span className={`px-2 py-1 text-xs font-medium rounded-full ${getPriorityColor(prescription.priority)}`}>
                   {prescription.priority}
@@ -320,14 +326,20 @@ const PrescriptionManagement = () => {
                 <User className="w-4 h-4 text-gray-400 mr-2" />
                 <div>
                   <p className="text-sm font-medium text-gray-900">{prescription.patientName}</p>
-                  <p className="text-xs text-gray-500">Patient ID: {prescription.patientId}</p>
+                  <p className="text-xs text-gray-500">
+                    {prescription.patientId?.email || prescription.patientId?.firstName || 'Patient'}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center">
                 <FileText className="w-4 h-4 text-gray-400 mr-2" />
                 <div>
-                  <p className="text-sm font-medium text-gray-900">{prescription.doctorName}</p>
-                  <p className="text-xs text-gray-500">Doctor</p>
+                  <p className="text-sm font-medium text-gray-900">
+                    {prescription.doctorId ? 
+                      `Dr. ${prescription.doctorId.firstName} ${prescription.doctorId.lastName}` : 
+                      'Doctor'}
+                  </p>
+                  <p className="text-xs text-gray-500">{prescription.doctorId?.specialization || 'Doctor'}</p>
                 </div>
               </div>
             </div>
@@ -335,47 +347,50 @@ const PrescriptionManagement = () => {
             {/* Date and Time */}
             <div className="flex items-center mb-4">
               <Calendar className="w-4 h-4 text-gray-400 mr-2" />
-              <span className="text-sm text-gray-600">{formatDate(prescription.date)} at {prescription.time}</span>
+              <span className="text-sm text-gray-600">
+                {prescription.sentToPharmacyAt ? formatDate(prescription.sentToPharmacyAt) : formatDate(prescription.createdAt)}
+              </span>
             </div>
 
             {/* Medicines */}
             <div className="mb-4">
               <h4 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
                 <Pill className="w-4 h-4 mr-1" />
-                Medicines ({prescription.medicines.length})
+                Medicines ({prescription.medications?.length || 0})
               </h4>
               <div className="space-y-2">
-                {prescription.medicines.slice(0, 2).map((medicine, index) => (
+                {prescription.medications?.slice(0, 2).map((medicine, index) => (
                   <div key={index} className="bg-gray-50 p-3 rounded-lg">
                     <p className="text-sm font-medium text-gray-900">{medicine.name}</p>
                     <p className="text-xs text-gray-600">
-                      {medicine.dosage} - {medicine.frequency} for {medicine.duration}
+                      {medicine.dosage} - {medicine.frequency || 'As prescribed'} for {medicine.duration}
                     </p>
-                    <p className="text-xs text-gray-500">Quantity: {medicine.quantity}</p>
+                    {medicine.instructions && (
+                      <p className="text-xs text-gray-500 italic mt-1">{medicine.instructions}</p>
+                    )}
                   </div>
                 ))}
-                {prescription.medicines.length > 2 && (
-                  <p className="text-xs text-gray-500">+{prescription.medicines.length - 2} more medicines</p>
+                {prescription.medications?.length > 2 && (
+                  <p className="text-xs text-gray-500">+{prescription.medications.length - 2} more medicines</p>
                 )}
               </div>
             </div>
 
-            {/* Notes */}
-            {prescription.notes && (
+            {/* Diagnosis */}
+            {prescription.diagnosis && (
               <div className="mb-4">
                 <p className="text-sm text-gray-600">
-                  <strong>Notes:</strong> {prescription.notes.slice(0, 60)}
-                  {prescription.notes.length > 60 && '...'}
+                  <strong>Diagnosis:</strong> {prescription.diagnosis}
                 </p>
               </div>
             )}
 
-            {/* Allergies Warning */}
-            {prescription.allergies !== 'None known' && (
-              <div className="mb-4 p-2 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-xs text-red-700 flex items-center">
-                  <AlertTriangle className="w-3 h-3 mr-1" />
-                  Allergies: {prescription.allergies}
+            {/* General Instructions */}
+            {prescription.generalInstructions && (
+              <div className="mb-4">
+                <p className="text-sm text-gray-600">
+                  <strong>Instructions:</strong> {prescription.generalInstructions.slice(0, 60)}
+                  {prescription.generalInstructions.length > 60 && '...'}
                 </p>
               </div>
             )}
@@ -383,38 +398,36 @@ const PrescriptionManagement = () => {
             {/* Actions */}
             <div className="flex justify-between items-center pt-4 border-t border-gray-200">
               <div className="text-xs text-gray-500">
-                Total: {getTotalQuantity(prescription.medicines)} items
+                Total: {prescription.medications?.length || 0} items
               </div>
               <div className="flex space-x-2">
-                {prescription.status === 'pending' && (
+                {prescription.status === 'pending' || prescription.status === 'active' ? (
                   <>
                     <button
-                      onClick={() => updatePrescriptionStatus(prescription.id, 'processing')}
+                      onClick={() => updatePrescriptionStatus(prescription._id, 'processing')}
                       className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors"
                     >
                       Start Processing
                     </button>
                     <button
-                      onClick={() => updatePrescriptionStatus(prescription.id, 'dispensed')}
+                      onClick={() => updatePrescriptionStatus(prescription._id, 'completed')}
                       className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded-md hover:bg-green-200 transition-colors"
                     >
                       Mark Dispensed
                     </button>
                   </>
-                )}
-                {prescription.status === 'processing' && (
+                ) : prescription.status === 'processing' ? (
                   <button
-                    onClick={() => updatePrescriptionStatus(prescription.id, 'dispensed')}
+                    onClick={() => updatePrescriptionStatus(prescription._id, 'completed')}
                     className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded-md hover:bg-green-200 transition-colors"
                   >
                     Mark Dispensed
                   </button>
-                )}
-                {prescription.status === 'dispensed' && (
+                ) : prescription.status === 'completed' ? (
                   <span className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded-md">
                     ✓ Dispensed
                   </span>
-                )}
+                ) : null}
               </div>
             </div>
 

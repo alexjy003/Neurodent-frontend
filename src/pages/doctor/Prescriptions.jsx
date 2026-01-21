@@ -34,6 +34,11 @@ const Prescriptions = () => {
   const [patients, setPatients] = useState([])
   const [selectedPrescription, setSelectedPrescription] = useState(null)
   const [showDetailsModal, setShowDetailsModal] = useState(false)
+  const [showPharmacistModal, setShowPharmacistModal] = useState(false)
+  const [pharmacists, setPharmacists] = useState([])
+  const [selectedPharmacist, setSelectedPharmacist] = useState(null)
+  const [loadingPharmacists, setLoadingPharmacists] = useState(false)
+  const [prescriptionToSend, setPrescriptionToSend] = useState(null)
 
   // Fetch prescriptions from API
   const fetchPrescriptions = async () => {
@@ -77,6 +82,30 @@ const Prescriptions = () => {
     } catch (error) {
       console.error('❌ Error fetching patients:', error)
       setPatients([])
+    }
+  }
+
+  // Fetch pharmacists for selection
+  const fetchPharmacists = async () => {
+    try {
+      setLoadingPharmacists(true)
+      const response = await apiService.get('/pharmacists')
+      
+      if (response.success && response.data.pharmacists) {
+        // Filter only active pharmacists
+        const activePharmacists = response.data.pharmacists.filter(
+          pharmacist => pharmacist.availability === 'Active'
+        )
+        setPharmacists(activePharmacists)
+      } else {
+        setPharmacists([])
+      }
+    } catch (error) {
+      console.error('❌ Error fetching pharmacists:', error)
+      toast.error('Failed to load pharmacists')
+      setPharmacists([])
+    } finally {
+      setLoadingPharmacists(false)
     }
   }
 
@@ -180,22 +209,43 @@ const Prescriptions = () => {
   }
 
   const handleSendToPharmacy = async (prescriptionId) => {
+    // Open modal to select pharmacist
+    setPrescriptionToSend(prescriptionId)
+    setShowPharmacistModal(true)
+    fetchPharmacists()
+  }
+
+  const handleConfirmSendToPharmacy = async () => {
+    if (!selectedPharmacist) {
+      toast.error('Please select a pharmacist')
+      return
+    }
+
     try {
-      await apiService.sendPrescriptionToPharmacy(prescriptionId);
+      // Send prescription to selected pharmacist
+      const response = await apiService.post(
+        `/prescriptions/${prescriptionToSend}/send-to-pharmacy`,
+        { pharmacistId: selectedPharmacist._id }
+      )
       
-      // Update the prescription in state to reflect it was sent
-      setPrescriptions(prev => 
-        prev.map(p => 
-          p._id === prescriptionId 
-            ? { ...p, sentToPharmacy: true }
-            : p
+      if (response.success) {
+        // Update the prescription in state to reflect it was sent
+        setPrescriptions(prev => 
+          prev.map(p => 
+            p._id === prescriptionToSend 
+              ? { ...p, sentToPharmacy: true, pharmacist: selectedPharmacist }
+              : p
+          )
         )
-      );
-      
-      toast.success('Prescription sent to pharmacy successfully!');
+        
+        toast.success(`Prescription sent to ${selectedPharmacist.firstName} ${selectedPharmacist.lastName} successfully!`)
+        setShowPharmacistModal(false)
+        setSelectedPharmacist(null)
+        setPrescriptionToSend(null)
+      }
     } catch (error) {
-      console.error('❌ Error sending to pharmacy:', error);
-      toast.error('Failed to send prescription to pharmacy');
+      console.error('❌ Error sending to pharmacy:', error)
+      toast.error(error.response?.data?.message || 'Failed to send prescription to pharmacy')
     }
   }
 
@@ -695,6 +745,123 @@ const Prescriptions = () => {
                   )}
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pharmacist Selection Modal */}
+      {showPharmacistModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white z-10">
+              <h3 className="text-xl font-bold text-gray-900">Select Pharmacist</h3>
+              <button
+                onClick={() => {
+                  setShowPharmacistModal(false)
+                  setSelectedPharmacist(null)
+                  setPrescriptionToSend(null)
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              {loadingPharmacists ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <p className="text-gray-600">Loading pharmacists...</p>
+                  </div>
+                </div>
+              ) : pharmacists.length === 0 ? (
+                <div className="text-center py-12">
+                  <User className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600 text-lg">No active pharmacists available</p>
+                  <p className="text-gray-500 text-sm mt-2">Please try again later</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-600 mb-4">
+                    Select a pharmacist to send the prescription to:
+                  </p>
+                  {pharmacists.map((pharmacist) => (
+                    <div
+                      key={pharmacist._id}
+                      onClick={() => setSelectedPharmacist(pharmacist)}
+                      className={`border rounded-lg p-4 cursor-pointer transition-all ${
+                        selectedPharmacist?._id === pharmacist._id
+                          ? 'border-blue-500 bg-blue-50 shadow-md'
+                          : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                          <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center overflow-hidden">
+                            {pharmacist.profileImage ? (
+                              <img
+                                src={pharmacist.profileImage}
+                                alt={`${pharmacist.firstName} ${pharmacist.lastName}`}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <User className="w-6 h-6 text-white" />
+                            )}
+                          </div>
+                          <div>
+                            <h4 className="font-semibold text-gray-900">
+                              {pharmacist.firstName} {pharmacist.lastName}
+                            </h4>
+                            <p className="text-sm text-gray-600">{pharmacist.email}</p>
+                            {pharmacist.specialization && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                {pharmacist.specialization}
+                              </p>
+                            )}
+                            {pharmacist.shift && (
+                              <span className="inline-block mt-1 px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded-full">
+                                {pharmacist.shift} Shift
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {selectedPharmacist?._id === pharmacist._id && (
+                          <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
+                            <Check className="w-4 h-4 text-white" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 border-t border-gray-200 flex justify-end space-x-3 sticky bottom-0 bg-white">
+              <button
+                onClick={() => {
+                  setShowPharmacistModal(false)
+                  setSelectedPharmacist(null)
+                  setPrescriptionToSend(null)
+                }}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmSendToPharmacy}
+                disabled={!selectedPharmacist}
+                className={`px-6 py-2 rounded-lg font-medium transition-colors inline-flex items-center ${
+                  selectedPharmacist
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                <Send className="w-4 h-4 mr-2" />
+                Send Prescription
+              </button>
             </div>
           </div>
         </div>
