@@ -23,6 +23,12 @@ const PrescriptionManagement = () => {
   const [showModal, setShowModal] = useState(false)
   const [prescriptions, setPrescriptions] = useState([])
   const [loading, setLoading] = useState(true)
+  const [showAllocationModal, setShowAllocationModal] = useState(false)
+  const [allocationPrescription, setAllocationPrescription] = useState(null)
+  const [availableMedicines, setAvailableMedicines] = useState([])
+  const [allocations, setAllocations] = useState([])
+  const [loadingMedicines, setLoadingMedicines] = useState(false)
+  const [allocating, setAllocating] = useState(false)
 
   // Fetch prescriptions from API
   useEffect(() => {
@@ -65,7 +71,23 @@ const PrescriptionManagement = () => {
       const data = await response.json()
 
       if (data.success && data.prescriptions) {
-        setPrescriptions(data.prescriptions)
+        // Auto-fix prescriptions that are paid but not yet marked as dispensed
+        const fixedPrescriptions = await Promise.all(
+          data.prescriptions.map(async (prescription) => {
+            if (prescription.paymentStatus === 'paid' && prescription.status === 'processing') {
+              // Auto-update status to dispensed
+              try {
+                await updatePrescriptionStatus(prescription._id, 'dispensed', true)
+                return { ...prescription, status: 'dispensed' }
+              } catch (error) {
+                console.error('Failed to auto-update prescription status:', error)
+                return prescription
+              }
+            }
+            return prescription
+          })
+        )
+        setPrescriptions(fixedPrescriptions)
       } else {
         toast.error(data.message || 'Failed to fetch prescriptions')
       }
@@ -87,6 +109,14 @@ const PrescriptionManagement = () => {
     
     return () => clearTimeout(timer)
   }, [searchTerm])
+
+  // Check if prescription is expired (more than 1 day old)
+  const isPrescriptionExpired = (prescription) => {
+    const sentDate = new Date(prescription.sentToPharmacyAt || prescription.createdAt)
+    const currentDate = new Date()
+    const daysDifference = (currentDate - sentDate) / (1000 * 60 * 60 * 24)
+    return daysDifference > 1
+  }
 
   const filteredPrescriptions = prescriptions
 
@@ -123,7 +153,7 @@ const PrescriptionManagement = () => {
     }
   }
 
-  const updatePrescriptionStatus = async (id, newStatus) => {
+  const updatePrescriptionStatus = async (id, newStatus, silent = false) => {
     try {
       const token = localStorage.getItem('pharmacistToken')
       
@@ -146,15 +176,19 @@ const PrescriptionManagement = () => {
             : prescription
         ))
         
-        const statusMessage = {
-          'processing': 'Prescription marked as processing',
-          'dispensed': 'Prescription dispensed successfully',
-          'cancelled': 'Prescription cancelled'
+        if (!silent) {
+          const statusMessage = {
+            'processing': 'Prescription marked as processing',
+            'dispensed': 'Prescription dispensed successfully',
+            'cancelled': 'Prescription cancelled'
+          }
+          
+          toast.success(statusMessage[newStatus] || 'Status updated')
         }
-        
-        toast.success(statusMessage[newStatus] || 'Status updated')
       } else {
-        toast.error(data.message || 'Failed to update status')
+        if (!silent) {
+          toast.error(data.message || 'Failed to update status')
+        }
       }
     } catch (error) {
       console.error('Error updating status:', error)
@@ -165,6 +199,156 @@ const PrescriptionManagement = () => {
   const downloadPrescription = (prescription) => {
     // In a real app, this would generate and download a PDF
     toast.success(`Prescription ${prescription.id} downloaded`)
+  }
+
+  // Fetch available medicines for allocation
+  const fetchAvailableMedicines = async () => {
+    try {
+      setLoadingMedicines(true)
+      const token = localStorage.getItem('pharmacistToken')
+      
+      const response = await fetch(`${API_BASE_URL}/medicines?limit=100`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error('Medicine fetch error:', errorData)
+        toast.error(errorData.message || 'Failed to fetch medicines')
+        return
+      }
+
+      const data = await response.json()
+      console.log('Medicines fetched:', data)
+
+      if (data.success && data.data && data.data.medicines) {
+        setAvailableMedicines(data.data.medicines)
+      } else {
+        console.error('Invalid response structure:', data)
+        toast.error(data.message || 'Failed to fetch medicines')
+      }
+    } catch (error) {
+      console.error('Error fetching medicines:', error)
+      toast.error('Failed to load medicine inventory: ' + error.message)
+    } finally {
+      setLoadingMedicines(false)
+    }
+  }
+
+  // Open allocation modal
+  const openAllocationModal = async (prescription) => {
+    setAllocationPrescription(prescription)
+    setShowAllocationModal(true)
+    
+    // Fetch available medicines first
+    await fetchAvailableMedicines()
+  }
+
+  // Helper function to normalize medicine names for matching
+  const normalizeName = (name) => {
+    return name
+      .toLowerCase()
+      .replace(/\s+/g, '') // Remove all spaces
+      .replace(/[^a-z0-9]/g, '') // Remove special characters
+  }
+
+  // Auto-match medicines after fetching - using useEffect
+  useEffect(() => {
+    if (allocationPrescription && availableMedicines.length > 0 && allocations.length === 0) {
+      // Initialize allocations array and try to auto-match medicines by name
+      const initialAllocations = allocationPrescription.medications.map((med, index) => {
+        const normalizedMedName = normalizeName(med.name)
+        
+        // Try to find matching medicine in inventory by name (case-insensitive, space-insensitive)
+        const matchingMedicine = availableMedicines.find(m => {
+          const normalizedInventoryName = normalizeName(m.name)
+          return normalizedInventoryName.includes(normalizedMedName) || 
+                 normalizedMedName.includes(normalizedInventoryName)
+        })
+        
+        return {
+          medicationIndex: index,
+          medicationName: med.name,
+          medicationDosage: med.dosage,
+          medicationDuration: med.duration,
+          medicineId: matchingMedicine?._id || '',
+          quantity: 1,
+          allocated: false
+        }
+      })
+      
+      setAllocations(initialAllocations)
+    }
+  }, [availableMedicines, allocationPrescription])
+
+  // Handle medicine selection for a medication
+  const handleMedicineSelection = (index, medicineId) => {
+    const updatedAllocations = [...allocations]
+    updatedAllocations[index].medicineId = medicineId
+    setAllocations(updatedAllocations)
+  }
+
+  // Handle quantity change
+  const handleQuantityChange = (index, quantity) => {
+    const updatedAllocations = [...allocations]
+    updatedAllocations[index].quantity = parseInt(quantity) || 0
+    setAllocations(updatedAllocations)
+  }
+
+  // Submit allocation
+  const handleAllocateSubmit = async () => {
+    try {
+      // Validate all allocations
+      const invalidAllocations = allocations.filter(a => !a.medicineId || a.quantity <= 0)
+      
+      if (invalidAllocations.length > 0) {
+        toast.error('Please select medicine and quantity for all medications')
+        return
+      }
+
+      setAllocating(true)
+      const token = localStorage.getItem('pharmacistToken')
+      
+      // Prepare allocation data
+      const allocationData = allocations.map(a => ({
+        medicationIndex: a.medicationIndex,
+        medicineId: a.medicineId,
+        quantity: a.quantity
+      }))
+
+      const response = await fetch(
+        `${API_BASE_URL}/prescriptions/${allocationPrescription._id}/allocate-medicines`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ allocations: allocationData })
+        }
+      )
+
+      const data = await response.json()
+
+      if (data.success) {
+        toast.success(data.message || 'Medicines allocated successfully')
+        setShowAllocationModal(false)
+        setAllocationPrescription(null)
+        setAllocations([])
+        // Refresh prescriptions
+        await fetchPrescriptions()
+      } else {
+        toast.error(data.message || 'Failed to allocate medicines')
+      }
+    } catch (error) {
+      console.error('Error allocating medicines:', error)
+      toast.error('Failed to allocate medicines')
+    } finally {
+      setAllocating(false)
+    }
   }
 
   const formatDate = (dateString) => {
@@ -288,12 +472,34 @@ const PrescriptionManagement = () => {
 
       {/* Prescriptions Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {filteredPrescriptions.map((prescription) => (
-          <div key={prescription.id} className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow">
+        {filteredPrescriptions.map((prescription) => {
+          const isExpired = isPrescriptionExpired(prescription)
+          return (
+          <div key={prescription.id} className={`rounded-lg border p-6 transition-shadow ${
+            isExpired 
+              ? 'bg-gray-100 border-gray-300 opacity-60' 
+              : 'bg-white border-gray-200 hover:shadow-md'
+          }`}>
+            {/* Expired Warning Banner */}
+            {isExpired && (
+              <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded-md flex items-center">
+                <AlertTriangle className="w-4 h-4 text-red-600 mr-2 flex-shrink-0" />
+                <p className="text-xs text-red-700">
+                  This prescription is more than 1 day old and can no longer be processed
+                </p>
+              </div>
+            )}
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-3">
-                <h3 className="text-lg font-semibold text-gray-900">{prescription.id}</h3>
+                <h3 className={`text-lg font-semibold ${
+                  isExpired ? 'text-gray-500' : 'text-gray-900'
+                }`}>{prescription.id}</h3>
+                {isExpired && (
+                  <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700">
+                    Expired
+                  </span>
+                )}
                 <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(prescription.status)}`}>
                   {getDisplayStatus(prescription.status)}
                 </span>
@@ -404,26 +610,47 @@ const PrescriptionManagement = () => {
                 {prescription.status === 'pending' || prescription.status === 'active' ? (
                   <>
                     <button
-                      onClick={() => updatePrescriptionStatus(prescription._id, 'processing')}
-                      className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors"
+                      onClick={() => !isExpired && openAllocationModal(prescription)}
+                      disabled={isExpired}
+                      className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                        isExpired 
+                          ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
+                          : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                      }`}
                     >
                       Start Processing
                     </button>
                     <button
-                      onClick={() => updatePrescriptionStatus(prescription._id, 'completed')}
-                      className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded-md hover:bg-green-200 transition-colors"
+                      onClick={() => !isExpired && updatePrescriptionStatus(prescription._id, 'dispensed')}
+                      disabled={isExpired}
+                      className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                        isExpired 
+                          ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
+                          : 'bg-green-100 text-green-700 hover:bg-green-200'
+                      }`}
                     >
                       Mark Dispensed
                     </button>
                   </>
                 ) : prescription.status === 'processing' ? (
-                  <button
-                    onClick={() => updatePrescriptionStatus(prescription._id, 'completed')}
-                    className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded-md hover:bg-green-200 transition-colors"
-                  >
-                    Mark Dispensed
-                  </button>
-                ) : prescription.status === 'completed' ? (
+                  prescription.paymentStatus === 'paid' ? (
+                    <span className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded-md">
+                      ✓ Paid - Auto Dispensing
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => !isExpired && updatePrescriptionStatus(prescription._id, 'dispensed')}
+                      disabled={isExpired}
+                      className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                        isExpired 
+                          ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
+                          : 'bg-green-100 text-green-700 hover:bg-green-200'
+                      }`}
+                    >
+                      Mark Dispensed
+                    </button>
+                  )
+                ) : (prescription.status === 'completed' || prescription.status === 'dispensed') ? (
                   <span className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded-md">
                     ✓ Dispensed
                   </span>
@@ -440,7 +667,7 @@ const PrescriptionManagement = () => {
               </div>
             )}
           </div>
-        ))}
+        )})}
       </div>
 
       {/* Prescription Detail Modal */}
@@ -526,6 +753,186 @@ const PrescriptionManagement = () => {
                   )}
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Medicine Allocation Modal */}
+      {showAllocationModal && allocationPrescription && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-10 mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-md bg-white mb-10">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold text-gray-900">
+                Allocate Medicines from Inventory
+              </h3>
+              <button
+                onClick={() => {
+                  setShowAllocationModal(false)
+                  setAllocationPrescription(null)
+                  setAllocations([])
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <span className="text-2xl">&times;</span>
+              </button>
+            </div>
+
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <p className="text-sm text-blue-800">
+                <strong>Prescription ID:</strong> {allocationPrescription.id || allocationPrescription._id}
+              </p>
+              <p className="text-sm text-blue-800">
+                <strong>Patient:</strong> {allocationPrescription.patientName}
+              </p>
+            </div>
+
+            {loadingMedicines ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-8 h-8 text-purple-600 animate-spin" />
+                <span className="ml-2 text-gray-600">Loading medicines...</span>
+              </div>
+            ) : (
+              <div className="space-y-4 max-h-96 overflow-y-auto">
+                {allocations.map((allocation, index) => {
+                  const selectedMedicine = availableMedicines.find(m => m._id === allocation.medicineId)
+                  
+                  return (
+                    <div key={index} className="border border-gray-200 p-4 rounded-lg bg-gray-50">
+                      <div className="mb-3">
+                        <h4 className="font-medium text-gray-900">{allocation.medicationName}</h4>
+                        <p className="text-sm text-gray-600">
+                          {allocation.medicationDosage} - {allocation.medicationDuration}
+                        </p>
+                        {!allocation.medicineId && availableMedicines.length > 0 && (
+                          <p className="text-xs text-amber-600 mt-1 flex items-center">
+                            <AlertTriangle className="w-3 h-3 mr-1" />
+                            No exact match found in inventory - please select manually
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Medicine Selection with Images */}
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Select Medicine from Inventory
+                        </label>
+                        <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto border border-gray-300 rounded-md p-2">
+                          {availableMedicines.length > 0 ? (
+                            availableMedicines.map((medicine) => (
+                              <div
+                                key={medicine._id}
+                                onClick={() => medicine.stockQuantity > 0 && handleMedicineSelection(index, medicine._id)}
+                                className={`flex items-center p-2 rounded-md cursor-pointer transition-all ${
+                                  allocation.medicineId === medicine._id
+                                    ? 'bg-purple-100 border-2 border-purple-500'
+                                    : medicine.stockQuantity === 0
+                                    ? 'bg-gray-100 opacity-60 cursor-not-allowed'
+                                    : 'bg-white border border-gray-200 hover:bg-gray-50'
+                                }`}
+                              >
+                                {/* Medicine Image */}
+                                <div className="flex-shrink-0 w-12 h-12 mr-3">
+                                  {medicine.image?.url ? (
+                                    <img
+                                      src={medicine.image.url}
+                                      alt={medicine.name}
+                                      className="w-full h-full object-cover rounded"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full bg-gray-200 rounded flex items-center justify-center">
+                                      <Pill className="w-6 h-6 text-gray-400" />
+                                    </div>
+                                  )}
+                                </div>
+                                
+                                {/* Medicine Info */}
+                                <div className="flex-1">
+                                  <p className="text-sm font-medium text-gray-900">{medicine.name}</p>
+                                  <p className="text-xs text-gray-600">
+                                    {medicine.stockQuantity > 0 ? (
+                                      <>Stock: {medicine.stockQuantity} • ₹{medicine.unitPrice}</>
+                                    ) : (
+                                      <span className="text-red-600">Unavailable - Out of Stock</span>
+                                    )}
+                                  </p>
+                                </div>
+                                
+                                {/* Selection Indicator */}
+                                {allocation.medicineId === medicine._id && (
+                                  <CheckCircle className="w-5 h-5 text-purple-600 flex-shrink-0" />
+                                )}
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-sm text-gray-500 text-center py-4">No medicines in inventory</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Quantity Input */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Quantity to Allocate
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            max={selectedMedicine?.stockQuantity || 999}
+                            value={allocation.quantity}
+                            onChange={(e) => handleQuantityChange(index, e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          />
+                          {selectedMedicine && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              Available: {selectedMedicine.stockQuantity} units
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Stock Warning */}
+                      {selectedMedicine && allocation.quantity > selectedMedicine.stockQuantity && (
+                        <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md">
+                          <p className="text-xs text-red-700">
+                            ⚠️ Insufficient stock! Only {selectedMedicine.stockQuantity} units available.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
+              <button
+                onClick={() => {
+                  setShowAllocationModal(false)
+                  setAllocationPrescription(null)
+                  setAllocations([])
+                }}
+                className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                disabled={allocating}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAllocateSubmit}
+                disabled={allocating || loadingMedicines}
+                className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-md hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+              >
+                {allocating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Allocating...
+                  </>
+                ) : (
+                  'Allocate & Start Processing'
+                )}
+              </button>
             </div>
           </div>
         </div>

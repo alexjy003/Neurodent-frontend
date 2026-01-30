@@ -14,126 +14,21 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'
+
 const MedicineLogs = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [actionFilter, setActionFilter] = useState('all')
   const [dateFilter, setDateFilter] = useState('all')
   const [sortBy, setSortBy] = useState('newest')
-
-  const [logs, setLogs] = useState([
-    {
-      id: 1,
-      action: 'stock_added',
-      medicineName: 'Amoxicillin 500mg',
-      quantity: 50,
-      previousStock: 100,
-      newStock: 150,
-      pharmacistId: 'Sarah Johnson',
-      pharmacistName: 'Sarah Johnson',
-      timestamp: '2025-08-31 09:15:00',
-      batchNumber: 'AMX001',
-      reason: 'New stock delivery from PharmaCorp Ltd',
-      prescriptionId: null
-    },
-    {
-      id: 2,
-      action: 'prescription_dispensed',
-      medicineName: 'Ibuprofen 400mg',
-      quantity: -10,
-      previousStock: 18,
-      newStock: 8,
-      pharmacistId: 'Sarah Johnson',
-      pharmacistName: 'Sarah Johnson',
-      timestamp: '2025-08-31 08:45:00',
-      batchNumber: 'IBU002',
-      reason: 'Dispensed for prescription PX-002',
-      prescriptionId: 'PX-002'
-    },
-    {
-      id: 3,
-      action: 'stock_updated',
-      medicineName: 'Paracetamol 500mg',
-      quantity: 30,
-      previousStock: 0,
-      newStock: 30,
-      pharmacistId: 'Sarah Johnson',
-      pharmacistName: 'Sarah Johnson',
-      timestamp: '2025-08-31 08:30:00',
-      batchNumber: 'PAR005',
-      reason: 'Emergency restock - out of stock',
-      prescriptionId: null
-    },
-    {
-      id: 4,
-      action: 'medicine_added',
-      medicineName: 'Dental Fluoride Gel',
-      quantity: 25,
-      previousStock: 0,
-      newStock: 25,
-      pharmacistId: 'Sarah Johnson',
-      pharmacistName: 'Sarah Johnson',
-      timestamp: '2025-08-30 16:20:00',
-      batchNumber: 'DFG004',
-      reason: 'New medicine added to inventory',
-      prescriptionId: null
-    },
-    {
-      id: 5,
-      action: 'prescription_dispensed',
-      medicineName: 'Chlorhexidine Mouthwash',
-      quantity: -1,
-      previousStock: 2,
-      newStock: 1,
-      pharmacistId: 'Sarah Johnson',
-      pharmacistName: 'Sarah Johnson',
-      timestamp: '2025-08-30 15:15:00',
-      batchNumber: 'CHM001',
-      reason: 'Dispensed for prescription PX-003',
-      prescriptionId: 'PX-003'
-    },
-    {
-      id: 6,
-      action: 'expired_removed',
-      medicineName: 'Aspirin 100mg',
-      quantity: -15,
-      previousStock: 15,
-      newStock: 0,
-      pharmacistId: 'Sarah Johnson',
-      pharmacistName: 'Sarah Johnson',
-      timestamp: '2025-08-30 14:00:00',
-      batchNumber: 'ASP001',
-      reason: 'Expired medicine removed from inventory',
-      prescriptionId: null
-    },
-    {
-      id: 7,
-      action: 'stock_adjustment',
-      medicineName: 'Vitamin D3 1000IU',
-      quantity: -5,
-      previousStock: 205,
-      newStock: 200,
-      pharmacistId: 'Sarah Johnson',
-      pharmacistName: 'Sarah Johnson',
-      timestamp: '2025-08-30 13:30:00',
-      batchNumber: 'VTD003',
-      reason: 'Stock count adjustment after inventory check',
-      prescriptionId: null
-    },
-    {
-      id: 8,
-      action: 'prescription_dispensed',
-      medicineName: 'Metronidazole 400mg',
-      quantity: -15,
-      previousStock: 30,
-      newStock: 15,
-      pharmacistId: 'Sarah Johnson',
-      pharmacistName: 'Sarah Johnson',
-      timestamp: '2025-08-29 17:45:00',
-      batchNumber: 'MET001',
-      reason: 'Dispensed for prescription PX-004',
-      prescriptionId: 'PX-004'
-    }
-  ])
+  const [logs, setLogs] = useState([])
+  const [stats, setStats] = useState({
+    totalLogs: 0,
+    todayActivities: 0,
+    dispensedPrescriptions: 0,
+    stockAdditions: 0
+  })
+  const [loading, setLoading] = useState(true)
 
   const actionTypes = [
     { value: 'all', label: 'All Actions' },
@@ -152,6 +47,87 @@ const MedicineLogs = () => {
     { value: 'week', label: 'This Week' },
     { value: 'month', label: 'This Month' }
   ]
+
+  // Fetch logs from API
+  useEffect(() => {
+    fetchLogs()
+  }, [actionFilter, dateFilter, searchTerm, sortBy])
+
+  const fetchLogs = async () => {
+    try {
+      setLoading(true)
+      const token = localStorage.getItem('pharmacistToken')
+
+      if (!token) {
+        toast.error('Please login to view logs')
+        return
+      }
+
+      const params = new URLSearchParams({
+        action: actionFilter,
+        dateFilter: dateFilter,
+        search: searchTerm,
+        sortBy: sortBy,
+        limit: 100
+      })
+
+      const response = await fetch(
+        `${API_BASE_URL}/medicine-logs?${params}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      )
+
+      const data = await response.json()
+
+      if (data.success) {
+        setLogs(data.logs)
+        if (data.stats) {
+          setStats(data.stats)
+        }
+      } else {
+        toast.error(data.message || 'Failed to fetch logs')
+      }
+    } catch (error) {
+      console.error('Error fetching logs:', error)
+      toast.error('Error loading medicine logs')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleExportLogs = async () => {
+    try {
+      const token = localStorage.getItem('pharmacistToken')
+      
+      const response = await fetch(`${API_BASE_URL}/medicine-logs/export`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (response.ok) {
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `medicine-logs-${new Date().toISOString().split('T')[0]}.csv`
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+        toast.success('Logs exported successfully')
+      } else {
+        toast.error('Failed to export logs')
+      }
+    } catch (error) {
+      console.error('Error exporting logs:', error)
+      toast.error('Error exporting logs')
+    }
+  }
 
   const getActionIcon = (action) => {
     switch(action) {
@@ -181,53 +157,6 @@ const MedicineLogs = () => {
     return actionTypes.find(type => type.value === action)?.label || action
   }
 
-  const filterLogsByDate = (log) => {
-    const logDate = new Date(log.timestamp)
-    const today = new Date()
-    const yesterday = new Date(today)
-    yesterday.setDate(yesterday.getDate() - 1)
-
-    switch(dateFilter) {
-      case 'today':
-        return logDate.toDateString() === today.toDateString()
-      case 'yesterday':
-        return logDate.toDateString() === yesterday.toDateString()
-      case 'week':
-        const weekAgo = new Date(today)
-        weekAgo.setDate(weekAgo.getDate() - 7)
-        return logDate >= weekAgo
-      case 'month':
-        const monthAgo = new Date(today)
-        monthAgo.setMonth(monthAgo.getMonth() - 1)
-        return logDate >= monthAgo
-      default:
-        return true
-    }
-  }
-
-  const filteredLogs = logs
-    .filter(log => {
-      const matchesSearch = 
-        log.medicineName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        log.reason.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        log.pharmacistName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (log.prescriptionId && log.prescriptionId.toLowerCase().includes(searchTerm.toLowerCase()))
-      
-      const matchesAction = actionFilter === 'all' || log.action === actionFilter
-      const matchesDate = filterLogsByDate(log)
-      
-      return matchesSearch && matchesAction && matchesDate
-    })
-    .sort((a, b) => {
-      switch(sortBy) {
-        case 'newest': return new Date(b.timestamp) - new Date(a.timestamp)
-        case 'oldest': return new Date(a.timestamp) - new Date(b.timestamp)
-        case 'medicine': return a.medicineName.localeCompare(b.medicineName)
-        case 'action': return a.action.localeCompare(b.action)
-        default: return 0
-      }
-    })
-
   const formatTimestamp = (timestamp) => {
     const date = new Date(timestamp)
     return date.toLocaleString('en-US', {
@@ -242,7 +171,7 @@ const MedicineLogs = () => {
   const exportLogs = () => {
     const csvContent = [
       ['Timestamp', 'Action', 'Medicine', 'Quantity Change', 'Previous Stock', 'New Stock', 'Pharmacist', 'Reason', 'Prescription ID'],
-      ...filteredLogs.map(log => [
+      ...logs.map(log => [
         log.timestamp,
         getActionLabel(log.action),
         log.medicineName,
@@ -272,6 +201,27 @@ const MedicineLogs = () => {
     }
   }
 
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading medicine logs...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -284,7 +234,7 @@ const MedicineLogs = () => {
         </div>
         <div className="mt-4 sm:mt-0 flex items-center space-x-3">
           <button 
-            onClick={exportLogs}
+            onClick={handleExportLogs}
             className="flex items-center px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <Download className="w-4 h-4 mr-2" />
@@ -299,7 +249,7 @@ const MedicineLogs = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Total Logs</p>
-              <p className="text-2xl font-bold text-gray-900">{filteredLogs.length}</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.totalLogs}</p>
             </div>
             <History className="w-8 h-8 text-blue-500" />
           </div>
@@ -309,7 +259,7 @@ const MedicineLogs = () => {
             <div>
               <p className="text-sm text-gray-600">Today's Activities</p>
               <p className="text-2xl font-bold text-green-600">
-                {logs.filter(log => new Date(log.timestamp).toDateString() === new Date().toDateString()).length}
+                {stats.todayActivities}
               </p>
             </div>
             <Calendar className="w-8 h-8 text-green-500" />
@@ -320,7 +270,7 @@ const MedicineLogs = () => {
             <div>
               <p className="text-sm text-gray-600">Prescriptions Dispensed</p>
               <p className="text-2xl font-bold text-purple-600">
-                {logs.filter(log => log.action === 'prescription_dispensed').length}
+                {stats.dispensedPrescriptions}
               </p>
             </div>
             <FileText className="w-8 h-8 text-purple-500" />
@@ -331,7 +281,7 @@ const MedicineLogs = () => {
             <div>
               <p className="text-sm text-gray-600">Stock Additions</p>
               <p className="text-2xl font-bold text-[#C33764]">
-                {logs.filter(log => log.action === 'stock_added' || log.action === 'medicine_added').length}
+                {stats.stockAdditions}
               </p>
             </div>
             <Package className="w-8 h-8 text-[#C33764]" />
@@ -394,12 +344,12 @@ const MedicineLogs = () => {
       <div className="bg-white rounded-lg border border-gray-200">
         <div className="p-4 border-b border-gray-200">
           <h3 className="text-lg font-medium text-gray-900">Activity Logs</h3>
-          <p className="text-sm text-gray-500">Showing {filteredLogs.length} log entries</p>
+          <p className="text-sm text-gray-500">Showing {logs.length} log entries</p>
         </div>
         
         <div className="divide-y divide-gray-200">
-          {filteredLogs.map((log) => (
-            <div key={log.id} className="p-4 hover:bg-gray-50 transition-colors">
+          {logs.map((log) => (
+            <div key={log._id} className="p-4 hover:bg-gray-50 transition-colors">
               <div className="flex items-start justify-between">
                 <div className="flex items-start space-x-3">
                   <div className="flex-shrink-0 mt-1">
@@ -451,7 +401,7 @@ const MedicineLogs = () => {
           ))}
         </div>
 
-        {filteredLogs.length === 0 && (
+        {logs.length === 0 && (
           <div className="text-center py-12">
             <History className="mx-auto h-12 w-12 text-gray-400" />
             <h3 className="mt-2 text-sm font-medium text-gray-900">No logs found</h3>
@@ -463,7 +413,7 @@ const MedicineLogs = () => {
       </div>
 
       {/* Pagination (if needed for large datasets) */}
-      {filteredLogs.length > 0 && (
+      {logs.length > 0 && (
         <div className="flex items-center justify-between bg-white px-4 py-3 border border-gray-200 rounded-lg">
           <div className="flex-1 flex justify-between sm:hidden">
             <button className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
@@ -476,8 +426,8 @@ const MedicineLogs = () => {
           <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
             <div>
               <p className="text-sm text-gray-700">
-                Showing <span className="font-medium">1</span> to <span className="font-medium">{filteredLogs.length}</span> of{' '}
-                <span className="font-medium">{filteredLogs.length}</span> results
+                Showing <span className="font-medium">1</span> to <span className="font-medium">{logs.length}</span> of{' '}
+                <span className="font-medium">{logs.length}</span> results
               </p>
             </div>
           </div>

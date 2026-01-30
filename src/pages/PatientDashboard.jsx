@@ -7,6 +7,7 @@ import ProfileManagement from '../components/ProfileManagement'
 import DoctorSearch from '../components/DoctorSearch'
 import AppointmentManagement from '../components/AppointmentManagement'
 import MedicalRecords from '../components/MedicalRecords'
+import PharmacyOrders from '../components/PharmacyOrders'
 import usePreventBackNavigation from '../hooks/usePreventBackNavigation'
 import { getUserType, redirectToCorrectDashboard, validateUserAccess } from '../utils/navigationGuard'
 import apiService from '../services/api'
@@ -139,6 +140,8 @@ const PatientDashboard = () => {
         return <AppointmentManagement user={user} />
       case 'records':
         return <MedicalRecords user={user} />
+      case 'pharmacy':
+        return <PharmacyOrders user={user} />
       default:
         return <DashboardOverview user={user} />
     }
