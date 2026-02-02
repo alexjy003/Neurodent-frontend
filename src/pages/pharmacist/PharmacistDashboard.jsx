@@ -23,6 +23,9 @@ import {
   ArcElement
 } from 'chart.js'
 import { getUserType, redirectToCorrectDashboard, validateUserAccess } from '../../utils/navigationGuard'
+import toast from 'react-hot-toast'
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'
 
 ChartJS.register(
   CategoryScale,
@@ -48,49 +51,96 @@ const PharmacistDashboard = () => {
     }
   }, [navigate]);
 
+  const [loading, setLoading] = useState(true)
   const [dashboardData, setDashboardData] = useState({
-    totalMedicines: 248,
-    lowStock: 12,
-    pendingPrescriptions: 8,
-    expiredMedicines: 3,
-    todayDispensed: 24,
-    weeklyRevenue: 15420
+    totalMedicines: 0,
+    lowStock: 0,
+    pendingPrescriptions: 0,
+    expiredMedicines: 0,
+    todayDispensed: 0,
+    weeklyRevenue: 0,
+    stockAvailability: 0
   })
 
-  const [recentActivities, setRecentActivities] = useState([
-    {
-      id: 1,
-      type: 'prescription',
-      message: 'Prescription PX-001 dispensed for John Smith',
-      time: '2 minutes ago',
-      icon: FileText,
-      color: 'text-green-600'
-    },
-    {
-      id: 2,
-      type: 'low_stock',
-      message: 'Low stock alert: Aspirin 100mg (8 units left)',
-      time: '15 minutes ago',
-      icon: AlertTriangle,
-      color: 'text-yellow-600'
-    },
-    {
-      id: 3,
-      type: 'expired',
-      message: 'Expired medicines removed: Cough Syrup (Batch #CS-2024)',
-      time: '45 minutes ago',
-      icon: Clock,
-      color: 'text-red-600'
-    },
-    {
-      id: 4,
-      type: 'stock_update',
-      message: 'Stock updated: Paracetamol 500mg (+50 units)',
-      time: '1 hour ago',
-      icon: Package,
-      color: 'text-[#C33764]'
+  const [recentActivities, setRecentActivities] = useState([])
+  const [weeklyTrends, setWeeklyTrends] = useState({
+    labels: [],
+    medicinesDispensed: [],
+    prescriptionsProcessed: []
+  })
+  const [categories, setCategories] = useState({
+    labels: [],
+    data: [],
+    colors: []
+  })
+
+  useEffect(() => {
+    fetchDashboardData()
+  }, [])
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true)
+      const token = localStorage.getItem('pharmacistToken')
+
+      if (!token) {
+        toast.error('Please login to view dashboard')
+        return
+      }
+
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+
+      // Fetch all dashboard data in parallel
+      const [statsRes, activitiesRes, trendsRes, categoriesRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/pharmacist-dashboard/stats`, { headers }),
+        fetch(`${API_BASE_URL}/pharmacist-dashboard/recent-activities?limit=10`, { headers }),
+        fetch(`${API_BASE_URL}/pharmacist-dashboard/weekly-trends`, { headers }),
+        fetch(`${API_BASE_URL}/pharmacist-dashboard/medicine-categories`, { headers })
+      ])
+
+      const [statsData, activitiesData, trendsData, categoriesData] = await Promise.all([
+        statsRes.json(),
+        activitiesRes.json(),
+        trendsRes.json(),
+        categoriesRes.json()
+      ])
+
+      if (statsData.success) {
+        setDashboardData(statsData.data)
+      }
+
+      if (activitiesData.success) {
+        setRecentActivities(activitiesData.activities)
+      }
+
+      if (trendsData.success) {
+        setWeeklyTrends(trendsData.trends)
+      }
+
+      if (categoriesData.success) {
+        setCategories(categoriesData.categories)
+      }
+
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error)
+      toast.error('Failed to load dashboard data')
+    } finally {
+      setLoading(false)
     }
-  ])
+  }
+
+  const getActivityIcon = (iconType) => {
+    switch(iconType) {
+      case 'prescription': return FileText
+      case 'alert': return AlertTriangle
+      case 'expired': return Clock
+      case 'stock': return Package
+      default: return CheckCircle
+    }
+  }
 
   // Statistics cards data
   const statsCards = [
@@ -134,11 +184,11 @@ const PharmacistDashboard = () => {
 
   // Chart data for medicine dispensing trend
   const lineChartData = {
-    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+    labels: weeklyTrends.labels,
     datasets: [
       {
         label: 'Medicines Dispensed',
-        data: [28, 32, 24, 38, 42, 35, 29],
+        data: weeklyTrends.medicinesDispensed,
         borderColor: '#C33764',
         backgroundColor: 'rgba(195, 55, 100, 0.1)',
         tension: 0.4,
@@ -146,7 +196,7 @@ const PharmacistDashboard = () => {
       },
       {
         label: 'Prescriptions Processed',
-        data: [15, 18, 12, 22, 25, 20, 16],
+        data: weeklyTrends.prescriptionsProcessed,
         borderColor: '#1d2671',
         backgroundColor: 'rgba(29, 38, 113, 0.1)',
         tension: 0.4,
@@ -157,17 +207,11 @@ const PharmacistDashboard = () => {
 
   // Doughnut chart data for medicine categories
   const doughnutChartData = {
-    labels: ['Analgesics', 'Antibiotics', 'Vitamins', 'Antiseptics', 'Others'],
+    labels: categories.labels,
     datasets: [
       {
-        data: [30, 25, 20, 15, 10],
-        backgroundColor: [
-          '#C33764',
-          '#1d2671',
-          '#FF6B6B',
-          '#4ECDC4',
-          '#45B7D1'
-        ],
+        data: categories.data,
+        backgroundColor: categories.colors,
         borderWidth: 2,
         borderColor: '#fff'
       }
@@ -215,21 +259,33 @@ const PharmacistDashboard = () => {
     }
   }
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#C33764] mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Pharmacist Dashboard</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Pharmacist Dashboard</h1>
           <p className="mt-1 text-sm text-gray-500">
             Welcome back! Here's what's happening in your pharmacy today.
           </p>
         </div>
-        <div className="mt-4 md:mt-0 flex items-center space-x-4">
-          <div className="text-sm text-gray-500">
-            Last updated: {new Date().toLocaleTimeString()}
-          </div>
-          <button className="bg-[#C33764] text-white px-4 py-2 rounded-lg hover:bg-[#1d2671] transition-colors">
+        <div className="mt-4 sm:mt-0 flex items-center space-x-3">
+          <span className="text-sm text-gray-500">Last updated: {new Date().toLocaleTimeString()}</span>
+          <button 
+            onClick={fetchDashboardData}
+            className="px-4 py-2 bg-gradient-to-r from-[#C33764] to-[#1d2671] text-white rounded-lg hover:shadow-lg transition-shadow"
+          >
             Refresh Data
           </button>
         </div>
@@ -338,17 +394,25 @@ const PharmacistDashboard = () => {
             </button>
           </div>
           <div className="space-y-4">
-            {recentActivities.map((activity) => (
-              <div key={activity.id} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
-                <div className={`flex-shrink-0 p-2 rounded-lg bg-white ${activity.color}`}>
-                  <activity.icon className="w-4 h-4" />
+            {recentActivities.map((activity) => {
+              const IconComponent = getActivityIcon(activity.icon)
+              return (
+                <div key={activity.id} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
+                  <div className={`flex-shrink-0 p-2 rounded-lg bg-white ${activity.color}`}>
+                    <IconComponent className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900">{activity.message}</p>
+                    <p className="text-xs text-gray-500 mt-1">{activity.time}</p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900">{activity.message}</p>
-                  <p className="text-xs text-gray-500 mt-1">{activity.time}</p>
-                </div>
+              )
+            })}
+            {recentActivities.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                <p className="text-sm">No recent activities</p>
               </div>
-            ))}
+            )}
           </div>
         </div>
       </div>
@@ -366,7 +430,7 @@ const PharmacistDashboard = () => {
             <p className="text-pink-100 text-sm">Weekly Revenue</p>
           </div>
           <div className="text-center">
-            <p className="text-2xl font-bold">98.5%</p>
+            <p className="text-2xl font-bold">{dashboardData.stockAvailability}%</p>
             <p className="text-pink-100 text-sm">Stock Availability</p>
           </div>
         </div>

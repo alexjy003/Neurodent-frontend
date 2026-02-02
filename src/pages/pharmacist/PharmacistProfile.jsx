@@ -20,6 +20,7 @@ const PharmacistProfile = () => {
   const [isEditing, setIsEditing] = useState(false)
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
+  const [prescriptionsFilled, setPrescriptionsFilled] = useState(0)
 
   const [profileData, setProfileData] = useState({
     firstName: '',
@@ -48,6 +49,7 @@ const PharmacistProfile = () => {
   // Fetch pharmacist profile on component mount
   useEffect(() => {
     fetchPharmacistProfile()
+    fetchPrescriptionCount()
   }, [])
 
   const fetchPharmacistProfile = async () => {
@@ -103,6 +105,35 @@ const PharmacistProfile = () => {
       toast.error('Error loading profile data')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchPrescriptionCount = async () => {
+    try {
+      const token = localStorage.getItem('pharmacistToken')
+      
+      if (!token) {
+        return
+      }
+
+      const response = await fetch(`${API_BASE_URL}/prescriptions/pharmacist/my-prescriptions?limit=1000`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      const data = await response.json()
+
+      if (data.success && data.prescriptions) {
+        // Count prescriptions that are dispensed (filled)
+        const filledCount = data.prescriptions.filter(
+          p => p.status === 'dispensed' || p.paymentStatus === 'paid'
+        ).length
+        setPrescriptionsFilled(filledCount)
+      }
+    } catch (error) {
+      console.error('Error fetching prescription count:', error)
     }
   }
 
@@ -353,7 +384,7 @@ const PharmacistProfile = () => {
               <p className="text-xs text-gray-600">Years Experience</p>
             </div>
             <div className="bg-blue-50 p-3 rounded-lg">
-              <p className="text-2xl font-bold text-blue-600">-</p>
+              <p className="text-2xl font-bold text-blue-600">{prescriptionsFilled}</p>
               <p className="text-xs text-gray-600">Prescriptions Filled</p>
             </div>
           </div>

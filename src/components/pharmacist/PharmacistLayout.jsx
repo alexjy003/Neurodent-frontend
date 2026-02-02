@@ -245,20 +245,6 @@ const PharmacistLayout = () => {
                 >
                   <Menu className="w-5 h-5" />
                 </button>
-                
-                {/* Search Bar */}
-                <div className="hidden sm:block ml-4">
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Search className="h-5 w-5 text-gray-400" />
-                    </div>
-                    <input
-                      type="text"
-                      placeholder="Search medicines, prescriptions..."
-                      className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#C33764] focus:border-[#C33764]"
-                    />
-                  </div>
-                </div>
               </div>
 
               {/* Right side */}
