@@ -65,6 +65,18 @@ const PatientRecords = () => {
       if (response.success) {
         setPatients(response.data || response.patients || [])
         calculateStats(response.data || response.patients || [])
+        
+        // Debug: Log first patient's image fields
+        const patientData = response.data || response.patients || []
+        if (patientData.length > 0) {
+          console.log('🖼️ First patient image data:', {
+            profilePicture: patientData[0].profilePicture,
+            profileImage: patientData[0].profileImage,
+            hasProfilePicture: !!patientData[0].profilePicture,
+            hasProfileImage: !!patientData[0].profileImage,
+            profileImageUrl: patientData[0].profileImage?.url
+          })
+        }
       } else {
         setError('Failed to fetch patients')
         toast.error('Failed to load patients')
@@ -147,15 +159,22 @@ const PatientRecords = () => {
   }
 
   const getLastVisit = (patient) => {
-    if (!patient.appointments || !Array.isArray(patient.appointments)) return null
+    console.log('🔍 Getting last visit for patient:', patient.firstName, patient.appointments)
+    if (!patient.appointments || !Array.isArray(patient.appointments)) {
+      console.log('❌ No appointments array or not an array')
+      return null
+    }
     
+    console.log('📋 Appointments:', patient.appointments.length)
     const completedAppointments = patient.appointments.filter(apt => apt.status === 'completed')
+    console.log('✅ Completed appointments:', completedAppointments.length)
     if (completedAppointments.length === 0) return null
     
     const lastAppt = completedAppointments.sort((a, b) => 
       new Date(b.date || b.appointmentDate) - new Date(a.date || a.appointmentDate)
     )[0]
     
+    console.log('📅 Last appointment:', lastAppt)
     return lastAppt.date || lastAppt.appointmentDate
   }
 
@@ -340,15 +359,13 @@ const PatientRecords = () => {
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Patient</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Contact</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Last Visit</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Next Appointment</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Assigned Doctor</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredPatients.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan="4" className="px-6 py-12 text-center text-gray-500">
                     <User className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                     <p>No patients found</p>
                     {searchTerm && <p className="text-sm">Try adjusting your search terms</p>}
@@ -359,7 +376,19 @@ const PatientRecords = () => {
                   <tr key={patient._id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <div className="w-10 h-10 bg-gradient-to-br from-teal-400 to-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
+                        {(patient.profilePicture || patient.profileImage?.url) ? (
+                          <img 
+                            src={patient.profilePicture || patient.profileImage?.url} 
+                            alt={getPatientFullName(patient)}
+                            className="w-10 h-10 rounded-full object-cover border-2 border-gray-200"
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.style.display = 'none';
+                              e.target.nextSibling.style.display = 'flex';
+                            }}
+                          />
+                        ) : null}
+                        <div className={`w-10 h-10 bg-gradient-to-br from-teal-400 to-blue-500 rounded-full flex items-center justify-center text-white font-semibold ${(patient.profilePicture || patient.profileImage?.url) ? 'hidden' : ''}`}>
                           {getPatientFullName(patient).charAt(0).toUpperCase()}
                         </div>
                         <div className="ml-4">
@@ -377,19 +406,6 @@ const PatientRecords = () => {
                       <div className="text-sm text-gray-500">{getTotalVisits(patient)} total visits</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {formatDate(getNextAppointment(patient))}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {patient.assignedDoctor || 'Not assigned'}
-                      </div>
-                      {patient.treatments && patient.treatments.length > 0 && (
-                        <div className="text-sm text-gray-500">{patient.treatments.join(', ')}</div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center space-x-2">
                         <button
                           onClick={() => setSelectedPatient(patient)}
@@ -397,18 +413,6 @@ const PatientRecords = () => {
                           title="View Profile"
                         >
                           <Eye className="w-4 h-4" />
-                        </button>
-                        <button
-                          className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition-colors duration-200"
-                          title="Edit Patient"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button
-                          className="p-2 text-purple-600 hover:bg-purple-100 rounded-lg transition-colors duration-200"
-                          title="Medical Records"
-                        >
-                          <FileText className="w-4 h-4" />
                         </button>
                       </div>
                     </td>
@@ -438,8 +442,19 @@ const PatientRecords = () => {
               {/* Patient Info */}
               <div className="lg:col-span-1">
                 <div className="bg-gradient-to-br from-teal-500 to-blue-600 rounded-2xl p-6 text-white text-center">
-                  <div className="w-24 h-24 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-4 border-4 border-white/20">
-                    <span className="text-2xl font-bold text-white">
+                  <div className="w-24 h-24 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-4 border-4 border-white/20 overflow-hidden">
+                    {(selectedPatient.profilePicture || selectedPatient.profileImage?.url) ? (
+                      <img 
+                        src={selectedPatient.profilePicture || selectedPatient.profileImage?.url} 
+                        alt={getPatientFullName(selectedPatient)}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          e.target.nextSibling.style.display = 'flex';
+                        }}
+                      />
+                    ) : null}
+                    <span className={`text-2xl font-bold text-white ${(selectedPatient.profilePicture || selectedPatient.profileImage?.url) ? 'hidden' : ''}`}>
                       {getPatientFullName(selectedPatient).split(' ').map(n => n[0]).join('')}
                     </span>
                   </div>
@@ -538,34 +553,29 @@ const PatientRecords = () => {
                   </div>
 
                   <div className="bg-white border border-gray-200 rounded-2xl p-6">
-                    <h4 className="font-semibold text-gray-900 mb-4">Appointments</h4>
+                    <h4 className="font-semibold text-gray-900 mb-4">Quick Stats</h4>
                     <div className="space-y-3">
                       <div>
-                        <span className="text-sm text-gray-600">Next Appointment:</span>
-                        <p className="font-semibold">{getNextAppointment(selectedPatient)}</p>
+                        <span className="text-sm text-gray-600">Total Visits:</span>
+                        <p className="font-semibold">{getTotalVisits(selectedPatient)}</p>
+                      </div>
+                      <div>
+                        <span className="text-sm text-gray-600">Last Visit:</span>
+                        <p className="font-semibold">{formatDate(getLastVisit(selectedPatient))}</p>
                       </div>
                       <div>
                         <span className="text-sm text-gray-600">Registration Date:</span>
                         <p className="font-semibold">{formatDate(selectedPatient.createdAt)}</p>
                       </div>
-                      <button className="w-full bg-teal-500 text-white px-4 py-2 rounded-lg hover:bg-teal-600 transition-colors duration-200">
-                        Schedule New Appointment
-                      </button>
+                      <div>
+                        <span className="text-sm text-gray-600">Patient ID:</span>
+                        <p className="font-semibold">{selectedPatient._id?.slice(-6) || 'N/A'}</p>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="mt-6 flex justify-end space-x-3">
-                  <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200">
-                    Edit Patient
-                  </button>
-                  <button className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors duration-200">
-                    View Medical Records
-                  </button>
-                  <button className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors duration-200">
-                    Send Message
-                  </button>
-                </div>
+
               </div>
             </div>
           </div>

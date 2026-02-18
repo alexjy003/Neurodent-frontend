@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { 
   Users, 
@@ -6,6 +6,7 @@ import {
   Calendar,
   DollarSign,
   TrendingUp,
+  TrendingDown,
   AlertTriangle,
   Activity,
   Clock
@@ -24,6 +25,9 @@ import {
 } from 'chart.js'
 import { Bar, Line, Doughnut } from 'react-chartjs-2'
 import { getUserType, redirectToCorrectDashboard, validateUserAccess } from '../../utils/navigationGuard'
+import toast from 'react-hot-toast'
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'
 
 ChartJS.register(
   CategoryScale,
@@ -39,6 +43,21 @@ ChartJS.register(
 
 const AdminDashboard = () => {
   const navigate = useNavigate()
+  const [loading, setLoading] = useState(true)
+  const [stats, setStats] = useState({
+    appointmentsToday: 0,
+    appointmentChange: 0,
+    revenueThisMonth: 0,
+    revenueChange: 0,
+    activeDoctors: 0,
+    patientsToday: 0
+  })
+  const [weeklyAppointments, setWeeklyAppointments] = useState({ labels: [], values: [] })
+  const [monthlyRevenue, setMonthlyRevenue] = useState({ labels: [], values: [] })
+  const [doctorPerformance, setDoctorPerformance] = useState({ labels: [], values: [] })
+  const [treatmentTypes, setTreatmentTypes] = useState({ labels: [], values: [] })
+  const [inventoryAlerts, setInventoryAlerts] = useState([])
+  const [recentActivities, setRecentActivities] = useState([])
   
   // Verify user is actually an admin and redirect if not
   useEffect(() => {
@@ -48,22 +67,75 @@ const AdminDashboard = () => {
       redirectToCorrectDashboard(navigate);
       return;
     }
+    
+    // Fetch dashboard data
+    fetchDashboardData()
   }, [navigate]);
 
-  // Mock data for dashboard
-  const stats = {
-    appointmentsToday: 24,
-    revenueThisMonth: 0,
-    activeDoctors: 8,
-    patientsToday: 18
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true)
+      const token = localStorage.getItem('adminToken')
+      
+      if (!token) {
+        toast.error('Please login to access dashboard')
+        return
+      }
+
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+
+      // Fetch all dashboard data in parallel
+      const [
+        statsRes,
+        weeklyRes,
+        revenueRes,
+        doctorRes,
+        treatmentRes,
+        inventoryRes,
+        activityRes
+      ] = await Promise.all([
+        fetch(`${API_BASE_URL}/admin-dashboard/stats`, { headers }),
+        fetch(`${API_BASE_URL}/admin-dashboard/weekly-appointments`, { headers }),
+        fetch(`${API_BASE_URL}/admin-dashboard/monthly-revenue`, { headers }),
+        fetch(`${API_BASE_URL}/admin-dashboard/doctor-performance`, { headers }),
+        fetch(`${API_BASE_URL}/admin-dashboard/treatment-types`, { headers }),
+        fetch(`${API_BASE_URL}/admin-dashboard/inventory-alerts`, { headers }),
+        fetch(`${API_BASE_URL}/admin-dashboard/recent-activities`, { headers })
+      ])
+
+      const statsData = await statsRes.json()
+      const weeklyData = await weeklyRes.json()
+      const revenueData = await revenueRes.json()
+      const doctorData = await doctorRes.json()
+      const treatmentData = await treatmentRes.json()
+      const inventoryData = await inventoryRes.json()
+      const activityData = await activityRes.json()
+
+      if (statsData.success) setStats(statsData.stats)
+      if (weeklyData.success) setWeeklyAppointments(weeklyData.data)
+      if (revenueData.success) setMonthlyRevenue(revenueData.data)
+      if (doctorData.success) setDoctorPerformance(doctorData.data)
+      if (treatmentData.success) setTreatmentTypes(treatmentData.data)
+      if (inventoryData.success) setInventoryAlerts(inventoryData.data)
+      if (activityData.success) setRecentActivities(activityData.data)
+
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error)
+      toast.error('Failed to load dashboard data')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const appointmentsData = {
-    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+    labels: weeklyAppointments.labels || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
     datasets: [
       {
         label: 'Appointments',
-        data: [12, 19, 15, 25, 22, 18, 8],
+        data: weeklyAppointments.values || [0, 0, 0, 0, 0, 0, 0],
         backgroundColor: 'rgba(20, 184, 166, 0.8)',
         borderColor: 'rgba(20, 184, 166, 1)',
         borderWidth: 2,
@@ -73,11 +145,11 @@ const AdminDashboard = () => {
   }
 
   const revenueData = {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+    labels: monthlyRevenue.labels || ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
     datasets: [
       {
-        label: 'Revenue ($)',
-        data: [32000, 35000, 42000, 38000, 45000, 48000],
+        label: 'Revenue (₹)',
+        data: monthlyRevenue.values || [0, 0, 0, 0, 0, 0],
         borderColor: 'rgb(59, 130, 246)',
         backgroundColor: 'rgba(59, 130, 246, 0.1)',
         tension: 0.4,
@@ -87,11 +159,11 @@ const AdminDashboard = () => {
   }
 
   const doctorPerformanceData = {
-    labels: ['Dr. Smith', 'Dr. Johnson', 'Dr. Williams', 'Dr. Brown', 'Dr. Davis'],
+    labels: doctorPerformance.labels || [],
     datasets: [
       {
         label: 'Patients Treated',
-        data: [45, 38, 52, 41, 35],
+        data: doctorPerformance.values || [],
         backgroundColor: [
           'rgba(20, 184, 166, 0.8)',
           'rgba(59, 130, 246, 0.8)',
@@ -106,10 +178,10 @@ const AdminDashboard = () => {
   }
 
   const patientDistribution = {
-    labels: ['Regular Checkup', 'Cleaning', 'Surgery', 'Emergency', 'Consultation'],
+    labels: treatmentTypes.labels || [],
     datasets: [
       {
-        data: [35, 25, 15, 12, 13],
+        data: treatmentTypes.values || [],
         backgroundColor: [
           '#14b8a6',
           '#3b82f6',
@@ -121,21 +193,6 @@ const AdminDashboard = () => {
       },
     ],
   }
-
-  const inventoryAlerts = [
-    { medicine: 'Paracetamol', stock: 12, status: 'low', expiry: '2024-03-15' },
-    { medicine: 'Ibuprofen', stock: 5, status: 'critical', expiry: '2024-02-28' },
-    { medicine: 'Amoxicillin', stock: 25, status: 'good', expiry: '2024-06-20' },
-    { medicine: 'Lidocaine', stock: 8, status: 'low', expiry: '2024-04-10' },
-  ]
-
-  const recentActivities = [
-    { action: 'New patient registered: Sarah Connor', time: '2 minutes ago', type: 'user' },
-    { action: 'Dr. Smith completed surgery for John Doe', time: '15 minutes ago', type: 'medical' },
-    { action: 'Payment received: $850 from Mary Johnson', time: '30 minutes ago', type: 'payment' },
-    { action: 'Medicine restocked: Paracetamol (50 units)', time: '1 hour ago', type: 'inventory' },
-    { action: 'Appointment scheduled: Tom Wilson with Dr. Brown', time: '2 hours ago', type: 'appointment' },
-  ]
 
   const chartOptions = {
     responsive: true,
@@ -150,6 +207,17 @@ const AdminDashboard = () => {
         beginAtZero: true,
       },
     },
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -173,8 +241,17 @@ const AdminDashboard = () => {
               <p className="text-sm font-semibold text-gray-600">Appointments Today</p>
               <p className="text-3xl font-bold text-gray-900">{stats.appointmentsToday}</p>
               <div className="flex items-center mt-1">
-                <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
-                <span className="text-sm text-green-600 font-medium">+12% from yesterday</span>
+                {stats.appointmentChange >= 0 ? (
+                  <>
+                    <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
+                    <span className="text-sm text-green-600 font-medium">+{stats.appointmentChange}% from yesterday</span>
+                  </>
+                ) : (
+                  <>
+                    <TrendingDown className="w-4 h-4 text-red-500 mr-1" />
+                    <span className="text-sm text-red-600 font-medium">{stats.appointmentChange}% from yesterday</span>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -191,8 +268,17 @@ const AdminDashboard = () => {
               <p className="text-sm font-semibold text-gray-600">Revenue This Month</p>
               <p className="text-3xl font-bold text-gray-900">₹{stats.revenueThisMonth.toLocaleString()}</p>
               <div className="flex items-center mt-1">
-                <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
-                <span className="text-sm text-green-600 font-medium">+8.5% from last month</span>
+                {stats.revenueChange >= 0 ? (
+                  <>
+                    <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
+                    <span className="text-sm text-green-600 font-medium">+{stats.revenueChange}% from last month</span>
+                  </>
+                ) : (
+                  <>
+                    <TrendingDown className="w-4 h-4 text-red-500 mr-1" />
+                    <span className="text-sm text-red-600 font-medium">{stats.revenueChange}% from last month</span>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -228,7 +314,7 @@ const AdminDashboard = () => {
               <p className="text-3xl font-bold text-gray-900">{stats.patientsToday}</p>
               <div className="flex items-center mt-1">
                 <Clock className="w-4 h-4 text-orange-500 mr-1" />
-                <span className="text-sm text-orange-600 font-medium">6 waiting</span>
+                <span className="text-sm text-orange-600 font-medium">With appointments</span>
               </div>
             </div>
           </div>
@@ -293,28 +379,35 @@ const AdminDashboard = () => {
             <AlertTriangle className="w-5 h-5 text-orange-500" />
           </div>
           <div className="space-y-4">
-            {inventoryAlerts.map((item, index) => (
-              <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-                <div>
-                  <p className="font-semibold text-gray-900">{item.medicine}</p>
-                  <p className="text-sm text-gray-600">Stock: {item.stock} units</p>
-                  <p className="text-xs text-gray-500">Expires: {item.expiry}</p>
+            {inventoryAlerts.length > 0 ? (
+              inventoryAlerts.map((item, index) => (
+                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                  <div>
+                    <p className="font-semibold text-gray-900">{item.medicine}</p>
+                    <p className="text-sm text-gray-600">Stock: {item.stock} units</p>
+                    <p className="text-xs text-gray-500">Expires: {item.expiry}</p>
+                  </div>
+                  <div>
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                      item.status === 'critical' 
+                        ? 'bg-red-100 text-red-800' 
+                        : item.status === 'low' 
+                          ? 'bg-orange-100 text-orange-800'
+                          : 'bg-green-100 text-green-800'
+                    }`}>
+                      {item.status}
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                    item.status === 'critical' 
-                      ? 'bg-red-100 text-red-800' 
-                      : item.status === 'low' 
-                        ? 'bg-orange-100 text-orange-800'
-                        : 'bg-green-100 text-green-800'
-                  }`}>
-                    {item.status}
-                  </span>
-                </div>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p className="text-center text-gray-500 py-8">No inventory alerts</p>
+            )}
           </div>
-          <button className="mt-4 w-full bg-teal-500 text-white px-4 py-2 rounded-xl hover:bg-teal-600 transition-colors duration-200">
+          <button 
+            onClick={() => navigate('/admin/inventory')}
+            className="mt-4 w-full bg-teal-500 text-white px-4 py-2 rounded-xl hover:bg-teal-600 transition-colors duration-200"
+          >
             View All Inventory
           </button>
         </div>
@@ -323,21 +416,25 @@ const AdminDashboard = () => {
         <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
           <h3 className="text-lg font-bold text-gray-900 mb-4">Recent Activity</h3>
           <div className="space-y-4">
-            {recentActivities.map((activity, index) => (
-              <div key={index} className="flex items-start space-x-3 p-3 hover:bg-gray-50 rounded-xl transition-colors duration-200">
-                <div className={`w-2 h-2 mt-2 rounded-full flex-shrink-0 ${
-                  activity.type === 'user' ? 'bg-blue-500' :
-                  activity.type === 'medical' ? 'bg-green-500' :
-                  activity.type === 'payment' ? 'bg-yellow-500' :
-                  activity.type === 'inventory' ? 'bg-purple-500' :
-                  'bg-teal-500'
-                }`}></div>
-                <div className="flex-1">
-                  <p className="text-sm text-gray-900">{activity.action}</p>
-                  <p className="text-xs text-gray-500">{activity.time}</p>
+            {recentActivities.length > 0 ? (
+              recentActivities.map((activity, index) => (
+                <div key={index} className="flex items-start space-x-3 p-3 hover:bg-gray-50 rounded-xl transition-colors duration-200">
+                  <div className={`w-2 h-2 mt-2 rounded-full flex-shrink-0 ${
+                    activity.type === 'user' ? 'bg-blue-500' :
+                    activity.type === 'medical' ? 'bg-green-500' :
+                    activity.type === 'payment' ? 'bg-yellow-500' :
+                    activity.type === 'inventory' ? 'bg-purple-500' :
+                    'bg-teal-500'
+                  }`}></div>
+                  <div className="flex-1">
+                    <p className="text-sm text-gray-900">{activity.action}</p>
+                    <p className="text-xs text-gray-500">{activity.time}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p className="text-center text-gray-500 py-8">No recent activities</p>
+            )}
           </div>
           <button className="mt-4 w-full bg-gray-100 text-gray-700 px-4 py-2 rounded-xl hover:bg-gray-200 transition-colors duration-200">
             View All Activity

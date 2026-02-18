@@ -1,15 +1,11 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { 
   Calendar, 
   Clock,
   TrendingUp,
   Users,
   DollarSign,
-  BarChart3,
-  Filter,
-  Eye,
-  Edit,
-  Trash2
+  BarChart3
 } from 'lucide-react'
 import {
   Chart as ChartJS,
@@ -24,6 +20,9 @@ import {
   ArcElement,
 } from 'chart.js'
 import { Bar, Line, Doughnut } from 'react-chartjs-2'
+import toast from 'react-hot-toast'
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'
 
 ChartJS.register(
   CategoryScale,
@@ -38,106 +37,116 @@ ChartJS.register(
 )
 
 const AppointmentsAnalytics = () => {
-  const [appointments, setAppointments] = useState([
-    {
-      id: 1,
-      patientName: 'John Smith',
-      doctor: 'Dr. Sarah Johnson',
-      date: '2024-01-15',
-      time: '10:00 AM',
-      type: 'Regular Checkup',
-      status: 'completed',
-      duration: 45,
-      revenue: 150
-    },
-    {
-      id: 2,
-      patientName: 'Emily Davis',
-      doctor: 'Dr. Michael Smith',
-      date: '2024-01-15',
-      time: '11:30 AM',
-      type: 'Root Canal',
-      status: 'completed',
-      duration: 90,
-      revenue: 800
-    },
-    {
-      id: 3,
-      patientName: 'Michael Johnson',
-      doctor: 'Dr. Emily Williams',
-      date: '2024-01-15',
-      time: '02:00 PM',
-      type: 'Cleaning',
-      status: 'completed',
-      duration: 30,
-      revenue: 100
-    },
-    {
-      id: 4,
-      patientName: 'Sarah Wilson',
-      doctor: 'Dr. Robert Brown',
-      date: '2024-01-16',
-      time: '09:00 AM',
-      type: 'Consultation',
-      status: 'scheduled',
-      duration: 30,
-      revenue: 75
-    },
-    {
-      id: 5,
-      patientName: 'David Chen',
-      doctor: 'Dr. Sarah Johnson',
-      date: '2024-01-16',
-      time: '10:30 AM',
-      type: 'Orthodontics',
-      status: 'scheduled',
-      duration: 60,
-      revenue: 300
-    },
-    {
-      id: 6,
-      patientName: 'Lisa Anderson',
-      doctor: 'Dr. Michael Smith',
-      date: '2024-01-16',
-      time: '02:15 PM',
-      type: 'Surgery',
-      status: 'cancelled',
-      duration: 120,
-      revenue: 1200
-    }
-  ])
+  const [loading, setLoading] = useState(true)
+  const [selectedDateRange, setSelectedDateRange] = useState('all-time')
+  
+  // Analytics state
+  const [stats, setStats] = useState({
+    total: 0,
+    completed: 0,
+    scheduled: 0,
+    cancelled: 0,
+    revenue: 0,
+    completionRate: 0
+  })
+  const [weeklyOverview, setWeeklyOverview] = useState({ labels: [], scheduled: [], completed: [], cancelled: [] })
+  const [monthlyRevenue, setMonthlyRevenue] = useState({ labels: [], values: [] })
+  const [appointmentTypes, setAppointmentTypes] = useState({ labels: [], values: [] })
+  const [doctorPerformance, setDoctorPerformance] = useState({ labels: [], completed: [], revenue: [] })
+  const [insights, setInsights] = useState({ peakHour: '10:00', avgDuration: 30, noShowRate: 0 })
 
-  const [selectedDateRange, setSelectedDateRange] = useState('this-week')
-  const [filterStatus, setFilterStatus] = useState('all')
+  useEffect(() => {
+    fetchAllData()
+  }, [selectedDateRange])
+
+  const fetchAllData = async () => {
+    try {
+      setLoading(true)
+      const token = localStorage.getItem('adminToken')
+      
+      if (!token) {
+        toast.error('Please login to access analytics')
+        return
+      }
+
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+
+      // Fetch all data in parallel
+      const [
+        statsRes,
+        weeklyRes,
+        revenueRes,
+        typesRes,
+        doctorRes,
+        insightsRes
+      ] = await Promise.all([
+        fetch(`${API_BASE_URL}/admin-dashboard/appointments/stats?dateRange=${selectedDateRange}`, { headers }),
+        fetch(`${API_BASE_URL}/admin-dashboard/appointments/weekly-overview`, { headers }),
+        fetch(`${API_BASE_URL}/admin-dashboard/appointments/monthly-revenue`, { headers }),
+        fetch(`${API_BASE_URL}/admin-dashboard/appointments/types`, { headers }),
+        fetch(`${API_BASE_URL}/admin-dashboard/appointments/doctor-performance`, { headers }),
+        fetch(`${API_BASE_URL}/admin-dashboard/appointments/insights`, { headers })
+      ])
+
+      const statsData = await statsRes.json()
+      const weeklyData = await weeklyRes.json()
+      const revenueData = await revenueRes.json()
+      const typesData = await typesRes.json()
+      const doctorData = await doctorRes.json()
+      const insightsData = await insightsRes.json()
+
+      console.log('📊 Stats Response:', statsData)
+      console.log('📊 Stats Data:', statsData.stats)
+      
+      if (statsData.success) {
+        setStats(statsData.stats)
+        console.log('✅ Stats set:', statsData.stats)
+      }
+      if (weeklyData.success) setWeeklyOverview(weeklyData.data)
+      if (revenueData.success) setMonthlyRevenue(revenueData.data)
+      if (typesData.success) setAppointmentTypes(typesData.data)
+      if (doctorData.success) setDoctorPerformance(doctorData.data)
+      if (insightsData.success) setInsights(insightsData.insights)
+
+    } catch (error) {
+      console.error('Error fetching analytics data:', error)
+      toast.error('Failed to load analytics data')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   // Analytics data
-  const weeklyAppointments = {
-    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+  const weeklyAppointmentsData = {
+    labels: weeklyOverview.labels || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
     datasets: [
       {
         label: 'Scheduled',
-        data: [8, 12, 15, 10, 14, 6, 3],
+        data: weeklyOverview.scheduled || [0, 0, 0, 0, 0, 0, 0],
         backgroundColor: 'rgba(59, 130, 246, 0.8)',
       },
       {
         label: 'Completed',
-        data: [7, 10, 13, 9, 12, 5, 2],
+        data: weeklyOverview.completed || [0, 0, 0, 0, 0, 0, 0],
         backgroundColor: 'rgba(16, 185, 129, 0.8)',
       },
       {
         label: 'Cancelled',
-        data: [1, 2, 2, 1, 2, 1, 1],
+        data: weeklyOverview.cancelled || [0, 0, 0, 0, 0, 0, 0],
         backgroundColor: 'rgba(239, 68, 68, 0.8)',
       }
     ],
   }
 
-  const revenueData = {
-    labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+  const revenueChartData = {
+    labels: monthlyRevenue.labels || ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
     datasets: [
       {
-        label: 'Revenue ($)',
-        data: [3200, 3800, 4200, 3900],
+        label: 'Revenue (₹)',
+        data: monthlyRevenue.values || [0, 0, 0, 0],
         borderColor: 'rgb(16, 185, 129)',
         backgroundColor: 'rgba(16, 185, 129, 0.1)',
         tension: 0.4,
@@ -146,11 +155,11 @@ const AppointmentsAnalytics = () => {
     ],
   }
 
-  const appointmentTypes = {
-    labels: ['Regular Checkup', 'Cleaning', 'Root Canal', 'Surgery', 'Orthodontics', 'Consultation'],
+  const appointmentTypesData = {
+    labels: appointmentTypes.labels || [],
     datasets: [
       {
-        data: [25, 20, 15, 10, 18, 12],
+        data: appointmentTypes.values || [],
         backgroundColor: [
           '#3B82F6',
           '#10B981',
@@ -164,33 +173,60 @@ const AppointmentsAnalytics = () => {
     ],
   }
 
-  const doctorPerformance = {
-    labels: ['Dr. Smith', 'Dr. Johnson', 'Dr. Williams', 'Dr. Brown'],
+  const doctorPerformanceData = {
+    labels: doctorPerformance.labels || [],
     datasets: [
       {
         label: 'Completed Appointments',
-        data: [25, 28, 22, 20],
+        data: doctorPerformance.completed || [],
         backgroundColor: 'rgba(59, 130, 246, 0.8)',
+        yAxisID: 'y',
       },
       {
-        label: 'Revenue Generated ($)',
-        data: [7500, 8200, 6600, 6000],
+        label: 'Revenue Generated (₹)',
+        data: doctorPerformance.revenue || [],
         backgroundColor: 'rgba(16, 185, 129, 0.8)',
+        yAxisID: 'y1',
       },
     ],
   }
 
-  const filteredAppointments = appointments.filter(appointment => {
-    const matchesStatus = filterStatus === 'all' || appointment.status === filterStatus
-    return matchesStatus
-  })
-
-  const totalAppointments = appointments.length
-  const completedAppointments = appointments.filter(apt => apt.status === 'completed').length
-  const scheduledAppointments = appointments.filter(apt => apt.status === 'scheduled').length
-  const totalRevenue = 0
-
   const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'top',
+      },
+    },
+    scales: {
+      y: {
+        type: 'linear',
+        display: true,
+        position: 'left',
+        beginAtZero: true,
+        title: {
+          display: true,
+          text: 'Completed Appointments'
+        }
+      },
+      y1: {
+        type: 'linear',
+        display: true,
+        position: 'right',
+        beginAtZero: true,
+        title: {
+          display: true,
+          text: 'Revenue (₹)'
+        },
+        grid: {
+          drawOnChartArea: false,
+        },
+      },
+    },
+  }
+
+  const chartOptionsSimple = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
@@ -203,6 +239,17 @@ const AppointmentsAnalytics = () => {
         beginAtZero: true,
       },
     },
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading analytics...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -219,6 +266,7 @@ const AppointmentsAnalytics = () => {
             onChange={(e) => setSelectedDateRange(e.target.value)}
             className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-transparent"
           >
+            <option value="all-time">All Time</option>
             <option value="today">Today</option>
             <option value="this-week">This Week</option>
             <option value="this-month">This Month</option>
@@ -236,10 +284,10 @@ const AppointmentsAnalytics = () => {
             </div>
             <div className="ml-4">
               <p className="text-sm font-semibold text-gray-600">Total Appointments</p>
-              <p className="text-2xl font-bold text-gray-900">{totalAppointments}</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
               <div className="flex items-center mt-1">
                 <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
-                <span className="text-sm text-green-600 font-medium">+12% this week</span>
+                <span className="text-sm text-green-600 font-medium">Selected period</span>
               </div>
             </div>
           </div>
@@ -252,10 +300,10 @@ const AppointmentsAnalytics = () => {
             </div>
             <div className="ml-4">
               <p className="text-sm font-semibold text-gray-600">Completed</p>
-              <p className="text-2xl font-bold text-gray-900">{completedAppointments}</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.completed}</p>
               <div className="flex items-center mt-1">
                 <span className="text-sm text-gray-600">
-                  {Math.round((completedAppointments / totalAppointments) * 100)}% completion rate
+                  {stats.completionRate}% completion rate
                 </span>
               </div>
             </div>
@@ -269,7 +317,7 @@ const AppointmentsAnalytics = () => {
             </div>
             <div className="ml-4">
               <p className="text-sm font-semibold text-gray-600">Scheduled</p>
-              <p className="text-2xl font-bold text-gray-900">{scheduledAppointments}</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.scheduled}</p>
               <div className="flex items-center mt-1">
                 <span className="text-sm text-gray-600">Upcoming appointments</span>
               </div>
@@ -284,10 +332,9 @@ const AppointmentsAnalytics = () => {
             </div>
             <div className="ml-4">
               <p className="text-sm font-semibold text-gray-600">Revenue</p>
-              <p className="text-2xl font-bold text-gray-900">₹{totalRevenue.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-gray-900">₹{stats.revenue.toLocaleString()}</p>
               <div className="flex items-center mt-1">
-                <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
-                <span className="text-sm text-green-600 font-medium">+8.5% this month</span>
+                <span className="text-sm text-gray-600">Selected period</span>
               </div>
             </div>
           </div>
@@ -300,7 +347,7 @@ const AppointmentsAnalytics = () => {
         <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
           <h3 className="text-lg font-bold text-gray-900 mb-4">Weekly Appointments Overview</h3>
           <div className="h-80">
-            <Bar data={weeklyAppointments} options={chartOptions} />
+            <Bar data={weeklyAppointmentsData} options={chartOptionsSimple} />
           </div>
         </div>
 
@@ -308,7 +355,7 @@ const AppointmentsAnalytics = () => {
         <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
           <h3 className="text-lg font-bold text-gray-900 mb-4">Monthly Revenue Trend</h3>
           <div className="h-80">
-            <Line data={revenueData} options={chartOptions} />
+            <Line data={revenueChartData} options={chartOptionsSimple} />
           </div>
         </div>
       </div>
@@ -319,7 +366,7 @@ const AppointmentsAnalytics = () => {
         <div className="lg:col-span-2 bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
           <h3 className="text-lg font-bold text-gray-900 mb-4">Doctor Performance</h3>
           <div className="h-80">
-            <Bar data={doctorPerformance} options={chartOptions} />
+            <Bar data={doctorPerformanceData} options={chartOptions} />
           </div>
         </div>
 
@@ -328,7 +375,7 @@ const AppointmentsAnalytics = () => {
           <h3 className="text-lg font-bold text-gray-900 mb-4">Appointment Types</h3>
           <div className="h-80">
             <Doughnut 
-              data={appointmentTypes} 
+              data={appointmentTypesData} 
               options={{
                 responsive: true,
                 maintainAspectRatio: false,
@@ -343,100 +390,13 @@ const AppointmentsAnalytics = () => {
         </div>
       </div>
 
-      {/* Appointments List */}
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-100">
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-900">Recent Appointments</h3>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <Filter className="w-4 h-4 text-gray-500" />
-                <select
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                  className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                >
-                  <option value="all">All Status</option>
-                  <option value="scheduled">Scheduled</option>
-                  <option value="completed">Completed</option>
-                  <option value="cancelled">Cancelled</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Patient</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Doctor</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date & Time</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Type</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Duration</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Revenue</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredAppointments.map((appointment) => (
-                <tr key={appointment.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-semibold text-gray-900">{appointment.patientName}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{appointment.doctor}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{appointment.date}</div>
-                    <div className="text-sm text-gray-500">{appointment.time}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{appointment.type}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{appointment.duration} min</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-semibold text-gray-900">${appointment.revenue}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                      appointment.status === 'completed' ? 'bg-green-100 text-green-800' :
-                      appointment.status === 'scheduled' ? 'bg-blue-100 text-blue-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      {appointment.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center space-x-2">
-                      <button className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors duration-200">
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      {appointment.status === 'scheduled' && (
-                        <button className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition-colors duration-200">
-                          <Edit className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
       {/* Quick Insights */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-6 text-white">
           <div className="flex items-center justify-between">
             <div>
               <h4 className="text-lg font-semibold">Peak Hours</h4>
-              <p className="text-3xl font-bold mt-2">10-11 AM</p>
+              <p className="text-3xl font-bold mt-2">{insights.peakHour}</p>
               <p className="text-blue-100">Highest appointment volume</p>
             </div>
             <BarChart3 className="w-12 h-12 text-blue-200" />
@@ -447,7 +407,7 @@ const AppointmentsAnalytics = () => {
           <div className="flex items-center justify-between">
             <div>
               <h4 className="text-lg font-semibold">Avg Duration</h4>
-              <p className="text-3xl font-bold mt-2">58 min</p>
+              <p className="text-3xl font-bold mt-2">{insights.avgDuration} min</p>
               <p className="text-green-100">Per appointment</p>
             </div>
             <Clock className="w-12 h-12 text-green-200" />
@@ -458,8 +418,8 @@ const AppointmentsAnalytics = () => {
           <div className="flex items-center justify-between">
             <div>
               <h4 className="text-lg font-semibold">No-Show Rate</h4>
-              <p className="text-3xl font-bold mt-2">5.2%</p>
-              <p className="text-purple-100">Below industry average</p>
+              <p className="text-3xl font-bold mt-2">{insights.noShowRate}%</p>
+              <p className="text-purple-100">Cancellation rate</p>
             </div>
             <Users className="w-12 h-12 text-purple-200" />
           </div>

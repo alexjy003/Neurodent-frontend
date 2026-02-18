@@ -11,8 +11,6 @@ import {
   Calendar,
   Star,
   Upload,
-  Eye,
-  EyeOff,
   User,
   Briefcase
 } from 'lucide-react'
@@ -33,7 +31,6 @@ const DoctorsManagement = () => {
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterSpecialization, setFilterSpecialization] = useState('all')
   const [filterExperience, setFilterExperience] = useState('all')
-  const [showPassword, setShowPassword] = useState(false) // For edit form only
   const [selectedImage, setSelectedImage] = useState(null)
   const [imagePreview, setImagePreview] = useState(null)
   const [submitting, setSubmitting] = useState(false)
@@ -42,7 +39,6 @@ const DoctorsManagement = () => {
     firstName: '',
     lastName: '',
     email: '',
-    password: '', // Only used for edit form
     phone: '',
     dateOfBirth: '',
     gender: '',
@@ -218,7 +214,6 @@ const DoctorsManagement = () => {
       firstName: doctor.firstName,
       lastName: doctor.lastName,
       email: doctor.email,
-      password: '', // Don't pre-fill password for security
       phone: doctor.phone,
       dateOfBirth: doctor.dateOfBirth ? doctor.dateOfBirth.split('T')[0] : '',
       gender: doctor.gender,
@@ -237,7 +232,6 @@ const DoctorsManagement = () => {
     }
 
     setSelectedImage(null)
-    setShowPassword(false)
     setShowEditForm(true)
   }
 
@@ -306,10 +300,10 @@ const DoctorsManagement = () => {
       // Create FormData for file upload
       const formDataToSend = new FormData()
 
-      // Add all form fields except password if it's empty
+      // Add all form fields (excluding password for edit operations)
       Object.keys(formData).forEach(key => {
-        if (key === 'password' && formData[key] === '') {
-          // Skip empty password
+        if (key === 'password') {
+          // Never send password in edit operations
           return
         }
         if (formData[key] !== undefined && formData[key] !== null) {
@@ -928,35 +922,6 @@ const DoctorsManagement = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                     placeholder="doctor@neurodent.com"
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Password
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      name="password"
-                      value={formData.password}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                      placeholder="Leave empty to keep current password"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4 text-gray-400" />
-                      ) : (
-                        <Eye className="h-4 w-4 text-gray-400" />
-                      )}
-                    </button>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Leave empty to keep current password. If changing, must contain uppercase, lowercase, number, and special character
-                  </p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">

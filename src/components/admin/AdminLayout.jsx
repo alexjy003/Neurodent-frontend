@@ -7,7 +7,6 @@ import {
   Calendar,
   DollarSign,
   Pill,
-  Bell,
   Settings,
   Menu,
   X,
@@ -40,7 +39,6 @@ const AdminLayout = () => {
     { name: 'Patient Records', href: '/admin/patients', icon: Users },
     { name: 'Appointments & Analytics', href: '/admin/appointments', icon: Calendar },
     { name: 'Medicine Inventory', href: '/admin/inventory', icon: Pill },
-    { name: 'Notifications Center', href: '/admin/notifications', icon: Bell },
     { name: 'Settings', href: '/admin/settings', icon: Settings },
   ]
 
@@ -123,16 +121,6 @@ const AdminLayout = () => {
             </div>
 
             <div className="flex items-center space-x-4">
-              {/* Notifications */}
-              <div className="relative">
-                <button className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors duration-200">
-                  <Bell className="h-6 w-6" />
-                  <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full flex items-center justify-center">
-                    <span className="text-xs font-semibold text-white">3</span>
-                  </span>
-                </button>
-              </div>
-
               {/* Profile dropdown */}
               <div className="relative">
                 <button
@@ -155,7 +143,11 @@ const AdminLayout = () => {
 
                 {profileDropdownOpen && (
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
-                    <Link to="/admin/profile" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                    <Link 
+                      to="/admin/settings" 
+                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setProfileDropdownOpen(false)}
+                    >
                       <Settings className="h-4 w-4 mr-2" />
                       Profile Settings
                     </Link>

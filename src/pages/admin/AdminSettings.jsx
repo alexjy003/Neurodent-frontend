@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { User, Bell, Save } from 'lucide-react'
+import { User, Save } from 'lucide-react'
 import toast from 'react-hot-toast'
 import adminIcon from '../../assets/images/admin-icon.svg'
 
@@ -9,23 +9,13 @@ const AdminSettings = () => {
     profile: {
       name: 'Admin',
       email: 'admin@neurodent.com',
-      phone: '+1 (555) 123-4567',
       role: 'Administrator',
       avatar: adminIcon
-    },
-    notifications: {
-      emailNotifications: true,
-      smsNotifications: false,
-      appointmentReminders: true,
-      inventoryAlerts: true,
-      systemUpdates: true,
-      weeklyReports: true
     }
   })
 
   const tabs = [
-    { id: 'profile', name: 'Profile', icon: User },
-    { id: 'notifications', name: 'Notifications', icon: Bell }
+    { id: 'profile', name: 'Profile', icon: User }
   ]
 
   const handleSave = (section) => {
@@ -113,19 +103,6 @@ const AdminSettings = () => {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
-                  <input
-                    type="tel"
-                    value={settings.profile.phone}
-                    onChange={(e) => setSettings({
-                      ...settings,
-                      profile: { ...settings.profile, phone: e.target.value }
-                    })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                  />
-                </div>
-                
-                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
                   <input
                     type="text"
@@ -148,53 +125,7 @@ const AdminSettings = () => {
             </div>
           )}
 
-          {activeTab === 'notifications' && (
-            <div className="space-y-6">
-              <h3 className="text-lg font-semibold text-gray-900">Notification Preferences</h3>
-              
-              <div className="space-y-4">
-                {Object.entries(settings.notifications).map(([key, value]) => (
-                  <div key={key} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-900">
-                        {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
-                      </h4>
-                      <p className="text-sm text-gray-500">
-                        {key === 'emailNotifications' && 'Receive notifications via email'}
-                        {key === 'smsNotifications' && 'Receive notifications via SMS'}
-                        {key === 'appointmentReminders' && 'Get reminders for upcoming appointments'}
-                        {key === 'inventoryAlerts' && 'Get alerts when inventory is low'}
-                        {key === 'systemUpdates' && 'Receive system update notifications'}
-                        {key === 'weeklyReports' && 'Receive weekly performance reports'}
-                      </p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={value}
-                        onChange={(e) => setSettings({
-                          ...settings,
-                          notifications: { ...settings.notifications, [key]: e.target.checked }
-                        })}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
-                    </label>
-                  </div>
-                ))}
-              </div>
 
-              <div className="flex justify-end">
-                <button
-                  onClick={() => handleSave('notifications')}
-                  className="flex items-center space-x-2 bg-teal-500 text-white px-6 py-2 rounded-lg hover:bg-teal-600 transition-colors duration-200"
-                >
-                  <Save className="w-4 h-4" />
-                  <span>Save Changes</span>
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>

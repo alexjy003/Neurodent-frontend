@@ -30,7 +30,6 @@ import EmployeesManagement from './pages/admin/EmployeesManagement'
 import AdminPatientRecords from './pages/admin/PatientRecords'
 import AppointmentsAnalytics from './pages/admin/AppointmentsAnalytics'
 import MedicineInventory from './pages/admin/MedicineInventory'
-import NotificationsCenter from './pages/admin/NotificationsCenter'
 import AdminSettings from './pages/admin/AdminSettings'
 
 // Doctor Components
@@ -105,7 +104,6 @@ function App() {
             <Route path="patients" element={<AdminPatientRecords />} />
             <Route path="appointments" element={<AppointmentsAnalytics />} />
             <Route path="inventory" element={<MedicineInventory />} />
-            <Route path="notifications" element={<NotificationsCenter />} />
             <Route path="settings" element={<AdminSettings />} />
           </Route>
 
