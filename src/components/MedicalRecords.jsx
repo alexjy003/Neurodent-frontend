@@ -171,17 +171,17 @@ const MedicalRecords = ({ user }) => {
     { id: "images", name: "X-rays & Images", icon: "", count: medicalData.images.length }
   ]
 
-  return React.createElement("div", {className: "space-y-6"}, [
-    React.createElement("div", {key: "header", className: "bg-white rounded-lg shadow-sm border border-gray-200 p-6"}, 
+  return React.createElement("div", {className: "space-y-6"}, 
+    React.createElement("div", {className: "bg-white rounded-lg shadow-sm border border-gray-200 p-6"},
       React.createElement("div", {className: "flex items-center justify-between"}, 
-        React.createElement("div", {}, [
-          React.createElement("h2", {key: "title", className: "text-2xl font-bold text-gray-900"}, "Medical Records"),
-          React.createElement("p", {key: "subtitle", className: "text-gray-600 mt-1"}, "Access your complete dental health history")
-        ])
+        React.createElement("div", {}, 
+          React.createElement("h2", {className: "text-2xl font-bold text-gray-900"}, "Medical Records"),
+          React.createElement("p", {className: "text-gray-600 mt-1"}, "Access your complete dental health history")
+        )
       )
     ),
-    React.createElement("div", {key: "content", className: "bg-white rounded-lg shadow-sm border border-gray-200"}, [
-      React.createElement("div", {key: "tabs-nav", className: "border-b border-gray-200"}, 
+    React.createElement("div", {className: "bg-white rounded-lg shadow-sm border border-gray-200"}, 
+      React.createElement("div", {className: "border-b border-gray-200"}, 
         React.createElement("nav", {className: "-mb-px flex space-x-8 px-6 overflow-x-auto"}, 
           tabs.map((tab) => 
             React.createElement("button", {
@@ -192,117 +192,115 @@ const MedicalRecords = ({ user }) => {
                   ? "border-dental-primary text-dental-primary"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
               }`
-            }, [
-              React.createElement("span", {key: "icon", className: "mr-2"}, tab.icon),
+            }, 
+              React.createElement("span", {className: "mr-2"}, tab.icon),
               `${tab.name} (${tab.count})`
-            ])
+            )
           )
         )
       ),
-      React.createElement("div", {key: "tabs-content", className: "p-6"}, 
+      React.createElement("div", {className: "p-6"}, 
         loading ? 
           React.createElement("div", {className: "flex items-center justify-center py-12"}, 
-            React.createElement("div", {className: "text-center"}, [
-              React.createElement("div", {key: "spinner", className: "animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"}),
-              React.createElement("p", {key: "loading-text", className: "text-gray-600"}, "Loading medical records...")
-            ])
+            React.createElement("div", {className: "text-center"}, 
+              React.createElement("div", {className: "animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"}),
+              React.createElement("p", {className: "text-gray-600"}, "Loading medical records...")
+            )
           ) :
           activeTab === "treatments" ?
             React.createElement("div", {className: "space-y-4"}, 
               medicalData.treatments.length === 0 ?
-                React.createElement("div", {className: "text-center py-12"}, [
-                  React.createElement("h3", {key: "no-data-title", className: "text-lg font-medium text-gray-900 mb-2"}, "No Treatment History"),
-                  React.createElement("p", {key: "no-data-text", className: "text-gray-600"}, "Your completed appointments will appear here.")
-                ]) :
+                React.createElement("div", {className: "text-center py-12"}, 
+                  React.createElement("h3", {className: "text-lg font-medium text-gray-900 mb-2"}, "No Treatment History"),
+                  React.createElement("p", {className: "text-gray-600"}, "Your completed appointments will appear here.")
+                ) :
                 medicalData.treatments.map((treatment) => 
                   React.createElement("div", {
                     key: treatment.id,
                     className: "border border-gray-200 rounded-lg p-6 hover:shadow-sm transition-shadow duration-200"
-                  }, [
-                    React.createElement("div", {key: "header", className: "flex items-center justify-between mb-4"}, [
-                      React.createElement("div", {key: "info"}, [
-                        React.createElement("h3", {key: "type", className: "text-lg font-semibold text-gray-900"}, treatment.type),
-                        React.createElement("p", {key: "doctor", className: "text-dental-primary font-medium"}, treatment.doctor)
-                      ]),
-                      React.createElement("div", {key: "status", className: "text-right"}, [
+                  }, 
+                    React.createElement("div", {className: "flex items-center justify-between mb-4"}, 
+                      React.createElement("div", {}, 
+                        React.createElement("h3", {className: "text-lg font-semibold text-gray-900"}, treatment.type),
+                        React.createElement("p", {className: "text-dental-primary font-medium"}, treatment.doctor)
+                      ),
+                      React.createElement("div", {className: "text-right"}, 
                         getStatusBadge(treatment.status),
-                        React.createElement("p", {key: "date", className: "text-sm text-gray-600 mt-1"}, formatDate(treatment.date))
-                      ])
-                    ]),
-                    React.createElement("div", {key: "details", className: "grid grid-cols-1 md:grid-cols-2 gap-6 mb-4"}, [
-                      React.createElement("div", {key: "description"}, [
+                        React.createElement("p", {className: "text-sm text-gray-600 mt-1"}, formatDate(treatment.date))
+                      )
+                    ),
+                    React.createElement("div", {className: "grid grid-cols-1 md:grid-cols-2 gap-6 mb-4"}, 
+                      React.createElement("div", {}, 
                         React.createElement("h4", {className: "font-medium text-gray-900 mb-2"}, "Description"),
                         React.createElement("p", {className: "text-sm text-gray-600"}, treatment.description)
-                      ]),
-                      React.createElement("div", {key: "findings"}, [
+                      ),
+                      React.createElement("div", {}, 
                         React.createElement("h4", {className: "font-medium text-gray-900 mb-2"}, "Findings"),
                         React.createElement("p", {className: "text-sm text-gray-600"}, treatment.findings)
-                      ]),
-                      React.createElement("div", {key: "treatment-type"}, [
+                      ),
+                      React.createElement("div", {}, 
                         React.createElement("h4", {className: "font-medium text-gray-900 mb-2"}, "Treatment"),
                         React.createElement("p", {className: "text-sm text-gray-600"}, treatment.treatment)
-                      ]),
-                      React.createElement("div", {key: "cost"}, [
+                      ),
+                      React.createElement("div", {}, 
                         React.createElement("h4", {className: "font-medium text-gray-900 mb-2"}, "Cost"),
                         React.createElement("p", {className: "text-sm text-gray-600 font-semibold"}, treatment.cost)
-                      ])
-                    ])
-                  ])
+                      )
+                    )
+                  )
                 )
             ) :
             activeTab === "prescriptions" ?
               React.createElement("div", {className: "space-y-4"},
                 medicalData.prescriptions.length === 0 ?
-                  React.createElement("div", {className: "text-center py-12"}, [
-                    React.createElement("h3", {key: "no-prescriptions-title", className: "text-lg font-medium text-gray-900 mb-2"}, "No Prescriptions"),
-                    React.createElement("p", {key: "no-prescriptions-text", className: "text-gray-600"}, "Your prescription history will appear here.")
-                  ]) :
+                  React.createElement("div", {className: "text-center py-12"}, 
+                    React.createElement("h3", {className: "text-lg font-medium text-gray-900 mb-2"}, "No Prescriptions"),
+                    React.createElement("p", {className: "text-gray-600"}, "Your prescription history will appear here.")
+                  ) :
                   medicalData.prescriptions.map((prescription) =>
                     React.createElement("div", {
                       key: prescription.id,
                       className: "border border-gray-200 rounded-lg p-6 hover:shadow-sm transition-shadow duration-200"
-                    }, [
-                      React.createElement("div", {key: "header", className: "flex items-center justify-between mb-4"}, [
-                        React.createElement("div", {key: "info"}, [
-                          React.createElement("h3", {key: "diagnosis", className: "text-lg font-semibold text-gray-900"}, prescription.diagnosis),
-                          React.createElement("p", {key: "doctor", className: "text-dental-primary font-medium"}, prescription.doctor),
+                    }, 
+                      React.createElement("div", {className: "flex items-center justify-between mb-4"}, 
+                        React.createElement("div", {}, 
+                          React.createElement("h3", {className: "text-lg font-semibold text-gray-900"}, prescription.diagnosis),
+                          React.createElement("p", {className: "text-dental-primary font-medium"}, prescription.doctor),
                           prescription.isAIGenerated && 
-                            React.createElement("span", {key: "ai-badge", className: "inline-block mt-1 px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full"}, "✨ AI Generated")
-                        ]),
-                        React.createElement("div", {key: "status", className: "text-right"}, [
+                            React.createElement("span", {className: "inline-block mt-1 px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full"}, "✨ AI Generated")
+                        ),
+                        React.createElement("div", {className: "text-right"}, 
                           getStatusBadge(prescription.status),
-                          React.createElement("p", {key: "date", className: "text-sm text-gray-600 mt-1"}, formatDate(prescription.date))
-                        ])
-                      ]),
-                      React.createElement("div", {key: "medications", className: "mb-4"}, [
-                        React.createElement("h4", {key: "med-title", className: "font-medium text-gray-900 mb-2"}, "Medications"),
-                        React.createElement("div", {key: "med-list", className: "space-y-2"},
+                          React.createElement("p", {className: "text-sm text-gray-600 mt-1"}, formatDate(prescription.date))
+                        )
+                      ),
+                      React.createElement("div", {className: "mb-4"}, 
+                        React.createElement("h4", {className: "font-medium text-gray-900 mb-2"}, "Medications"),
+                        React.createElement("div", {className: "space-y-2"},
                           prescription.medications.map((med, idx) =>
-                            React.createElement("div", {key: idx, className: "bg-gray-50 p-3 rounded-lg"}, [
-                              React.createElement("div", {key: "med-name", className: "font-semibold text-gray-900"}, med.name),
-                              React.createElement("div", {key: "med-details", className: "text-sm text-gray-600 mt-1"}, [
-                                React.createElement("span", {key: "dosage"}, `${med.dosage} • ${med.duration}`),
-                                med.frequency && React.createElement("span", {key: "freq"}, ` • ${med.frequency}`)
-                              ]),
+                            React.createElement("div", {key: idx, className: "bg-gray-50 p-3 rounded-lg"}, 
+                              React.createElement("div", {className: "font-semibold text-gray-900"}, med.name),
+                              React.createElement("div", {className: "text-sm text-gray-600 mt-1"}, 
+                                React.createElement("span", {}, `${med.dosage} • ${med.duration}`),
+                                med.frequency && React.createElement("span", {}, ` • ${med.frequency}`)
+                              ),
                               med.instructions &&
-                                React.createElement("p", {key: "med-instructions", className: "text-sm text-gray-600 mt-1 italic"}, med.instructions)
-                            ])
+                                React.createElement("p", {className: "text-sm text-gray-600 mt-1 italic"}, med.instructions)
+                            )
                           )
                         )
-                      ]),
+                      ),
                       prescription.instructions &&
-                        React.createElement("div", {key: "instructions", className: "mb-4"}, [
-                          React.createElement("h4", {key: "inst-title", className: "font-medium text-gray-900 mb-2"}, "General Instructions"),
-                          React.createElement("p", {key: "inst-text", className: "text-sm text-gray-600"}, prescription.instructions)
-                        ]),
-                      React.createElement("div", {key: "actions", className: "flex gap-2 mt-4 pt-4 border-t border-gray-200"}, [
+                        React.createElement("div", {className: "mb-4"}, 
+                          React.createElement("h4", {className: "font-medium text-gray-900 mb-2"}, "General Instructions"),
+                          React.createElement("p", {className: "text-sm text-gray-600"}, prescription.instructions)
+                        ),
+                      React.createElement("div", {className: "flex gap-2 mt-4 pt-4 border-t border-gray-200"}, 
                         React.createElement("button", {
-                          key: "download",
                           onClick: () => downloadPrescription(prescription.id),
                           className: "px-4 py-2 bg-dental-primary text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
-                        }, [
+                        }, 
                           React.createElement("svg", {
-                            key: "icon",
                             className: "w-4 h-4",
                             fill: "none",
                             stroke: "currentColor",
@@ -315,19 +313,19 @@ const MedicalRecords = ({ user }) => {
                               d: "M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                             })
                           ),
-                          React.createElement("span", {key: "text"}, "Download PDF")
-                        ])
-                      ])
-                    ])
+                          React.createElement("span", {}, "Download PDF")
+                        )
+                      )
+                    )
                   )
               ) :
-              React.createElement("div", {className: "text-center py-12"}, [
-                React.createElement("h3", {key: "no-images-title", className: "text-lg font-medium text-gray-900 mb-2"}, "No Images Available"),
-                React.createElement("p", {key: "no-images-text", className: "text-gray-600"}, "X-rays and dental images will appear here.")
-              ])
+              React.createElement("div", {className: "text-center py-12"}, 
+                React.createElement("h3", {className: "text-lg font-medium text-gray-900 mb-2"}, "No Images Available"),
+                React.createElement("p", {className: "text-gray-600"}, "X-rays and dental images will appear here.")
+              )
       )
-    ])
-  ])
+    )
+  )
 }
 
 export default MedicalRecords

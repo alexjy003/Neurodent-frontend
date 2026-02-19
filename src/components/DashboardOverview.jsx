@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import apiService from '../services/api'
 
-const DashboardOverview = ({ user }) => {
+const DashboardOverview = ({ user, setActiveTab }) => {
   const [dashboardData, setDashboardData] = useState({
     stats: {
       totalAppointments: 0,
@@ -270,7 +270,10 @@ const DashboardOverview = ({ user }) => {
             ) : (
               <div className="text-center py-4">
                 <p className="text-gray-500 mb-4">No upcoming appointments</p>
-                <button className="bg-dental-primary text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-dental-accent transition-colors duration-200">
+                <button 
+                  onClick={() => setActiveTab && setActiveTab('doctors')}
+                  className="bg-dental-primary text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-dental-accent transition-colors duration-200"
+                >
                   Book Appointment
                 </button>
               </div>

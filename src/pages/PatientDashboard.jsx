@@ -131,7 +131,7 @@ const PatientDashboard = () => {
   const renderActiveComponent = () => {
     switch (activeTab) {
       case 'overview':
-        return <DashboardOverview user={user} />
+        return <DashboardOverview user={user} setActiveTab={setActiveTab} />
       case 'profile':
         return <ProfileManagement user={user} />
       case 'doctors':
@@ -143,7 +143,7 @@ const PatientDashboard = () => {
       case 'pharmacy':
         return <PharmacyOrders user={user} />
       default:
-        return <DashboardOverview user={user} />
+        return <DashboardOverview user={user} setActiveTab={setActiveTab} />
     }
   }
 

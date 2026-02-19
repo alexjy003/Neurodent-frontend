@@ -15,6 +15,7 @@ const ProfileManagement = ({ user }) => {
     city: '',
     state: '',
     zipCode: '',
+    medicalHistory: '',
     profileImage: null
   })
 
@@ -47,6 +48,7 @@ const ProfileManagement = ({ user }) => {
           city: patient.city || '',
           state: patient.state || '',
           zipCode: patient.zipCode || '',
+          medicalHistory: patient.medicalHistory || '',
           profileImage: patient.profileImage || null
         })
       }
@@ -351,6 +353,27 @@ const ProfileManagement = ({ user }) => {
                     <option value="prefer-not-to-say">Prefer not to say</option>
                   </select>
                 </div>
+              </div>
+              
+              <div className="mt-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Medical History
+                </label>
+                <textarea
+                  name="medicalHistory"
+                  value={profileData.medicalHistory}
+                  onChange={handleInputChange}
+                  disabled={!isEditing}
+                  rows={6}
+                  maxLength={2000}
+                  className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none ${
+                    !isEditing ? 'bg-gray-50' : ''
+                  }`}
+                  placeholder="Enter your medical history, allergies, chronic conditions, previous surgeries, current medications, etc."
+                />
+                <p className="text-sm text-gray-500 mt-1">
+                  {profileData.medicalHistory.length}/2000 characters
+                </p>
               </div>
             </div>
           )}

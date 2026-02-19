@@ -522,12 +522,8 @@ const PatientRecords = () => {
                       <div>
                         <span className="text-sm text-gray-600">Medical History:</span>
                         <div className="mt-1">
-                          {selectedPatient.medicalHistory && selectedPatient.medicalHistory.length > 0 ? (
-                            selectedPatient.medicalHistory.map((condition, index) => (
-                              <span key={index} className="inline-block bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full mr-1 mb-1">
-                                {condition}
-                              </span>
-                            ))
+                          {selectedPatient.medicalHistory && selectedPatient.medicalHistory.trim().length > 0 ? (
+                            <p className="text-gray-700 text-sm whitespace-pre-wrap">{selectedPatient.medicalHistory}</p>
                           ) : (
                             <p className="text-gray-500 text-sm">No medical history recorded</p>
                           )}
@@ -538,14 +534,42 @@ const PatientRecords = () => {
 
                   <div className="bg-white border border-gray-200 rounded-2xl p-6">
                     <h4 className="font-semibold text-gray-900 mb-4">Treatment History</h4>
-                    <div className="space-y-2">
-                      {selectedPatient.treatments && selectedPatient.treatments.length > 0 ? (
-                        selectedPatient.treatments.map((treatment, index) => (
-                          <div key={index} className="flex items-center justify-between">
-                            <span className="text-sm text-gray-600">{treatment}</span>
-                            <span className="text-xs text-gray-500">Completed</span>
-                          </div>
-                        ))
+                    <div className="space-y-3 max-h-96 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                      {selectedPatient.appointments && selectedPatient.appointments.length > 0 ? (
+                        selectedPatient.appointments
+                          .filter(apt => apt.status === 'completed')
+                          .sort((a, b) => new Date(b.appointmentDate) - new Date(a.appointmentDate))
+                          .map((appointment, index) => (
+                            <div key={index} className="flex items-start justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <Calendar className="w-4 h-4 text-gray-500" />
+                                  <span className="text-sm font-medium text-gray-900">
+                                    {formatDate(appointment.appointmentDate)}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <User className="w-4 h-4 text-gray-500" />
+                                  <span className="text-sm text-gray-600">
+                                    {appointment.doctorId 
+                                      ? `Dr. ${appointment.doctorId.firstName} ${appointment.doctorId.lastName}`
+                                      : 'Doctor not available'
+                                    }
+                                  </span>
+                                </div>
+                                {appointment.slotType && (
+                                  <div className="mt-1">
+                                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                                      {appointment.slotType}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                ✓ Completed
+                              </span>
+                            </div>
+                          ))
                       ) : (
                         <p className="text-gray-500 text-sm">No treatment history available</p>
                       )}
