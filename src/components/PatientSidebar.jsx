@@ -1,7 +1,7 @@
 import React from 'react'
 import patientIcon from '../assets/images/p.png'
 
-const PatientSidebar = ({ activeTab, setActiveTab, sidebarOpen, setSidebarOpen, user }) => {
+const PatientSidebar = ({ activeTab, setActiveTab, sidebarOpen, setSidebarOpen, user, onOpenChatbot }) => {
   const navigation = [
     {
       name: 'Dashboard Overview',
@@ -123,13 +123,17 @@ const PatientSidebar = ({ activeTab, setActiveTab, sidebarOpen, setSidebarOpen, 
       {/* Quick actions */}
       <div className="flex-shrink-0 p-4 border-t border-slate-200/50 bg-white/60 backdrop-blur-sm">
         <div className="space-y-3">
-          <button className="group w-full flex items-center px-4 py-3 text-sm font-medium text-slate-600 hover:text-blue-600 hover:bg-white/80 rounded-2xl transition-all duration-300 hover:shadow-md">
+          <button
+            onClick={onOpenChatbot}
+            className="group w-full flex items-center px-4 py-3 text-sm font-medium text-slate-600 hover:text-blue-600 hover:bg-white/80 rounded-2xl transition-all duration-300 hover:shadow-md"
+          >
             <div className="w-5 h-5 mr-4 flex items-center justify-center flex-shrink-0 group-hover:text-blue-600 transition-colors duration-300">
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192L5.636 18.364M12 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
+                <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7H4a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2M7 14a1 1 0 1 0 0 2 1 1 0 0 0 0-2m10 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2M4 21a1 1 0 0 1-1-1v-1a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v1a1 1 0 0 1-1 1H4z" />
               </svg>
             </div>
-            <span className="text-left flex-1 min-w-0">Help & Support</span>
+            <span className="text-left flex-1 min-w-0">AI Assistant</span>
+            <span className="ml-auto text-xs bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-2 py-0.5 rounded-full font-semibold">AI</span>
           </button>
           <button className="group w-full flex items-center px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-50 rounded-2xl transition-all duration-300 hover:shadow-md">
             <div className="w-5 h-5 mr-4 flex items-center justify-center flex-shrink-0 group-hover:text-red-700 transition-colors duration-300">

@@ -47,6 +47,7 @@ const Appointments = () => {
   const [completeFormData, setCompleteFormData] = useState({
     notes: ''
   })
+  const [tabCounts, setTabCounts] = useState({ pending: 0, completed: 0, cancelled: 0 })
   const [rescheduleData, setRescheduleData] = useState({
     newDate: '',
     newTimeSlot: '',
@@ -64,6 +65,27 @@ const Appointments = () => {
     console.log('🔄 useEffect triggered. Active tab:', activeTab, 'Date filter:', dateFilter)
     fetchAppointments()
   }, [activeTab, dateFilter])
+
+  useEffect(() => {
+    fetchTabCounts()
+  }, [])
+
+  const fetchTabCounts = async () => {
+    try {
+      const [pendingRes, completedRes, cancelledRes] = await Promise.all([
+        apiService.get('/appointments/doctor/my-appointments?status=pending&appointmentType=upcoming&limit=100'),
+        apiService.get('/appointments/doctor/my-appointments?status=completed&limit=100'),
+        apiService.get('/appointments/doctor/my-appointments?status=cancelled&limit=100')
+      ])
+      setTabCounts({
+        pending: pendingRes.success ? (pendingRes.appointments || []).length : 0,
+        completed: completedRes.success ? (completedRes.appointments || []).length : 0,
+        cancelled: cancelledRes.success ? (cancelledRes.appointments || []).length : 0
+      })
+    } catch (e) {
+      // silent — counts will just stay at 0
+    }
+  }
 
   const fetchAppointments = async () => {
     try {
@@ -514,6 +536,7 @@ const Appointments = () => {
         })
         // Optionally refresh appointments
         fetchAppointments()
+        fetchTabCounts()
       } else {
         throw new Error(response.message || 'Failed to save prescription')
       }
@@ -620,6 +643,7 @@ const Appointments = () => {
         
         // Refresh appointments to get updated data from server
         await fetchAppointments()
+        fetchTabCounts()
       }
     } catch (error) {
       console.error('Error rescheduling appointment:', error)
@@ -676,9 +700,9 @@ const Appointments = () => {
   }
 
   const tabs = [
-    { id: 'pending', label: 'Pending', count: getTabCounts().pending },
-    { id: 'completed', label: 'Completed', count: getTabCounts().completed },
-    { id: 'cancelled', label: 'Cancelled', count: getTabCounts().cancelled }
+    { id: 'pending', label: 'Pending', count: tabCounts.pending },
+    { id: 'completed', label: 'Completed', count: tabCounts.completed },
+    { id: 'cancelled', label: 'Cancelled', count: tabCounts.cancelled }
   ]
 
   if (loading) {

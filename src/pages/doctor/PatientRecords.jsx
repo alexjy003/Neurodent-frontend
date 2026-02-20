@@ -17,6 +17,7 @@ import {
   Users
 } from 'lucide-react'
 import apiService from '../../services/api'
+import { API_BASE_URL } from '../../utils/config'
 import toast from 'react-hot-toast'
 
 const PatientRecords = () => {
@@ -28,6 +29,7 @@ const PatientRecords = () => {
   const [activeTab, setActiveTab] = useState('overview')
   const [patientAppointments, setPatientAppointments] = useState([])
   const [patientPrescriptions, setPatientPrescriptions] = useState([])
+  const [downloadingReport, setDownloadingReport] = useState(false)
 
   useEffect(() => {
     fetchPatients()
@@ -127,21 +129,25 @@ const PatientRecords = () => {
     const completedAppointments = appointments.filter(apt => apt.status === 'completed')
     if (completedAppointments.length === 0) return 'No completed visits'
     
-    const lastVisit = completedAppointments.sort((a, b) => new Date(b.date) - new Date(a.date))[0]
-    return formatDate(lastVisit.date)
+    const lastVisit = completedAppointments.sort((a, b) => new Date(b.appointmentDate) - new Date(a.appointmentDate))[0]
+    return formatDate(lastVisit.appointmentDate)
   }
 
   const getNextAppointment = (appointments) => {
     if (!appointments || appointments.length === 0) return null
     
-    const upcomingAppointments = appointments.filter(apt => 
-      apt.status === 'scheduled' || apt.status === 'confirmed'
-    )
+    const now = new Date()
+    now.setHours(0, 0, 0, 0) // Reset time to start of day for comparison
+    
+    const upcomingAppointments = appointments.filter(apt => {
+      const appointmentDate = new Date(apt.appointmentDate)
+      return (apt.status === 'scheduled' || apt.status === 'confirmed') && appointmentDate >= now
+    })
     
     if (upcomingAppointments.length === 0) return null
     
-    const nextAppt = upcomingAppointments.sort((a, b) => new Date(a.date) - new Date(b.date))[0]
-    return formatDate(nextAppt.date)
+    const nextAppt = upcomingAppointments.sort((a, b) => new Date(a.appointmentDate) - new Date(b.appointmentDate))[0]
+    return formatDate(nextAppt.appointmentDate)
   }
 
   const getTotalVisits = (appointments) => {
@@ -149,9 +155,44 @@ const PatientRecords = () => {
     return appointments.filter(apt => apt.status === 'completed').length
   }
 
-  const handleDownloadReport = (patientId) => {
-    console.log('Download report for patient:', patientId)
-    toast.info('Report download feature coming soon!')
+  const handleDownloadReport = async (patientId) => {
+    try {
+      setDownloadingReport(true)
+      toast.loading('Generating report...', { id: 'report-download' })
+      
+      const token = localStorage.getItem('doctorToken') || localStorage.getItem('token')
+      if (!token) {
+        toast.error('Authentication required', { id: 'report-download' })
+        return
+      }
+
+      const response = await fetch(`${API_BASE_URL}/patients/${patientId}/report`, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}))
+        throw new Error(err.message || 'Failed to generate report')
+      }
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `patient-report-${selectedPatient.firstName}-${selectedPatient.lastName}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+
+      toast.success('Report downloaded successfully!', { id: 'report-download' })
+    } catch (error) {
+      console.error('❌ Error downloading report:', error)
+      toast.error(error.message || 'Failed to download report', { id: 'report-download' })
+    } finally {
+      setDownloadingReport(false)
+    }
   }
 
   if (loading) {
@@ -183,10 +224,20 @@ const PatientRecords = () => {
           </div>
           <button
             onClick={() => handleDownloadReport(selectedPatient._id)}
-            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+            disabled={downloadingReport}
+            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            <Download className="w-4 h-4 mr-2" />
-            Download Report
+            {downloadingReport ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                Generating...
+              </>
+            ) : (
+              <>
+                <Download className="w-4 h-4 mr-2" />
+                Download Report
+              </>
+            )}
           </button>
         </div>
 
@@ -260,14 +311,25 @@ const PatientRecords = () => {
 
           <div className="p-6">
             {activeTab === 'overview' && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-blue-50 rounded-lg p-4">
-                  <h3 className="font-semibold text-blue-900 mb-2">Last Visit</h3>
-                  <p className="text-blue-700">{getLastVisit(patientAppointments)}</p>
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="bg-blue-50 rounded-lg p-4">
+                    <h3 className="font-semibold text-blue-900 mb-2">Last Visit</h3>
+                    <p className="text-blue-700">{getLastVisit(patientAppointments)}</p>
+                  </div>
+                  <div className="bg-green-50 rounded-lg p-4">
+                    <h3 className="font-semibold text-green-900 mb-2">Next Appointment</h3>
+                    <p className="text-green-700">{getNextAppointment(patientAppointments) || 'Not scheduled'}</p>
+                  </div>
                 </div>
-                <div className="bg-green-50 rounded-lg p-4">
-                  <h3 className="font-semibold text-green-900 mb-2">Next Appointment</h3>
-                  <p className="text-green-700">{getNextAppointment(patientAppointments) || 'Not scheduled'}</p>
+                
+                <div className="bg-orange-50 rounded-lg p-4">
+                  <h3 className="font-semibold text-orange-900 mb-2">Medical History</h3>
+                  {selectedPatient.medicalHistory && selectedPatient.medicalHistory.trim().length > 0 ? (
+                    <p className="text-orange-800 whitespace-pre-wrap">{selectedPatient.medicalHistory}</p>
+                  ) : (
+                    <p className="text-orange-600 italic">No medical history provided by patient</p>
+                  )}
                 </div>
               </div>
             )}
@@ -280,20 +342,26 @@ const PatientRecords = () => {
                 ) : (
                   patientAppointments
                     .filter(appointment => appointment.status === 'completed')
-                    .sort((a, b) => new Date(b.date) - new Date(a.date))
+                    .sort((a, b) => new Date(b.appointmentDate) - new Date(a.appointmentDate))
                     .map((appointment) => (
                       <div key={appointment._id} className="border-l-4 border-blue-500 pl-4 pb-4">
                         <div className="flex justify-between items-start">
                           <div>
-                            <h4 className="font-semibold">{appointment.reason || 'General Appointment'}</h4>
+                            <h4 className="font-semibold">{appointment.slotType || 'General Appointment'}</h4>
                             <p className="text-sm text-gray-600">
-                              {formatDate(appointment.date)} • {appointment.time || 'Time not specified'}
+                              {formatDate(appointment.appointmentDate)} • {appointment.startTime || 'Time not specified'}
                             </p>
+                            <p className="text-sm text-gray-600 mt-1">
+                              Doctor: {appointment.doctorId ? `Dr. ${appointment.doctorId.firstName} ${appointment.doctorId.lastName}` : 'Not specified'}
+                            </p>
+                            {appointment.symptoms && (
+                              <p className="text-sm mt-2 text-gray-700"><strong>Symptoms:</strong> {appointment.symptoms}</p>
+                            )}
                             {appointment.notes && (
-                              <p className="text-sm mt-2">{appointment.notes}</p>
+                              <p className="text-sm mt-1 text-gray-700"><strong>Notes:</strong> {appointment.notes}</p>
                             )}
                           </div>
-                          <span className="text-sm font-semibold text-blue-600">
+                          <span className="text-sm font-semibold text-blue-600 capitalize">
                             {appointment.status}
                           </span>
                         </div>
@@ -310,28 +378,55 @@ const PatientRecords = () => {
                   <p className="text-gray-600">No prescriptions found.</p>
                 ) : (
                   patientPrescriptions.map((prescription) => (
-                    <div key={prescription._id} className="border border-gray-200 rounded-lg p-4">
-                      <div className="flex justify-between items-start">
+                    <div key={prescription._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
+                      <div className="flex justify-between items-start mb-4">
                         <div>
-                          <h4 className="font-semibold">{prescription.medication || prescription.medicationName}</h4>
-                          <p className="text-sm text-gray-600">
-                            {prescription.dosage} • {prescription.duration}
+                          <h4 className="font-semibold text-lg">{prescription.diagnosis}</h4>
+                          <p className="text-sm text-gray-600 mt-1">
+                            Prescribed by: {prescription.doctorId ? `Dr. ${prescription.doctorId.firstName} ${prescription.doctorId.lastName}` : 'Unknown Doctor'}
                           </p>
                           <p className="text-sm text-gray-500">
-                            Prescribed on {formatDate(prescription.date || prescription.createdAt)}
+                            Date: {formatDate(prescription.prescriptionDate || prescription.createdAt)}
                           </p>
-                          {prescription.instructions && (
-                            <p className="text-sm mt-2 text-gray-700">{prescription.instructions}</p>
-                          )}
                         </div>
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                           prescription.status === 'active' 
                             ? 'bg-green-100 text-green-800' 
+                            : prescription.status === 'dispensed'
+                            ? 'bg-blue-100 text-blue-800'
                             : 'bg-gray-100 text-gray-800'
                         }`}>
-                          {prescription.status || 'Unknown'}
+                          {prescription.status || 'active'}
                         </span>
                       </div>
+                      
+                      {prescription.medications && prescription.medications.length > 0 && (
+                        <div className="mb-3">
+                          <h5 className="text-sm font-semibold text-gray-700 mb-2">Medications:</h5>
+                          <div className="space-y-2">
+                            {prescription.medications.map((med, idx) => (
+                              <div key={idx} className="bg-gray-50 p-3 rounded">
+                                <p className="font-medium text-gray-900">{med.name}</p>
+                                <p className="text-sm text-gray-600">
+                                  {med.dosage} • {med.duration}
+                                  {med.frequency && ` • ${med.frequency}`}
+                                </p>
+                                {med.instructions && (
+                                  <p className="text-sm text-gray-600 italic mt-1">{med.instructions}</p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {prescription.generalInstructions && (
+                        <div className="mt-3 pt-3 border-t border-gray-200">
+                          <p className="text-sm text-gray-700">
+                            <strong>Instructions:</strong> {prescription.generalInstructions}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   ))
                 )}

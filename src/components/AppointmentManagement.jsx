@@ -83,6 +83,9 @@ const AppointmentManagement = ({ user }) => {
           }
         });
         
+        // Sort past appointments newest first
+        past.sort((a, b) => new Date(b.appointmentDate) - new Date(a.appointmentDate));
+
         setAppointments({ upcoming, past });
       } else {
         setError('Failed to fetch appointments');

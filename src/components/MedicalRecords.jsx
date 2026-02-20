@@ -82,6 +82,7 @@ const MedicalRecords = ({ user }) => {
               attachments: []
             }
           })
+          .sort((a, b) => new Date(b.date) - new Date(a.date))
         console.log("Processed treatments:", treatments.length)
       }
 

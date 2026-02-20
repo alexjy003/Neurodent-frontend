@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import PatientSidebar from '../components/PatientSidebar'
+import PatientChatbot from '../components/PatientChatbot'
 import DashboardOverview from '../components/DashboardOverview'
 import ProfileManagement from '../components/ProfileManagement'
 import DoctorSearch from '../components/DoctorSearch'
@@ -46,6 +47,7 @@ const PatientDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [chatbotOpen, setChatbotOpen] = useState(false)
 
   // Handle Google OAuth token from URL
   useEffect(() => {
@@ -166,7 +168,10 @@ const PatientDashboard = () => {
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
         user={user}
+        onOpenChatbot={() => setChatbotOpen(true)}
       />
+
+      <PatientChatbot isOpen={chatbotOpen} onClose={() => setChatbotOpen(false)} />
 
       {/* Main content */}
       <div className="flex-1 lg:pl-64 min-h-screen overflow-y-auto">
@@ -189,14 +194,6 @@ const PatientDashboard = () => {
             </div>
             
             <div className="flex items-center space-x-5">
-              {/* Notifications */}
-              <button className="text-slate-400 hover:text-blue-600 relative p-2.5 rounded-xl hover:bg-blue-50 transition-all duration-200 ease-in-out transform hover:scale-105">
-                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM15 17H9a2 2 0 01-2-2V5a2 2 0 012-2h6a2 2 0 012 2v10a2 2 0 01-2 2z" />
-                </svg>
-                <span className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 bg-gradient-to-r from-red-500 to-pink-500 rounded-full border-2 border-white shadow-lg animate-pulse"></span>
-              </button>
-              
               {/* User menu */}
               <div className="relative user-menu">
                 <button

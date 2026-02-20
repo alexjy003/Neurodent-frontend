@@ -566,7 +566,7 @@ const Prescriptions = () => {
                     {prescription.followUpDate && (
                       <div className="mt-2">
                         <p className="text-sm text-gray-700">
-                          <strong>Follow-up Date:</strong> {new Date(prescription.followUpDate).toLocaleDateString()}
+                          <strong>Medication Follow-up Date:</strong> {new Date(prescription.followUpDate).toLocaleDateString()}
                         </p>
                       </div>
                     )}
@@ -715,7 +715,7 @@ const Prescriptions = () => {
                 {/* Follow-up Date */}
                 {selectedPrescription.followUpDate && (
                   <div>
-                    <h4 className="text-lg font-medium text-gray-900 mb-2">Follow-up Date</h4>
+                    <h4 className="text-lg font-medium text-gray-900 mb-2">Medication Follow-up Date</h4>
                     <p className="text-gray-700 bg-gray-50 p-3 rounded-lg">
                       {new Date(selectedPrescription.followUpDate).toLocaleDateString()}
                     </p>
