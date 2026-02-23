@@ -463,7 +463,7 @@ const PatientRecords = () => {
                   <div className="mt-4 space-y-2">
                     <div className="flex items-center justify-center text-sm">
                       <Phone className="w-4 h-4 mr-2" />
-                      {selectedPatient.phoneNumber || 'Not provided'}
+                      {selectedPatient.phone || selectedPatient.phoneNumber || 'Not provided'}
                     </div>
                     <div className="flex items-center justify-center text-sm">
                       <Mail className="w-4 h-4 mr-2" />

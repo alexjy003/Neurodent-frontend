@@ -31,6 +31,7 @@ const DoctorDashboard = () => {
   const [loading, setLoading] = useState(true)
   const [doctor, setDoctor] = useState(null)
   const [ratingData, setRatingData] = useState({ averageRating: 0, totalRatings: 0, distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } })
+  const [revenueData, setRevenueData] = useState({ months: [], currentMonth: { label: '', total: 0, count: 0 }, change: 0 })
 
   // Check authentication and load doctor data
   useEffect(() => {
@@ -102,6 +103,16 @@ const DoctorDashboard = () => {
         }
       } catch (ratingsError) {
         console.log('⚠️ Could not load ratings:', ratingsError.message)
+      }
+
+      // Fetch revenue
+      try {
+        const revenueResponse = await apiService.get('/appointments/doctor/revenue')
+        if (revenueResponse.success) {
+          setRevenueData(revenueResponse)
+        }
+      } catch (revenueError) {
+        console.log('⚠️ Could not load revenue:', revenueError.message)
       }
 
       // Fetch patients (optional - for total count)
@@ -407,56 +418,54 @@ const DoctorDashboard = () => {
             </div>
           </div>
 
-          {/* Upcoming This Week */}
+          {/* Monthly Revenue */}
           <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Upcoming This Week</h3>
-              <Calendar className="w-5 h-5 text-gray-500" />
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold text-gray-900">Monthly Revenue</h3>
+              <BarChart3 className="w-5 h-5 text-gray-400" />
             </div>
-            {(() => {
-              const upcomingWeek = appointments
-                .filter(apt => {
-                  const aptDate = apt.appointmentDate || apt.date
-                  const weekEnd = new Date(); weekEnd.setDate(weekEnd.getDate() + 7)
-                  const weekEndStr = weekEnd.toISOString().split('T')[0]
-                  return aptDate >= today && aptDate <= weekEndStr && (
-                    apt.status === 'pending' || apt.status === 'scheduled' ||
-                    apt.status === 'confirmed' || apt.status === 'booked'
-                  )
-                })
-                .sort((a, b) => {
-                  const dA = a.appointmentDate || a.date || ''
-                  const dB = b.appointmentDate || b.date || ''
-                  if (dA !== dB) return dA.localeCompare(dB)
-                  return (a.startTime || '').localeCompare(b.startTime || '')
-                })
-                .slice(0, 4)
-              return upcomingWeek.length > 0 ? (
-                <div className="space-y-2">
-                  {upcomingWeek.map((apt, i) => (
-                    <div key={i} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                          <User className="w-4 h-4 text-blue-600" />
+            <div className="mb-4">
+              <p className="text-3xl font-bold text-green-600">
+                ₹{revenueData.currentMonth.total.toLocaleString('en-IN')}
+              </p>
+              <div className="flex items-center space-x-2 mt-1">
+                <span className="text-xs text-gray-500">{revenueData.currentMonth.count} appointment{revenueData.currentMonth.count !== 1 ? 's' : ''} this month</span>
+                {revenueData.months.length >= 2 && (
+                  <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${
+                    revenueData.change > 0 ? 'bg-green-100 text-green-700' :
+                    revenueData.change < 0 ? 'bg-red-100 text-red-700' :
+                    'bg-gray-100 text-gray-500'
+                  }`}>
+                    {revenueData.change > 0 ? '+' : ''}{revenueData.change}% vs last month
+                  </span>
+                )}
+              </div>
+            </div>
+            {/* 6-month bar chart */}
+            {revenueData.months.length > 0 && (() => {
+              const maxRev = Math.max(...revenueData.months.map(m => m.total), 1);
+              return (
+                <div className="flex items-end justify-between space-x-1" style={{ height: '60px' }}>
+                  {revenueData.months.map((m, i) => {
+                    const isCurrentMonth = i === revenueData.months.length - 1;
+                    const heightPct = m.total > 0 ? Math.max((m.total / maxRev) * 100, 8) : 4;
+                    return (
+                      <div key={i} className="flex flex-col items-center flex-1">
+                        <div className="w-full flex flex-col justify-end" style={{ height: '48px' }}>
+                          <div
+                            className={`w-full rounded-t-sm transition-all duration-500 ${
+                              isCurrentMonth ? 'bg-green-500' : 'bg-green-200'
+                            }`}
+                            style={{ height: `${heightPct}%` }}
+                            title={`${m.label}: ₹${m.total.toLocaleString('en-IN')}`}
+                          />
                         </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-900 leading-tight">{apt.patientName}</p>
-                          <p className="text-xs text-gray-500">{apt.symptoms || apt.slotType || 'Consultation'}</p>
-                        </div>
+                        <span className={`text-[10px] mt-1 font-medium ${
+                          isCurrentMonth ? 'text-green-600' : 'text-gray-400'
+                        }`}>{m.label}</span>
                       </div>
-                      <div className="text-right">
-                        <p className="text-xs font-semibold text-blue-600">{formatTime(apt.startTime)}</p>
-                        <p className="text-xs text-gray-400">
-                          {(apt.appointmentDate || apt.date) === today ? 'Today' : new Date((apt.appointmentDate || apt.date) + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-500 text-sm">No appointments this week</p>
+                    )
+                  })}
                 </div>
               )
             })()}

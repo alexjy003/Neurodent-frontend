@@ -67,22 +67,20 @@ const DashboardOverview = ({ user, setActiveTab }) => {
         console.log('📅 Next appointment:', nextAppointment)
       }
 
-      // Create recent activity from appointments
-      const recentActivity = appointments
-        .filter(apt => apt.status === 'completed' || apt.status === 'confirmed')
+      // Create recent activity from appointments - sorted newest-booked first
+      const recentActivity = [...appointments]
+        .filter(apt => apt.status === 'completed' || apt.status === 'confirmed' || apt.status === 'scheduled' || apt.status === 'cancelled')
+        .sort((a, b) => {
+          const dateA = new Date(a.bookingDate || a.bookedAt || a.createdAt || a.appointmentDate)
+          const dateB = new Date(b.bookingDate || b.bookedAt || b.createdAt || b.appointmentDate)
+          return dateB - dateA
+        })
         .slice(0, 3)
         .map(apt => ({
-          date: formatDateForActivity(apt.appointmentDate),
-          action: `Appointment ${apt.status === 'completed' ? 'completed' : 'booked'} with ${apt.doctorName || 'Doctor'}`,
+          date: formatDateForActivity(apt.bookingDate || apt.bookedAt || apt.createdAt || apt.appointmentDate),
+          action: `Appointment ${apt.status === 'completed' ? 'completed' : apt.status === 'cancelled' ? 'cancelled' : 'booked'} with ${apt.doctorName || 'Doctor'}`,
           type: apt.status
         }))
-
-      // Add some generic recent activity if we don't have enough
-      if (recentActivity.length < 3) {
-        recentActivity.push(
-          { date: formatDateForActivity(new Date()), action: 'Medical records updated', type: 'update' }
-        )
-      }
 
       setDashboardData({
         stats,
@@ -301,7 +299,10 @@ const DashboardOverview = ({ user, setActiveTab }) => {
               ))}
             </div>
             <div className="mt-6">
-              <button className="text-blue-600 text-sm font-semibold hover:text-blue-800 transition-colors duration-200 flex items-center">
+              <button
+                onClick={() => setActiveTab && setActiveTab('appointments')}
+                className="text-blue-600 text-sm font-semibold hover:text-blue-800 transition-colors duration-200 flex items-center"
+              >
                 View all activity 
                 <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />

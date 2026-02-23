@@ -1,7 +1,15 @@
 import React from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
 import patientIcon from '../assets/images/p.png'
 
 const PatientSidebar = ({ activeTab, setActiveTab, sidebarOpen, setSidebarOpen, user, onOpenChatbot }) => {
+  const navigate = useNavigate()
+  const { logout } = useAuth()
+
+  const handleSignOut = () => {
+    logout()
+  }
   const navigation = [
     {
       name: 'Dashboard Overview',
@@ -135,7 +143,7 @@ const PatientSidebar = ({ activeTab, setActiveTab, sidebarOpen, setSidebarOpen, 
             <span className="text-left flex-1 min-w-0">AI Assistant</span>
             <span className="ml-auto text-xs bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-2 py-0.5 rounded-full font-semibold">AI</span>
           </button>
-          <button className="group w-full flex items-center px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-50 rounded-2xl transition-all duration-300 hover:shadow-md">
+          <button onClick={handleSignOut} className="group w-full flex items-center px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-50 rounded-2xl transition-all duration-300 hover:shadow-md">
             <div className="w-5 h-5 mr-4 flex items-center justify-center flex-shrink-0 group-hover:text-red-700 transition-colors duration-300">
               <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />

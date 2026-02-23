@@ -390,11 +390,9 @@ const ProfileManagement = ({ user }) => {
                     type="email"
                     name="email"
                     value={profileData.email}
-                    onChange={handleInputChange}
-                    disabled={!isEditing}
-                    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                      !isEditing ? 'bg-gray-50' : ''
-                    }`}
+                    readOnly
+                    disabled
+                    className="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-100 text-gray-400 cursor-not-allowed"
                   />
                 </div>
                 <div className="md:col-span-2">

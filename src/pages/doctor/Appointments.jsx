@@ -188,7 +188,10 @@ const Appointments = () => {
           const pastResponse = await apiService.get(`/appointments/doctor/my-appointments?${pastParams}`)
           
           if (pastResponse.success) {
-            setPastPendingAppointments(pastResponse.appointments || [])
+            const sorted = (pastResponse.appointments || []).sort((a, b) =>
+              new Date(b.appointmentDate) - new Date(a.appointmentDate)
+            )
+            setPastPendingAppointments(sorted)
             console.log('📡 Past pending appointments:', pastResponse.appointments)
           } else {
             setPastPendingAppointments([])
