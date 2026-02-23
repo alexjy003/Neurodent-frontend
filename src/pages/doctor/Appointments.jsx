@@ -73,7 +73,7 @@ const Appointments = () => {
   const fetchTabCounts = async () => {
     try {
       const [pendingRes, completedRes, cancelledRes] = await Promise.all([
-        apiService.get('/appointments/doctor/my-appointments?status=pending&appointmentType=upcoming&limit=100'),
+        apiService.get('/appointments/doctor/my-appointments?status=pending&appointmentType=all&limit=100'),
         apiService.get('/appointments/doctor/my-appointments?status=completed&limit=100'),
         apiService.get('/appointments/doctor/my-appointments?status=cancelled&limit=100')
       ])

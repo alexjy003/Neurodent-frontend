@@ -10,11 +10,8 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
-  Plus,
-  Search,
-  Filter,
-  Download,
   Eye,
+  Download,
   Activity,
   BarChart3,
   PieChart,
@@ -33,6 +30,7 @@ const DoctorDashboard = () => {
   const [patients, setPatients] = useState([])
   const [loading, setLoading] = useState(true)
   const [doctor, setDoctor] = useState(null)
+  const [ratingData, setRatingData] = useState({ averageRating: 0, totalRatings: 0, distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } })
 
   // Check authentication and load doctor data
   useEffect(() => {
@@ -95,6 +93,17 @@ const DoctorDashboard = () => {
         toast.error('Failed to load appointments')
       }
 
+      // Fetch ratings
+      try {
+        const ratingsResponse = await apiService.get('/doctors/my-ratings')
+        if (ratingsResponse.success) {
+          setRatingData(ratingsResponse)
+          console.log('⭐ Loaded ratings:', ratingsResponse)
+        }
+      } catch (ratingsError) {
+        console.log('⚠️ Could not load ratings:', ratingsError.message)
+      }
+
       // Fetch patients (optional - for total count)
       try {
         const patientsResponse = await apiService.get('/patients')
@@ -145,11 +154,46 @@ const DoctorDashboard = () => {
     ).length,
     cancelledAppointments: appointments.filter(apt => apt.status === 'cancelled').length,
     totalPatients: patients.length,
-    patientSatisfaction: 4.8 // Keep as mock for now
+    patientSatisfaction: ratingData.averageRating > 0 ? ratingData.averageRating.toFixed(1) : '—'
   }
 
   // Debug: Log calculated stats
   console.log('📊 Calculated stats:', stats);
+
+  // Compute next upcoming appointment from ALL appointments (not just today)
+  const nextAppointment = appointments
+    .filter(apt => {
+      const aptDate = apt.appointmentDate || apt.date
+      return aptDate >= today && (
+        apt.status === 'pending' ||
+        apt.status === 'scheduled' ||
+        apt.status === 'confirmed' ||
+        apt.status === 'booked'
+      )
+    })
+    .sort((a, b) => {
+      const dateA = a.appointmentDate || a.date || ''
+      const dateB = b.appointmentDate || b.date || ''
+      if (dateA !== dateB) return dateA.localeCompare(dateB)
+      return (a.startTime || '').localeCompare(b.startTime || '')
+    })[0] || null
+
+  // Weekly appointments data (Sun–Sat of current week)
+  const weekDayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const weeklyData = weekDayLabels.map((label, idx) => {
+    const d = new Date()
+    d.setDate(d.getDate() - d.getDay() + idx)
+    const dateStr = d.toISOString().split('T')[0]
+    const dayAppts = appointments.filter(apt => (apt.appointmentDate || apt.date) === dateStr)
+    return {
+      label,
+      dateStr,
+      total: dayAppts.length,
+      completed: dayAppts.filter(a => a.status === 'completed' || a.status === 'done' || a.status === 'finished').length,
+      isToday: dateStr === today
+    }
+  })
+  const maxWeeklyCount = Math.max(...weeklyData.map(d => d.total), 1)
 
 
 
@@ -363,44 +407,59 @@ const DoctorDashboard = () => {
             </div>
           </div>
 
-          {/* Next Upcoming Appointment */}
+          {/* Upcoming This Week */}
           <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Next Appointment</h3>
-              <Clock className="w-5 h-5 text-gray-500" />
+              <h3 className="text-lg font-semibold text-gray-900">Upcoming This Week</h3>
+              <Calendar className="w-5 h-5 text-gray-500" />
             </div>
-            {todaysAppointments.filter(apt => 
-              apt.status === 'pending' || apt.status === 'scheduled' || apt.status === 'confirmed' || apt.status === 'booked' || (apt.status !== 'completed' && apt.status !== 'cancelled')
-            ).length > 0 ? (
-              <div className="space-y-4">
-                {todaysAppointments
-                  .filter(apt => apt.status === 'pending' || apt.status === 'scheduled' || apt.status === 'confirmed')
-                  .slice(0, 1)
-                  .map((appointment) => (
-                  <div key={appointment.id} className="border border-gray-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-semibold text-gray-900">{appointment.patientName}</h4>
-                      <span className="text-sm text-blue-600 font-medium">
-                        {formatTime(appointment.startTime)}
-                      </span>
+            {(() => {
+              const upcomingWeek = appointments
+                .filter(apt => {
+                  const aptDate = apt.appointmentDate || apt.date
+                  const weekEnd = new Date(); weekEnd.setDate(weekEnd.getDate() + 7)
+                  const weekEndStr = weekEnd.toISOString().split('T')[0]
+                  return aptDate >= today && aptDate <= weekEndStr && (
+                    apt.status === 'pending' || apt.status === 'scheduled' ||
+                    apt.status === 'confirmed' || apt.status === 'booked'
+                  )
+                })
+                .sort((a, b) => {
+                  const dA = a.appointmentDate || a.date || ''
+                  const dB = b.appointmentDate || b.date || ''
+                  if (dA !== dB) return dA.localeCompare(dB)
+                  return (a.startTime || '').localeCompare(b.startTime || '')
+                })
+                .slice(0, 4)
+              return upcomingWeek.length > 0 ? (
+                <div className="space-y-2">
+                  {upcomingWeek.map((apt, i) => (
+                    <div key={i} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                          <User className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900 leading-tight">{apt.patientName}</p>
+                          <p className="text-xs text-gray-500">{apt.symptoms || apt.slotType || 'Consultation'}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs font-semibold text-blue-600">{formatTime(apt.startTime)}</p>
+                        <p className="text-xs text-gray-400">
+                          {(apt.appointmentDate || apt.date) === today ? 'Today' : new Date((apt.appointmentDate || apt.date) + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </p>
+                      </div>
                     </div>
-                    <p className="text-sm text-gray-600 mb-2">{appointment.symptoms || appointment.reason || appointment.slotType}</p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-500">{appointment.patientPhone || 'No phone'}</span>
-                      <button className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center">
-                        View Details
-                        <ArrowRight className="w-4 h-4 ml-1" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500">No upcoming appointments</p>
-              </div>
-            )}
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500 text-sm">No appointments this week</p>
+                </div>
+              )
+            })()}
           </div>
 
           {/* Patient Feedback Summary */}
@@ -411,29 +470,33 @@ const DoctorDashboard = () => {
             </div>
             <div className="text-center">
               <div className="flex items-center justify-center mb-2">
-                <span className="text-3xl font-bold text-yellow-600">{stats.patientSatisfaction}</span>
+                <span className="text-3xl font-bold text-yellow-600">{ratingData.averageRating > 0 ? ratingData.averageRating.toFixed(1) : '—'}</span>
                 <Star className="w-6 h-6 text-yellow-500 ml-2 fill-current" />
               </div>
               <p className="text-sm text-gray-600 mb-4">Average Rating</p>
 
               {/* Rating Distribution */}
               <div className="space-y-2">
-                {[5, 4, 3, 2, 1].map((rating) => (
-                  <div key={rating} className="flex items-center space-x-2">
-                    <span className="text-xs text-gray-600 w-2">{rating}</span>
-                    <Star className="w-3 h-3 text-yellow-400 fill-current" />
-                    <div className="flex-1 h-2 bg-gray-200 rounded-full">
-                      <div
-                        className="h-2 bg-yellow-500 rounded-full"
-                        style={{ width: `${rating === 5 ? 70 : rating === 4 ? 20 : rating === 3 ? 8 : rating === 2 ? 2 : 0}%` }}
-                      ></div>
+                {[5, 4, 3, 2, 1].map((rating) => {
+                  const count = ratingData.distribution[rating] || 0;
+                  const pct = ratingData.totalRatings > 0 ? Math.round((count / ratingData.totalRatings) * 100) : 0;
+                  return (
+                    <div key={rating} className="flex items-center space-x-2">
+                      <span className="text-xs text-gray-600 w-2">{rating}</span>
+                      <Star className="w-3 h-3 text-yellow-400 fill-current" />
+                      <div className="flex-1 h-2 bg-gray-200 rounded-full">
+                        <div
+                          className="h-2 bg-yellow-500 rounded-full"
+                          style={{ width: `${pct}%` }}
+                        ></div>
+                      </div>
+                      <span className="text-xs text-gray-500 w-8">{pct}%</span>
                     </div>
-                    <span className="text-xs text-gray-500 w-8">{rating === 5 ? '70%' : rating === 4 ? '20%' : rating === 3 ? '8%' : rating === 2 ? '2%' : '0%'}</span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
-              <p className="text-xs text-gray-500 mt-3">Based on 24 patient reviews</p>
+              <p className="text-xs text-gray-500 mt-3">Based on {ratingData.totalRatings} patient review{ratingData.totalRatings !== 1 ? 's' : ''}</p>
             </div>
           </div>
       </div>
@@ -443,11 +506,33 @@ const DoctorDashboard = () => {
           {/* Today's Appointments */}
           <div className="lg:col-span-2 bg-white rounded-2xl p-6 shadow-lg border border-blue-100">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-gray-900">Today's Appointments</h2>
-              <button className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-200 flex items-center space-x-2">
-                <Plus className="w-4 h-4" />
-                <span>New Appointment</span>
-              </button>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Today's Appointments</h2>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  {todaysAppointments.length > 0
+                    ? `${todaysAppointments.filter(a => a.status === 'completed' || a.status === 'done').length} of ${todaysAppointments.length} completed`
+                    : 'No appointments today'}
+                </p>
+              </div>
+              {/* Weekly mini bar chart */}
+              <div className="flex items-end space-x-1.5">
+                {weeklyData.map((d) => (
+                  <div key={d.dateStr} className="flex flex-col items-center">
+                    <div className="relative flex flex-col justify-end" style={{ height: '36px', width: '18px' }}>
+                      <div
+                        className={`w-full rounded-t-sm transition-all duration-500 ${
+                          d.isToday ? 'bg-blue-500' : 'bg-blue-200'
+                        }`}
+                        style={{ height: `${d.total > 0 ? Math.max((d.total / maxWeeklyCount) * 100, 15) : 4}%` }}
+                        title={`${d.label}: ${d.total} appointments`}
+                      />
+                    </div>
+                    <span className={`text-[10px] mt-1 font-medium ${
+                      d.isToday ? 'text-blue-600' : 'text-gray-400'
+                    }`}>{d.label[0]}</span>
+                  </div>
+                ))}
+              </div>
             </div>
             
             <div className="space-y-4">
@@ -518,36 +603,51 @@ const DoctorDashboard = () => {
 
           {/* Quick Actions & Next Appointment */}
           <div className="space-y-6">
-            {/* Next Appointment */}
+            {/* Next Appointment - real upcoming data */}
             <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-6 text-white shadow-lg">
               <h3 className="text-lg font-bold mb-4">Next Appointment</h3>
-              {todaysAppointments.filter(apt => 
-                apt.status === 'pending' || apt.status === 'scheduled' || apt.status === 'confirmed'
-              )[0] ? (
-                <div>
-                  <p className="text-blue-100 text-sm">Patient</p>
-                  <p className="font-semibold text-lg">
-                    {todaysAppointments.filter(apt => 
-                      apt.status === 'pending' || apt.status === 'scheduled' || apt.status === 'confirmed'
-                    )[0].patientName}
-                  </p>
-                  <p className="text-blue-100 text-sm mt-2">Time</p>
-                  <p className="font-semibold">
-                    {formatTime(todaysAppointments.filter(apt => 
-                      apt.status === 'pending' || apt.status === 'scheduled' || apt.status === 'confirmed'
-                    )[0].startTime)}
-                  </p>
-                  <p className="text-blue-100 text-sm mt-2">Reason</p>
-                  <p className="font-semibold">
-                    {todaysAppointments.filter(apt => 
-                      apt.status === 'pending' || apt.status === 'scheduled' || apt.status === 'confirmed'
-                    )[0].symptoms || todaysAppointments.filter(apt => 
-                      apt.status === 'pending' || apt.status === 'scheduled' || apt.status === 'confirmed'
-                    )[0].slotType || 'General Consultation'}
-                  </p>
+              {nextAppointment ? (
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
+                      <User className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-lg leading-tight">{nextAppointment.patientName}</p>
+                      <p className="text-blue-100 text-xs">{nextAppointment.patientPhone || nextAppointment.patientEmail || ''}</p>
+                    </div>
+                  </div>
+                  <div className="bg-white/10 rounded-xl p-3 space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <Calendar className="w-4 h-4 text-blue-200" />
+                      <span className="text-sm">
+                        {(nextAppointment.appointmentDate || nextAppointment.date) === today
+                          ? 'Today'
+                          : new Date((nextAppointment.appointmentDate || nextAppointment.date) + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Clock className="w-4 h-4 text-blue-200" />
+                      <span className="text-sm">{formatTime(nextAppointment.startTime)}</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <FileText className="w-4 h-4 text-blue-200" />
+                      <span className="text-sm">{nextAppointment.symptoms || nextAppointment.reason || nextAppointment.slotType || 'General Consultation'}</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => navigate('/doctor/appointments')}
+                    className="w-full mt-1 py-2 bg-white/20 hover:bg-white/30 transition-colors rounded-lg text-sm font-medium flex items-center justify-center space-x-2"
+                  >
+                    <span>View All Appointments</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
                 </div>
               ) : (
-                <p className="text-blue-100">No upcoming appointments</p>
+                <div className="text-center py-4">
+                  <Calendar className="w-10 h-10 text-blue-300 mx-auto mb-2" />
+                  <p className="text-blue-100 text-sm">No upcoming appointments</p>
+                </div>
               )}
             </div>
 
@@ -555,15 +655,24 @@ const DoctorDashboard = () => {
             <div className="bg-white rounded-2xl p-6 shadow-lg border border-blue-100">
               <h3 className="text-lg font-bold text-gray-900 mb-4">Quick Actions</h3>
               <div className="space-y-3">
-                <button className="w-full px-4 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-200 flex items-center space-x-3">
+                <button
+                  onClick={() => navigate('/doctor/prescriptions')}
+                  className="w-full px-4 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-200 flex items-center space-x-3"
+                >
                   <FileText className="w-5 h-5" />
-                  <span>New Prescription</span>
+                  <span>Prescriptions</span>
                 </button>
-                <button className="w-full px-4 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg hover:from-purple-600 hover:to-purple-700 transition-all duration-200 flex items-center space-x-3">
+                <button
+                  onClick={() => navigate('/doctor/patient-records')}
+                  className="w-full px-4 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg hover:from-purple-600 hover:to-purple-700 transition-all duration-200 flex items-center space-x-3"
+                >
                   <Users className="w-5 h-5" />
                   <span>Patient Records</span>
                 </button>
-                <button className="w-full px-4 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all duration-200 flex items-center space-x-3">
+                <button
+                  onClick={() => navigate('/doctor/patient-records')}
+                  className="w-full px-4 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all duration-200 flex items-center space-x-3"
+                >
                   <Download className="w-5 h-5" />
                   <span>Download Reports</span>
                 </button>

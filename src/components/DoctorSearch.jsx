@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import AppointmentBookingModal from './AppointmentBookingModal'
 import { API_BASE_URL } from '../utils/config.js'
+import toast from 'react-hot-toast'
 
 const DoctorSearch = () => {
   const [searchQuery, setSearchQuery] = useState('')
@@ -17,6 +18,14 @@ const DoctorSearch = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   
+  // Rating state
+  const [ratingModalDoctor, setRatingModalDoctor] = useState(null)
+  const [ratingScore, setRatingScore] = useState(0)
+  const [ratingHover, setRatingHover] = useState(0)
+  const [ratingReview, setRatingReview] = useState('')
+  const [ratingSubmitting, setRatingSubmitting] = useState(false)
+  const [myRatings, setMyRatings] = useState({}) // doctorId -> { score, review }
+
   // Appointment booking state
   const [bookingModalOpen, setBookingModalOpen] = useState(false)
   const [doctorToBook, setDoctorToBook] = useState(null)
@@ -96,7 +105,8 @@ const DoctorSearch = () => {
             _id: doctor._id, // Keep original _id for API calls
             name: `Dr. ${doctor.firstName} ${doctor.lastName}`,
             specialization: doctor.specialization,
-            rating: 4.5 + Math.random() * 0.5, // Generate random rating between 4.5-5.0
+            rating: doctor.averageRating || 0,
+            totalRatings: doctor.totalRatings || 0,
             experience: parseInt(doctor.experience) || 5,
             location: 'Neurodent Clinic', // Default location
             image: doctor.profileImage || `https://ui-avatars.com/api/?name=${doctor.firstName}+${doctor.lastName}&background=0d9488&color=fff`,
@@ -212,6 +222,61 @@ const DoctorSearch = () => {
     
     return matchesSearch && matchesSpecialization && matchesRating && matchesExperience && matchesAvailability
   })
+
+  const openRatingModal = async (doctor) => {
+    setRatingModalDoctor(doctor)
+    setRatingReview('')
+    const existing = myRatings[doctor._id]
+    if (existing) {
+      setRatingScore(existing.score)
+      setRatingReview(existing.review || '')
+    } else {
+      setRatingScore(0)
+      // Fetch from server
+      try {
+        const token = localStorage.getItem('token')
+        const res = await axios.get(`${API_BASE_URL}/doctors/${doctor._id}/my-rating`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        if (res.data.myRating) {
+          setRatingScore(res.data.myRating.score)
+          setRatingReview(res.data.myRating.review || '')
+          setMyRatings(prev => ({ ...prev, [doctor._id]: res.data.myRating }))
+        }
+      } catch {}
+    }
+  }
+
+  const submitRating = async () => {
+    if (!ratingScore) return toast.error('Please select a star rating')
+    setRatingSubmitting(true)
+    try {
+      const token = localStorage.getItem('token')
+      const res = await axios.post(
+        `${API_BASE_URL}/doctors/${ratingModalDoctor._id}/rate`,
+        { score: ratingScore, review: ratingReview },
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      if (res.data.success) {
+        toast.success(res.data.message)
+        setMyRatings(prev => ({ ...prev, [ratingModalDoctor._id]: { score: ratingScore, review: ratingReview } }))
+        // Update doctor's live rating in state
+        setDoctors(prev => prev.map(d =>
+          d._id === ratingModalDoctor._id
+            ? { ...d, rating: res.data.averageRating, totalRatings: res.data.totalRatings }
+            : d
+        ))
+        if (selectedDoctor?._id === ratingModalDoctor._id) {
+          setSelectedDoctor(prev => ({ ...prev, rating: res.data.averageRating, totalRatings: res.data.totalRatings }))
+        }
+        setRatingModalDoctor(null)
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to submit rating')
+    } finally {
+      setRatingSubmitting(false)
+    }
+  }
 
   const getRatingStars = (rating) => {
     const stars = []
@@ -428,7 +493,8 @@ const DoctorSearch = () => {
                 <div className="flex items-center space-x-4 mb-3">
                   <div className="flex items-center">
                     {getRatingStars(doctor.rating)}
-                    <span className="ml-1 text-sm text-gray-600">{doctor.rating}</span>
+                    <span className="ml-1 text-sm text-gray-600">{doctor.rating > 0 ? doctor.rating.toFixed(1) : 'No ratings'}</span>
+                    {doctor.totalRatings > 0 && <span className="ml-1 text-xs text-gray-400">({doctor.totalRatings})</span>}
                   </div>
                   <span className="text-sm text-gray-600">{doctor.experience} years exp.</span>
                   <span className="text-sm text-gray-600">{doctor.location}</span>
@@ -454,6 +520,14 @@ const DoctorSearch = () => {
                     <p className="text-sm font-medium text-gray-900">{doctor.nextSlot}</p>
                   </div>
                   <div className="flex space-x-3">
+                    <button
+                      onClick={() => openRatingModal(doctor)}
+                      className="px-3 py-2 border-2 border-yellow-400 text-yellow-600 rounded-lg text-sm font-medium hover:bg-yellow-50 transition-all duration-200 flex items-center space-x-1"
+                      title="Rate this doctor"
+                    >
+                      <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z"/></svg>
+                      <span>{myRatings[doctor._id] ? 'Edit Rating' : 'Rate'}</span>
+                    </button>
                     <button
                       onClick={() => setSelectedDoctor(doctor)}
                       className="px-4 py-2 border-2 border-blue-500 text-blue-600 rounded-lg text-sm font-medium hover:bg-blue-50 hover:border-blue-600 hover:text-blue-700 transition-all duration-200 transform hover:scale-105 shadow-sm hover:shadow-md"
@@ -521,7 +595,8 @@ const DoctorSearch = () => {
                     <div className="flex items-center mt-2 space-x-4">
                       <div className="flex items-center">
                         {getRatingStars(selectedDoctor.rating)}
-                        <span className="ml-2 text-blue-100">{selectedDoctor.rating}</span>
+                        <span className="ml-2 text-blue-100">{selectedDoctor.rating > 0 ? selectedDoctor.rating.toFixed(1) : 'No ratings'}</span>
+                        {selectedDoctor.totalRatings > 0 && <span className="ml-1 text-blue-200 text-sm">({selectedDoctor.totalRatings} ratings)</span>}
                       </div>
                       <span className="text-blue-100">{selectedDoctor.experience} years exp.</span>
                     </div>
@@ -659,6 +734,14 @@ const DoctorSearch = () => {
               </button>
               <button
                 type="button"
+                onClick={() => { setSelectedDoctor(null); openRatingModal(selectedDoctor) }}
+                className="px-5 py-2 border-2 border-yellow-400 text-yellow-600 rounded-lg font-medium hover:bg-yellow-50 transition-all duration-200 flex items-center space-x-2"
+              >
+                <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z"/></svg>
+                <span>{myRatings[selectedDoctor._id] ? 'Edit Rating' : 'Rate Doctor'}</span>
+              </button>
+              <button
+                type="button"
                 onClick={() => {
                   setSelectedDoctor(null)
                   handleBookAppointment(selectedDoctor)
@@ -717,6 +800,72 @@ const DoctorSearch = () => {
         doctor={doctorToBook}
         onSuccess={handleBookingSuccess}
       />
+
+      {/* Rating Modal */}
+      {ratingModalDoctor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-gray-900 bg-opacity-50 backdrop-blur-sm" onClick={() => setRatingModalDoctor(null)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md z-10 p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-1">Rate {ratingModalDoctor.name}</h3>
+            <p className="text-sm text-gray-500 mb-5">{ratingModalDoctor.specialization} · Neurodent Clinic</p>
+
+            {/* Star selector */}
+            <div className="flex justify-center space-x-2 mb-3">
+              {[1,2,3,4,5].map(star => (
+                <button
+                  key={star}
+                  onMouseEnter={() => setRatingHover(star)}
+                  onMouseLeave={() => setRatingHover(0)}
+                  onClick={() => setRatingScore(star)}
+                  className="transition-transform hover:scale-110"
+                >
+                  <svg
+                    className={`w-10 h-10 transition-colors ${
+                      star <= (ratingHover || ratingScore) ? 'text-yellow-400' : 'text-gray-300'
+                    } fill-current`}
+                    viewBox="0 0 20 20"
+                  >
+                    <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z"/>
+                  </svg>
+                </button>
+              ))}
+            </div>
+            <p className="text-center text-sm text-gray-500 mb-4">
+              {ratingHover === 1 || ratingScore === 1 ? 'Poor' :
+               ratingHover === 2 || ratingScore === 2 ? 'Fair' :
+               ratingHover === 3 || ratingScore === 3 ? 'Good' :
+               ratingHover === 4 || ratingScore === 4 ? 'Very Good' :
+               ratingHover === 5 || ratingScore === 5 ? 'Excellent' : 'Select a rating'}
+            </p>
+
+            {/* Review */}
+            <textarea
+              value={ratingReview}
+              onChange={e => setRatingReview(e.target.value)}
+              placeholder="Write a review (optional)..."
+              rows={3}
+              maxLength={500}
+              className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none mb-4"
+            />
+
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setRatingModalDoctor(null)}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-xl text-gray-700 font-medium hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={submitRating}
+                disabled={!ratingScore || ratingSubmitting}
+                className="flex-1 px-4 py-2 bg-gradient-to-r from-yellow-400 to-yellow-500 text-white rounded-xl font-medium hover:from-yellow-500 hover:to-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                {ratingSubmitting ? 'Submitting...' : myRatings[ratingModalDoctor._id] ? 'Update Rating' : 'Submit Rating'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -569,8 +569,8 @@ const DoctorsManagement = () => {
                     {doctor.position} • {doctor.experience} years
                   </div>
                   <div className="flex items-center text-sm text-gray-600">
-                    <Star className="w-4 h-4 mr-2 text-yellow-500" />
-                    {doctor.rating || 0} rating • {doctor.patientsToday || 0} patients today
+                    <Star className="w-4 h-4 mr-2 text-yellow-500 fill-current" />
+                    {doctor.averageRating > 0 ? doctor.averageRating.toFixed(1) : '0'} ({doctor.totalRatings || 0} {doctor.totalRatings === 1 ? 'review' : 'reviews'}) • {doctor.patientsToday || 0} patients today
                   </div>
                   {doctor.bio && (
                     <div className="text-sm text-gray-600 mt-2">
@@ -1181,8 +1181,8 @@ const DoctorsManagement = () => {
                   <div className="flex items-center justify-center mb-2">
                     <Star className="w-5 h-5 text-yellow-500" />
                   </div>
-                  <p className="text-2xl font-bold text-gray-900">{viewingDoctor.rating || 0}</p>
-                  <p className="text-sm text-gray-500">Rating</p>
+                  <p className="text-2xl font-bold text-gray-900">{viewingDoctor.averageRating > 0 ? viewingDoctor.averageRating.toFixed(1) : '—'}</p>
+                  <p className="text-sm text-gray-500">Rating ({viewingDoctor.totalRatings || 0} {viewingDoctor.totalRatings === 1 ? 'review' : 'reviews'})</p>
                 </div>
                 <div className="text-center p-4 bg-gray-50 rounded-lg">
                   <p className="text-2xl font-bold text-gray-900">{viewingDoctor.patientsToday || 0}</p>
