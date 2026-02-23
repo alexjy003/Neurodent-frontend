@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import {
   Calendar,
@@ -23,8 +24,17 @@ import {
 } from 'lucide-react'
 import apiService from '../../services/api'
 
+const formatTime24to12 = (time24) => {
+  if (!time24) return ''
+  const [h, m] = time24.split(':').map(Number)
+  const period = h >= 12 ? 'PM' : 'AM'
+  const hour = h % 12 || 12
+  return `${hour}:${String(m).padStart(2, '0')} ${period}`
+}
+
 const Appointments = () => {
-  const [activeTab, setActiveTab] = useState('pending')
+  const [searchParams] = useSearchParams()
+  const [activeTab, setActiveTab] = useState(() => searchParams.get('tab') || 'pending')
   const [appointments, setAppointments] = useState([])
   const [pastPendingAppointments, setPastPendingAppointments] = useState([])
   const [filteredAppointments, setFilteredAppointments] = useState([])
@@ -173,8 +183,17 @@ const Appointments = () => {
           });
         }
         
-        // Use raw data from server without any modifications
-        setAppointments(response.appointments || [])
+        // Use raw data from server; sort completed newest-first
+        const raw = response.appointments || []
+        if (activeTab === 'completed') {
+          raw.sort((a, b) => {
+            const dateCompare = new Date(b.appointmentDate) - new Date(a.appointmentDate)
+            if (dateCompare !== 0) return dateCompare
+            // Secondary sort by startTime descending
+            return (b.startTime || '').localeCompare(a.startTime || '')
+          })
+        }
+        setAppointments(raw)
         
         // If it's pending tab, also fetch past pending appointments
         if (activeTab === 'pending') {
@@ -278,7 +297,7 @@ const Appointments = () => {
         setAppointments(prev => 
           prev.map(apt => 
             apt.id === appointmentId 
-              ? { ...apt, status: 'confirmed' }
+              ? { ...apt, status: 'confirmed', actualStartTime: response.appointment?.actualStartTime || apt.actualStartTime }
               : apt
           )
         )
@@ -842,7 +861,9 @@ const Appointments = () => {
                         </div>
                         <div className="flex items-center">
                           <Clock className="w-4 h-4 mr-1" />
-                          {appointment.timeRange}
+                          {appointment.status === 'completed' && appointment.actualEndTime
+                            ? `${formatTime24to12(appointment.actualStartTime || appointment.startTime)} - ${formatTime24to12(appointment.actualEndTime)}`
+                            : appointment.timeRange}
                         </div>
                         <div className="flex items-center">
                           <Stethoscope className="w-4 h-4 mr-1" />
@@ -892,6 +913,12 @@ const Appointments = () => {
                       const appointmentDate = new Date(appointment.appointmentDate).toDateString();
                       const today = new Date().toDateString();
                       const isToday = appointmentDate === today;
+                      // Check if appointment start time has been reached
+                      const now = new Date();
+                      const [startH, startM] = (appointment.startTime || '00:00').split(':').map(Number);
+                      const startMinutes = startH * 60 + startM;
+                      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+                      const hasStarted = isToday && currentMinutes >= startMinutes;
 
                       return (
                         <>
@@ -911,14 +938,14 @@ const Appointments = () => {
                             </button>
                           </div>
                           <button
-                            onClick={() => isToday && handleCompleteAppointment(appointment)}
-                            disabled={!isToday}
+                            onClick={() => hasStarted && handleCompleteAppointment(appointment)}
+                            disabled={!hasStarted}
                             className={`inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded transition-colors ${
-                              isToday
+                              hasStarted
                                 ? 'text-white bg-blue-600 hover:bg-blue-700 cursor-pointer'
                                 : 'text-gray-400 bg-gray-200 cursor-not-allowed opacity-60'
                             }`}
-                            title={!isToday ? 'Appointment can only be completed on the appointment date' : 'Mark as complete'}
+                            title={!isToday ? 'Appointment can only be completed on the appointment date' : !hasStarted ? `Cannot complete before ${appointment.startTime ? appointment.startTime + ' (appointment start time)' : 'start time'}` : 'Mark as complete'}
                           >
                             <CheckCircle className="w-3 h-3 mr-1" />
                             Complete

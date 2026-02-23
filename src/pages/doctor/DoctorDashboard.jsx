@@ -589,16 +589,16 @@ const DoctorDashboard = () => {
                     <div className="flex items-center space-x-2 mt-4">
                       {(appointment.status === 'pending' || appointment.status === 'scheduled' || appointment.status === 'confirmed') && (
                         <>
-                          <button className="px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm">
+                          <button onClick={() => navigate('/doctor/appointments')} className="px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm">
                             Start Consultation
                           </button>
-                          <button className="px-3 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm">
+                          <button onClick={() => navigate('/doctor/appointments')} className="px-3 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm">
                             Reschedule
                           </button>
                         </>
                       )}
                       {appointment.status === 'completed' && (
-                        <button className="px-3 py-1 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm flex items-center space-x-1">
+                        <button onClick={() => navigate('/doctor/appointments?tab=completed')} className="px-3 py-1 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm flex items-center space-x-1">
                           <Eye className="w-4 h-4" />
                           <span>View Details</span>
                         </button>

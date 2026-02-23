@@ -196,9 +196,33 @@ const PrescriptionManagement = () => {
     }
   }
 
-  const downloadPrescription = (prescription) => {
-    // In a real app, this would generate and download a PDF
-    toast.success(`Prescription ${prescription.id} downloaded`)
+  const downloadPrescription = async (prescription) => {
+    try {
+      const token = localStorage.getItem('pharmacistToken')
+      const prescriptionId = prescription._id || prescription.id
+      const response = await fetch(
+        `${API_BASE_URL}/prescriptions/${prescriptionId}/pdf-pharmacist`,
+        { headers: { 'Authorization': `Bearer ${token}` } }
+      )
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}))
+        toast.error(err.message || 'Failed to download prescription')
+        return
+      }
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `prescription-${prescriptionId}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+      toast.success('Prescription downloaded successfully')
+    } catch (error) {
+      console.error('Error downloading prescription:', error)
+      toast.error('Failed to download prescription')
+    }
   }
 
   // Fetch available medicines for allocation
@@ -276,13 +300,21 @@ const PrescriptionManagement = () => {
           medicationDuration: med.duration,
           medicineId: matchingMedicine?._id || '',
           quantity: 1,
-          allocated: false
+          allocated: false,
+          selected: true
         }
       })
       
       setAllocations(initialAllocations)
     }
   }, [availableMedicines, allocationPrescription])
+
+  // Handle toggle include/exclude of a medication
+  const handleToggleSelection = (index) => {
+    const updatedAllocations = [...allocations]
+    updatedAllocations[index].selected = !updatedAllocations[index].selected
+    setAllocations(updatedAllocations)
+  }
 
   // Handle medicine selection for a medication
   const handleMedicineSelection = (index, medicineId) => {
@@ -301,19 +333,26 @@ const PrescriptionManagement = () => {
   // Submit allocation
   const handleAllocateSubmit = async () => {
     try {
-      // Validate all allocations
-      const invalidAllocations = allocations.filter(a => !a.medicineId || a.quantity <= 0)
+      // Only validate and submit selected allocations
+      const selectedAllocations = allocations.filter(a => a.selected)
+
+      if (selectedAllocations.length === 0) {
+        toast.error('Please select at least one medication to allocate')
+        return
+      }
+
+      const invalidAllocations = selectedAllocations.filter(a => !a.medicineId || a.quantity <= 0)
       
       if (invalidAllocations.length > 0) {
-        toast.error('Please select medicine and quantity for all medications')
+        toast.error('Please select medicine and quantity for all selected medications')
         return
       }
 
       setAllocating(true)
       const token = localStorage.getItem('pharmacistToken')
       
-      // Prepare allocation data
-      const allocationData = allocations.map(a => ({
+      // Prepare allocation data — only selected ones
+      const allocationData = selectedAllocations.map(a => ({
         medicationIndex: a.medicationIndex,
         medicineId: a.medicineId,
         quantity: a.quantity
@@ -673,11 +712,11 @@ const PrescriptionManagement = () => {
       {/* Prescription Detail Modal */}
       {showModal && selectedPrescription && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-10 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
+          <div className="relative top-10 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white mb-10">
             <div className="mt-3">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-medium text-gray-900">
-                  Prescription Details - {selectedPrescription.id}
+                  Prescription Details
                 </h3>
                 <button
                   onClick={() => setShowModal(false)}
@@ -693,41 +732,58 @@ const PrescriptionManagement = () => {
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <h4 className="font-medium text-gray-900 mb-2">Patient Information</h4>
                     <p><strong>Name:</strong> {selectedPrescription.patientName}</p>
-                    <p><strong>ID:</strong> {selectedPrescription.patientId}</p>
-                    <p><strong>Allergies:</strong> {selectedPrescription.allergies}</p>
+                    {selectedPrescription.patientId?.email && (
+                      <p><strong>Email:</strong> {selectedPrescription.patientId.email}</p>
+                    )}
                   </div>
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <h4 className="font-medium text-gray-900 mb-2">Doctor Information</h4>
-                    <p><strong>Name:</strong> {selectedPrescription.doctorName}</p>
-                    <p><strong>Date:</strong> {formatDate(selectedPrescription.date)}</p>
-                    <p><strong>Time:</strong> {selectedPrescription.time}</p>
+                    <p><strong>Name:</strong> {
+                      selectedPrescription.doctorId
+                        ? `Dr. ${selectedPrescription.doctorId.firstName} ${selectedPrescription.doctorId.lastName}`
+                        : selectedPrescription.doctorName || 'N/A'
+                    }</p>
+                    <p><strong>Date:</strong> {formatDate(selectedPrescription.prescriptionDate || selectedPrescription.createdAt)}</p>
+                    {(selectedPrescription.doctorId?.specialization || selectedPrescription.doctorId?.specialty) && (
+                      <p><strong>Specialization:</strong> {selectedPrescription.doctorId.specialization || selectedPrescription.doctorId.specialty}</p>
+                    )}
                   </div>
                 </div>
+
+                {/* Diagnosis */}
+                {selectedPrescription.diagnosis && (
+                  <div className="bg-blue-50 p-3 rounded-lg">
+                    <p className="text-sm"><strong>Diagnosis:</strong> {selectedPrescription.diagnosis}</p>
+                  </div>
+                )}
 
                 {/* Medicines */}
                 <div>
                   <h4 className="font-medium text-gray-900 mb-2">Prescribed Medicines</h4>
                   <div className="space-y-3">
-                    {selectedPrescription.medicines.map((medicine, index) => (
+                    {(selectedPrescription.medications || []).map((medicine, index) => (
                       <div key={index} className="border border-gray-200 p-4 rounded-lg">
                         <h5 className="font-medium text-gray-900">{medicine.name}</h5>
                         <div className="grid grid-cols-2 gap-2 mt-2 text-sm text-gray-600">
-                          <p><strong>Dosage:</strong> {medicine.dosage}</p>
-                          <p><strong>Frequency:</strong> {medicine.frequency}</p>
-                          <p><strong>Duration:</strong> {medicine.duration}</p>
-                          <p><strong>Quantity:</strong> {medicine.quantity}</p>
+                          {medicine.dosage && <p><strong>Dosage:</strong> {medicine.dosage}</p>}
+                          {medicine.frequency && <p><strong>Frequency:</strong> {medicine.frequency}</p>}
+                          {medicine.duration && <p><strong>Duration:</strong> {medicine.duration}</p>}
+                          {medicine.quantity && <p><strong>Quantity:</strong> {medicine.quantity}</p>}
                         </div>
+                        {medicine.instructions && (
+                          <p className="text-xs text-gray-500 mt-1 italic">{medicine.instructions}</p>
+                        )}
                       </div>
                     ))}
                   </div>
                 </div>
 
-                {/* Notes */}
-                {selectedPrescription.notes && (
+                {/* General Instructions */}
+                {selectedPrescription.generalInstructions && (
                   <div>
-                    <h4 className="font-medium text-gray-900 mb-2">Doctor's Notes</h4>
+                    <h4 className="font-medium text-gray-900 mb-2">General Instructions</h4>
                     <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
-                      {selectedPrescription.notes}
+                      {selectedPrescription.generalInstructions}
                     </p>
                   </div>
                 )}
@@ -735,22 +791,18 @@ const PrescriptionManagement = () => {
                 {/* Actions */}
                 <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
                   <button
+                    onClick={() => downloadPrescription(selectedPrescription)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Download PDF
+                  </button>
+                  <button
                     onClick={() => setShowModal(false)}
                     className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
                   >
                     Close
                   </button>
-                  {selectedPrescription.status !== 'dispensed' && (
-                    <button
-                      onClick={() => {
-                        updatePrescriptionStatus(selectedPrescription.id, 'dispensed')
-                        setShowModal(false)
-                      }}
-                      className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-                    >
-                      Mark as Dispensed
-                    </button>
-                  )}
                 </div>
               </div>
             </div>
@@ -798,20 +850,46 @@ const PrescriptionManagement = () => {
                   const selectedMedicine = availableMedicines.find(m => m._id === allocation.medicineId)
                   
                   return (
-                    <div key={index} className="border border-gray-200 p-4 rounded-lg bg-gray-50">
-                      <div className="mb-3">
-                        <h4 className="font-medium text-gray-900">{allocation.medicationName}</h4>
-                        <p className="text-sm text-gray-600">
-                          {allocation.medicationDosage} - {allocation.medicationDuration}
-                        </p>
-                        {!allocation.medicineId && availableMedicines.length > 0 && (
-                          <p className="text-xs text-amber-600 mt-1 flex items-center">
-                            <AlertTriangle className="w-3 h-3 mr-1" />
-                            No exact match found in inventory - please select manually
+                    <div key={index} className={`border rounded-lg p-4 transition-all ${
+                      allocation.selected
+                        ? 'border-gray-200 bg-gray-50'
+                        : 'border-gray-200 bg-gray-100 opacity-50'
+                    }`}>
+                      {/* Header with toggle */}
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900">{allocation.medicationName}</h4>
+                          <p className="text-sm text-gray-600">
+                            {allocation.medicationDosage} - {allocation.medicationDuration}
                           </p>
-                        )}
+                          {allocation.selected && !allocation.medicineId && availableMedicines.length > 0 && (
+                            <p className="text-xs text-amber-600 mt-1 flex items-center">
+                              <AlertTriangle className="w-3 h-3 mr-1" />
+                              No exact match found in inventory - please select manually
+                            </p>
+                          )}
+                        </div>
+                        {/* Include / Exclude toggle */}
+                        <label className="flex items-center cursor-pointer ml-4 flex-shrink-0">
+                          <span className="text-xs text-gray-500 mr-2">
+                            {allocation.selected ? 'Include' : 'Exclude'}
+                          </span>
+                          <div
+                            onClick={() => handleToggleSelection(index)}
+                            className={`relative w-10 h-5 rounded-full transition-colors ${
+                              allocation.selected ? 'bg-purple-600' : 'bg-gray-300'
+                            }`}
+                          >
+                            <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                              allocation.selected ? 'translate-x-5' : 'translate-x-0'
+                            }`} />
+                          </div>
+                        </label>
                       </div>
 
+                      {/* Medicine Selection — only shown when included */}
+                      {allocation.selected && (
+                        <>
                       {/* Medicine Selection with Images */}
                       <div className="mb-4">
                         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -899,6 +977,8 @@ const PrescriptionManagement = () => {
                             ⚠️ Insufficient stock! Only {selectedMedicine.stockQuantity} units available.
                           </p>
                         </div>
+                      )}
+                        </>
                       )}
                     </div>
                   )

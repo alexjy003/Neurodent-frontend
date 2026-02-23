@@ -2,6 +2,14 @@ import React, { useState, useEffect } from 'react';
 import appointmentService from '../services/appointmentService';
 import DoctorSearch from './DoctorSearch';
 
+const formatTime24to12 = (time24) => {
+  if (!time24) return ''
+  const [h, m] = time24.split(':').map(Number)
+  const period = h >= 12 ? 'PM' : 'AM'
+  const hour = h % 12 || 12
+  return `${hour}:${String(m).padStart(2, '0')} ${period}`
+}
+
 const AppointmentManagement = ({ user }) => {
   const [activeTab, setActiveTab] = useState('upcoming');
   const [showBookingModal, setShowBookingModal] = useState(false);
@@ -53,30 +61,28 @@ const AppointmentManagement = ({ user }) => {
         const past = [];
         
         response.appointments.forEach(appointment => {
-          const appointmentDate = new Date(appointment.appointmentDate);
-          
-          // Parse the start time from timeRange (e.g., "3:00 PM - 5:00 PM")
-          const startTimeStr = appointment.timeRange.split(' - ')[0].trim();
-          
-          // Convert 12-hour format to 24-hour for comparison
-          const convertTo24Hour = (timeStr) => {
-            const [time, period] = timeStr.split(' ');
-            let [hours, minutes] = time.split(':').map(n => parseInt(n));
-            
-            if (period === 'AM' && hours === 12) {
-              hours = 0;
-            } else if (period === 'PM' && hours !== 12) {
-              hours += 12;
+          // Use appointmentDate (YYYY-MM-DD) + endTime (HH:MM 24h) directly
+          const [year, month, day] = appointment.appointmentDate.split('-').map(Number);
+          let endH = 23, endM = 59; // fallback: treat as end-of-day if no endTime
+          if (appointment.endTime) {
+            [endH, endM] = appointment.endTime.split(':').map(Number);
+          } else {
+            // Fallback: parse from timeRange end portion
+            const timeRangeParts = (appointment.timeRange || '').split(' - ');
+            const endTimeStr = timeRangeParts.length > 1 ? timeRangeParts[1].trim() : '';
+            if (endTimeStr) {
+              const [time, period] = endTimeStr.split(' ');
+              let [h, m] = time.split(':').map(n => parseInt(n));
+              if (period === 'PM' && h !== 12) h += 12;
+              if (period === 'AM' && h === 12) h = 0;
+              endH = h; endM = m;
             }
-            
-            return { hours, minutes };
-          };
-          
-          const { hours, minutes } = convertTo24Hour(startTimeStr);
-          appointmentDate.setHours(hours, minutes, 0, 0);
-          
-          // Check if appointment is in the future and not completed/cancelled
-          if (appointmentDate > now && appointment.status !== 'completed' && appointment.status !== 'cancelled') {
+          }
+          // Build a local Date at the slot end time
+          const slotEnd = new Date(year, month - 1, day, endH, endM, 0, 0);
+
+          // Check if slot hasn't ended yet and appointment is active
+          if (slotEnd > now && appointment.status !== 'completed' && appointment.status !== 'cancelled') {
             upcoming.push(appointment);
           } else {
             past.push(appointment);
@@ -450,7 +456,11 @@ const AppointmentManagement = ({ user }) => {
                             <svg className="h-5 w-5 mr-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
-                            <span className="font-medium">{appointment.timeRange}</span>
+                            <span className="font-medium">
+                              {appointment.status === 'completed' && appointment.actualEndTime
+                                ? `${formatTime24to12(appointment.actualStartTime || appointment.startTime)} - ${formatTime24to12(appointment.actualEndTime)}`
+                                : appointment.timeRange}
+                            </span>
                           </div>
                         </div>
                         
