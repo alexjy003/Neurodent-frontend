@@ -316,10 +316,24 @@ const Schedule = () => {
     
     const daySchedule = schedule[dayName.toLowerCase()] || []
     
+    const availableTimes = getAvailableTimeOptions(dayName)
+
+    // Helper: if a time value is not in available options (i.e. past), clamp to first available
+    const clampToAvailable = (time) => {
+      if (availableTimes.length === 0) return time
+      const isAvailable = availableTimes.includes(time)
+      return isAvailable ? time : availableTimes[0]
+    }
+
     // Convert to editable format with 12-hour times (no auto slot types)
     const editableSlots = daySchedule.map((slot, index) => {
-      const startTime = timeUtils.formatTo12Hour(slot.startTime)
-      const endTime = timeUtils.formatTo12Hour(slot.endTime)
+      const rawStart = timeUtils.formatTo12Hour(slot.startTime)
+      const rawEnd = timeUtils.formatTo12Hour(slot.endTime)
+      const startTime = clampToAvailable(rawStart)
+      // Ensure end time is after the clamped start time
+      const startIdx = availableTimes.indexOf(startTime)
+      const endIdx = availableTimes.indexOf(rawEnd)
+      const endTime = (endIdx > startIdx && endIdx !== -1) ? rawEnd : (availableTimes[startIdx + 1] || rawEnd)
       
       return {
         id: Date.now() + index, // For React keys and local operations
@@ -331,11 +345,12 @@ const Schedule = () => {
       }
     })
     
+    setError('')
     setEditingDay(dayName)
     setTempTimeSlots(editableSlots.length > 0 ? editableSlots : [{
       id: Date.now(),
-      startTime: '9:00 AM',
-      endTime: '10:00 AM',
+      startTime: availableTimes.length > 0 ? availableTimes[0] : '9:00 AM',
+      endTime: availableTimes.length > 1 ? availableTimes[1] : '10:00 AM',
       type: 'Available',
       label: 'Available'
     }])
@@ -344,6 +359,7 @@ const Schedule = () => {
   const cancelEdit = () => {
     setEditingDay(null)
     setTempTimeSlots([])
+    setError('')
   }
 
   const isValidTimeSlot = (slot) => {
@@ -370,31 +386,6 @@ const Schedule = () => {
         return { valid: false, message: 'End time must be after start time' }
       }
       
-      // Check if times are in the past for today only with minimal buffer
-      if (editingDay) {
-        const dayIndex = daysOfWeek.findIndex(d => d === editingDay)
-        if (dayIndex !== -1) {
-          const dayDate = weekDates[dayIndex]
-          const today = new Date()
-          
-          // Only apply past time check if this is today
-          if (dayDate.toDateString() === today.toDateString()) {
-            const currentTime = new Date()
-            const currentHour = currentTime.getHours()
-            const currentMinute = currentTime.getMinutes()
-            
-            const [startHour, startMinute] = startTime24.split(':').map(Number)
-            
-            const startInMinutes = startHour * 60 + startMinute
-            const currentInMinutes = currentHour * 60 + currentMinute + 5 // Only 5 minute buffer
-            
-            // Only check start time - if start time is okay, allow the scheduling
-            if (startInMinutes <= currentInMinutes) {
-              return { valid: false, message: `Start time cannot be in the past (current time: ${currentHour}:${currentMinute.toString().padStart(2, '0')})` }
-            }
-          }
-        }
-      }
     }
 
     return { valid: true }
@@ -523,6 +514,7 @@ const Schedule = () => {
         return slot
       })
     )
+    setError('')
     setHasUnsavedChanges(true)
   }
 

@@ -149,8 +149,11 @@ class DoctorAPIService {
     // Determine availability status using real schedule data
     const availabilityText = this.formatAvailability(doctor.nextAvailableSlot);
 
-    // Generate a placeholder rating (in production, this would come from actual reviews)
-    const rating = (4.5 + Math.random() * 0.4).toFixed(1);
+    // Use real ratings from the doctor model
+    const rating = doctor.averageRating && doctor.averageRating > 0
+      ? parseFloat(doctor.averageRating.toFixed(1))
+      : null;
+    const totalRatings = doctor.totalRatings || 0;
 
     // Default professional images for different specializations
     const defaultImages = [
@@ -169,7 +172,8 @@ class DoctorAPIService {
       name: `Dr. ${doctor.firstName} ${doctor.lastName}`,
       specialization: doctor.specialization,
       experience: experienceYears,
-      rating: parseFloat(rating),
+      rating,
+      totalRatings,
       availability: availabilityText,
       image: doctor.profileImage || defaultImage,
       position: doctor.position,

@@ -20,6 +20,14 @@ import {
 import toast from 'react-hot-toast'
 import apiService from '../../services/api'
 
+// Returns true if the prescription was created within the last 24 hours
+const isWithin24Hours = (prescription) => {
+  const created = prescription.createdAt || prescription.prescriptionDate
+  if (!created) return false
+  const hoursDiff = (Date.now() - new Date(created).getTime()) / (1000 * 60 * 60)
+  return hoursDiff <= 24
+}
+
 const Prescriptions = () => {
   const [prescriptions, setPrescriptions] = useState([])
   const [filteredPrescriptions, setFilteredPrescriptions] = useState([])
@@ -580,7 +588,7 @@ const Prescriptions = () => {
                       <Download className="w-4 h-4 mr-2" />
                       Download PDF
                     </button>
-                    {!prescription.sentToPharmacy && (
+                    {!prescription.sentToPharmacy && isWithin24Hours(prescription) && (
                       <button
                         onClick={() => handleSendToPharmacy(prescription._id)}
                         className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
@@ -731,7 +739,7 @@ const Prescriptions = () => {
                     <Download className="w-4 h-4 mr-2" />
                     Download PDF
                   </button>
-                  {!selectedPrescription.sentToPharmacy && (
+                  {!selectedPrescription.sentToPharmacy && isWithin24Hours(selectedPrescription) && (
                     <button
                       onClick={() => {
                         handleSendToPharmacy(selectedPrescription._id);

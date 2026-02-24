@@ -378,10 +378,10 @@ const MedicineLogs = () => {
                         <Calendar className="w-3 h-3 mr-1" />
                         {formatTimestamp(log.timestamp)}
                       </span>
-                      {log.prescriptionId && (
+                      {log.patientName && (
                         <span className="flex items-center">
-                          <FileText className="w-3 h-3 mr-1" />
-                          {log.prescriptionId}
+                          <User className="w-3 h-3 mr-1" />
+                          {log.patientName}
                         </span>
                       )}
                     </div>

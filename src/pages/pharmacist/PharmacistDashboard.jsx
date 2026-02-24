@@ -4,7 +4,6 @@ import {
   Package, 
   AlertTriangle, 
   FileText, 
-  Calendar,
   TrendingUp,
   TrendingDown,
   Clock,
@@ -337,7 +336,7 @@ const PharmacistDashboard = () => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Medicine Categories</h3>
-            <button className="text-sm text-gray-500 hover:text-gray-700">View Details</button>
+            <button onClick={() => navigate('/pharmacist/inventory')} className="text-sm text-gray-500 hover:text-gray-700">View Details</button>
           </div>
           <div className="h-64">
             <Doughnut data={doughnutChartData} options={doughnutOptions} />
@@ -351,7 +350,7 @@ const PharmacistDashboard = () => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
           <div className="space-y-3">
-            <button className="w-full flex items-center justify-between p-3 bg-pink-50 hover:bg-pink-100 rounded-lg transition-colors group">
+            <button onClick={() => navigate('/pharmacist/inventory')} className="w-full flex items-center justify-between p-3 bg-pink-50 hover:bg-pink-100 rounded-lg transition-colors group">
               <div className="flex items-center">
                 <Package className="w-5 h-5 text-[#C33764] mr-3" />
                 <span className="text-sm font-medium text-gray-900">Add New Medicine</span>
@@ -359,7 +358,7 @@ const PharmacistDashboard = () => {
               <span className="text-[#C33764] group-hover:translate-x-1 transition-transform">→</span>
             </button>
             
-            <button className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors group">
+            <button onClick={() => navigate('/pharmacist/prescriptions')} className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors group">
               <div className="flex items-center">
                 <FileText className="w-5 h-5 text-gray-600 mr-3" />
                 <span className="text-sm font-medium text-gray-900">Process Prescription</span>
@@ -367,18 +366,10 @@ const PharmacistDashboard = () => {
               <span className="text-gray-600 group-hover:translate-x-1 transition-transform">→</span>
             </button>
             
-            <button className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors group">
+            <button onClick={() => navigate('/pharmacist/inventory')} className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors group">
               <div className="flex items-center">
                 <AlertTriangle className="w-5 h-5 text-gray-600 mr-3" />
                 <span className="text-sm font-medium text-gray-900">Check Low Stock</span>
-              </div>
-              <span className="text-gray-600 group-hover:translate-x-1 transition-transform">→</span>
-            </button>
-            
-            <button className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors group">
-              <div className="flex items-center">
-                <Calendar className="w-5 h-5 text-gray-600 mr-3" />
-                <span className="text-sm font-medium text-gray-900">View Schedule</span>
               </div>
               <span className="text-gray-600 group-hover:translate-x-1 transition-transform">→</span>
             </button>
@@ -389,7 +380,10 @@ const PharmacistDashboard = () => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Recent Activities</h3>
-            <button className="text-sm text-[#C33764] hover:text-[#1d2671] font-medium">
+            <button
+              onClick={() => navigate('/pharmacist/logs')}
+              className="text-sm text-[#C33764] hover:text-[#1d2671] font-medium"
+            >
               View All Activities →
             </button>
           </div>
@@ -427,11 +421,11 @@ const PharmacistDashboard = () => {
           </div>
           <div className="text-center">
             <p className="text-2xl font-bold">₹{dashboardData.weeklyRevenue.toLocaleString()}</p>
-            <p className="text-pink-100 text-sm">Weekly Revenue</p>
+            <p className="text-pink-100 text-sm">This Week's Revenue (Sun–Sat)</p>
           </div>
           <div className="text-center">
             <p className="text-2xl font-bold">{dashboardData.stockAvailability}%</p>
-            <p className="text-pink-100 text-sm">Stock Availability</p>
+            <p className="text-pink-100 text-sm">Items Adequately Stocked</p>
           </div>
         </div>
       </div>

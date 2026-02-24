@@ -505,7 +505,7 @@ const PatientRecords = () => {
                           <span>•</span>
                           <span>{patient.phone || 'No phone'}</span>
                           <span>•</span>
-                          <span>Last visit: N/A</span>
+                          <span>Last visit: {patient.lastVisitDate ? formatDate(patient.lastVisitDate) : 'No visits'}</span>
                         </div>
                       </div>
                     </div>

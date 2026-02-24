@@ -11,7 +11,8 @@ import {
   Pill,
   Download,
   AlertTriangle,
-  Loader2
+  Loader2,
+  IndianRupee
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { API_BASE_URL } from '../../utils/config'
@@ -448,7 +449,7 @@ const PrescriptionManagement = () => {
             <div>
               <p className="text-sm text-gray-600">Processing</p>
               <p className="text-2xl font-bold text-blue-600">
-                {prescriptions.filter(p => p.status === 'pending' || p.status === 'active').length}
+                {prescriptions.filter(p => p.status === 'processing').length}
               </p>
             </div>
             <FileText className="w-8 h-8 text-blue-500" />
@@ -604,17 +605,37 @@ const PrescriptionManagement = () => {
                 Medicines ({prescription.medications?.length || 0})
               </h4>
               <div className="space-y-2">
-                {prescription.medications?.slice(0, 2).map((medicine, index) => (
-                  <div key={index} className="bg-gray-50 p-3 rounded-lg">
-                    <p className="text-sm font-medium text-gray-900">{medicine.name}</p>
-                    <p className="text-xs text-gray-600">
-                      {medicine.dosage} - {medicine.frequency || 'As prescribed'} for {medicine.duration}
-                    </p>
-                    {medicine.instructions && (
-                      <p className="text-xs text-gray-500 italic mt-1">{medicine.instructions}</p>
-                    )}
-                  </div>
-                ))}
+                {(() => {
+                  const hasAllocation = prescription.medications?.some(m => m.allocated)
+                  return prescription.medications?.slice(0, 2).map((medicine, index) => (
+                    <div key={index} className={`p-3 rounded-lg ${
+                      hasAllocation && medicine.allocated
+                        ? 'bg-green-50 border border-green-200'
+                        : hasAllocation && !medicine.allocated
+                        ? 'bg-gray-100 border border-gray-200 opacity-70'
+                        : 'bg-gray-50'
+                    }`}>
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <p className={`text-sm font-medium ${
+                            hasAllocation && !medicine.allocated ? 'text-gray-400 line-through' : 'text-gray-900'
+                          }`}>{medicine.name}</p>
+                          <p className="text-xs text-gray-600">
+                            {medicine.dosage} - {medicine.frequency || 'As prescribed'} for {medicine.duration}
+                          </p>
+                          {medicine.instructions && (
+                            <p className="text-xs text-gray-500 italic mt-1">{medicine.instructions}</p>
+                          )}
+                        </div>
+                        {hasAllocation && (
+                          medicine.allocated
+                            ? <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0 ml-2 mt-0.5" />
+                            : <span className="text-xs text-gray-400 bg-gray-200 px-1.5 py-0.5 rounded ml-2 flex-shrink-0">Excluded</span>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                })()}
                 {prescription.medications?.length > 2 && (
                   <p className="text-xs text-gray-500">+{prescription.medications.length - 2} more medicines</p>
                 )}
@@ -697,12 +718,22 @@ const PrescriptionManagement = () => {
               </div>
             </div>
 
-            {/* Dispensed Info */}
-            {prescription.dispensedAt && (
-              <div className="mt-2 pt-2 border-t border-gray-200">
-                <p className="text-xs text-gray-500">
-                  Dispensed by {prescription.dispensedBy} on {prescription.dispensedAt}
-                </p>
+            {/* Payment Info - shown when patient has paid */}
+            {prescription.paymentStatus === 'paid' && prescription.paidAmount != null && (
+              <div className="mt-3 pt-3 border-t border-green-200 bg-green-50 rounded-lg px-4 py-3 flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <CheckCircle className="w-4 h-4 text-green-600" />
+                  <span className="text-sm font-medium text-green-800">Payment Completed</span>
+                  {prescription.paidAt && (
+                    <span className="text-xs text-green-600">
+                      · {new Date(prescription.paidAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center text-green-800 font-semibold text-sm">
+                  <IndianRupee className="w-3.5 h-3.5 mr-0.5" />
+                  Amount Paid: ₹{prescription.paidAmount.toLocaleString('en-IN')}
+                </div>
               </div>
             )}
           </div>
