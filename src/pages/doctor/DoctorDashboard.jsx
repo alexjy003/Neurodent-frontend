@@ -171,16 +171,42 @@ const DoctorDashboard = () => {
   // Debug: Log calculated stats
   console.log('📊 Calculated stats:', stats);
 
-  // Compute next upcoming appointment from ALL appointments (not just today)
+  // Returns true when today's appointment slot end time has already passed
+  const isEndTimePassed = (apt) => {
+    const aptDate = apt.appointmentDate || apt.date
+    if (aptDate !== today) return false
+    const endTimeStr = apt.endTime
+    if (!endTimeStr) return false
+    const now = new Date()
+    const h24 = endTimeStr.match(/^(\d{1,2}):(\d{2})$/)
+    const ampm = endTimeStr.match(/^(\d+):(\d+)\s*(AM|PM)$/i)
+    let hours, minutes
+    if (h24) {
+      hours = parseInt(h24[1]); minutes = parseInt(h24[2])
+    } else if (ampm) {
+      hours = parseInt(ampm[1]); minutes = parseInt(ampm[2])
+      const m = ampm[3].toUpperCase()
+      if (m === 'PM' && hours !== 12) hours += 12
+      if (m === 'AM' && hours === 12) hours = 0
+    } else return false
+    const end = new Date(); end.setHours(hours, minutes, 0, 0)
+    return now > end
+  }
+
+  // Compute next upcoming appointment — exclude today's slots whose end time has passed
   const nextAppointment = appointments
     .filter(apt => {
       const aptDate = apt.appointmentDate || apt.date
-      return aptDate >= today && (
+      if (aptDate < today) return false
+      if (!(
         apt.status === 'pending' ||
         apt.status === 'scheduled' ||
         apt.status === 'confirmed' ||
         apt.status === 'booked'
-      )
+      )) return false
+      // Skip today's appointments that are already past their end time
+      if (isEndTimePassed(apt)) return false
+      return true
     })
     .sort((a, b) => {
       const dateA = a.appointmentDate || a.date || ''
@@ -588,14 +614,21 @@ const DoctorDashboard = () => {
                     
                     <div className="flex items-center space-x-2 mt-4">
                       {(appointment.status === 'pending' || appointment.status === 'scheduled' || appointment.status === 'confirmed') && (
-                        <>
-                          <button onClick={() => navigate('/doctor/appointments')} className="px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm">
-                            Start Consultation
-                          </button>
-                          <button onClick={() => navigate('/doctor/appointments')} className="px-3 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm">
-                            Reschedule
-                          </button>
-                        </>
+                        isEndTimePassed(appointment) ? (
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700 border border-orange-200">
+                            <Clock className="w-3 h-3 mr-1" />
+                            Past Due
+                          </span>
+                        ) : (
+                          <>
+                            <button onClick={() => navigate('/doctor/appointments')} className="px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm">
+                              Start Consultation
+                            </button>
+                            <button onClick={() => navigate('/doctor/appointments')} className="px-3 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm">
+                              Reschedule
+                            </button>
+                          </>
+                        )
                       )}
                       {appointment.status === 'completed' && (
                         <button onClick={() => navigate('/doctor/appointments?tab=completed')} className="px-3 py-1 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm flex items-center space-x-1">

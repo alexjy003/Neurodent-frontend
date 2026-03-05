@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react'
+import ReactDOM from 'react-dom'
 import apiService from '../services/api'
 
 const DashboardOverview = ({ user, setActiveTab }) => {
+  const [showDetailsModal, setShowDetailsModal] = useState(false)
   const [dashboardData, setDashboardData] = useState({
     stats: {
       totalAppointments: 0,
@@ -257,10 +259,14 @@ const DashboardOverview = ({ user, setActiveTab }) => {
                   </div>
                 </div>
                 <div className="mt-6 flex space-x-3">
-                  <button className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-xl text-sm font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                  <button
+                    onClick={() => setShowDetailsModal(true)}
+                    className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-xl text-sm font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
                     View Details
                   </button>
-                  <button className="flex-1 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 px-6 py-3 rounded-xl text-sm font-semibold hover:from-gray-200 hover:to-gray-300 transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5">
+                  <button
+                    onClick={() => setActiveTab && setActiveTab('appointments')}
+                    className="flex-1 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 px-6 py-3 rounded-xl text-sm font-semibold hover:from-gray-200 hover:to-gray-300 transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5">
                     Reschedule
                   </button>
                 </div>
@@ -312,6 +318,116 @@ const DashboardOverview = ({ user, setActiveTab }) => {
           </div>
         </div>
       </div>
+
+      {showDetailsModal && dashboardData.nextAppointment && ReactDOM.createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[9999] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-5 rounded-t-2xl flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-white">Appointment Details</h3>
+                <p className="text-blue-200 text-sm mt-0.5">Upcoming appointment info</p>
+              </div>
+              <button
+                onClick={() => setShowDetailsModal(false)}
+                className="text-white/70 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 space-y-4">
+              {/* Status badge */}
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-500">Status</span>
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 capitalize">
+                  ✓ {dashboardData.nextAppointment.status || 'Confirmed'}
+                </span>
+              </div>
+
+              {/* Date & Time */}
+              <div className="flex items-start space-x-3 bg-blue-50 rounded-xl p-4">
+                <svg className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a1 1 0 011-1h6a1 1 0 011 1v4m-9 0h10a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V9a2 2 0 012-2z" />
+                </svg>
+                <div>
+                  <p className="text-xs text-blue-500 font-medium">Date &amp; Time</p>
+                  <p className="text-sm font-semibold text-gray-900">{formatAppointmentDate(dashboardData.nextAppointment.appointmentDate)}</p>
+                  <p className="text-sm text-gray-600">{dashboardData.nextAppointment.timeRange || 'Time not set'}</p>
+                </div>
+              </div>
+
+              {/* Doctor */}
+              <div className="flex items-start space-x-3">
+                <svg className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                <div>
+                  <p className="text-xs text-gray-400 font-medium">Doctor</p>
+                  <p className="text-sm font-semibold text-gray-900">{dashboardData.nextAppointment.doctorName || 'N/A'}</p>
+                </div>
+              </div>
+
+              {/* Appointment Type */}
+              <div className="flex items-start space-x-3">
+                <svg className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                <div>
+                  <p className="text-xs text-gray-400 font-medium">Appointment Type</p>
+                  <p className="text-sm font-semibold text-gray-900">{dashboardData.nextAppointment.slotType || 'General Appointment'}</p>
+                </div>
+              </div>
+
+              {/* Symptoms */}
+              {dashboardData.nextAppointment.symptoms && (
+                <div className="flex items-start space-x-3">
+                  <svg className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <div>
+                    <p className="text-xs text-gray-400 font-medium">Reason / Symptoms</p>
+                    <p className="text-sm text-gray-900">{dashboardData.nextAppointment.symptoms}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Notes */}
+              {dashboardData.nextAppointment.notes && (
+                <div className="flex items-start space-x-3">
+                  <svg className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  <div>
+                    <p className="text-xs text-gray-400 font-medium">Notes</p>
+                    <p className="text-sm text-gray-900">{dashboardData.nextAppointment.notes}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 pb-6 flex space-x-3">
+              <button
+                onClick={() => { setShowDetailsModal(false); setActiveTab && setActiveTab('appointments') }}
+                className="flex-1 py-2.5 text-sm font-semibold text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors"
+              >
+                Go to Appointments
+              </button>
+              <button
+                onClick={() => setShowDetailsModal(false)}
+                className="flex-1 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   )
 }

@@ -48,6 +48,29 @@ const PatientDashboard = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [chatbotOpen, setChatbotOpen] = useState(false)
+  const [hasPharmacyNotification, setHasPharmacyNotification] = useState(false)
+
+  // Poll for pending pharmacy allocations (medicines allocated but not yet paid)
+  useEffect(() => {
+    if (!isAuthenticated) return
+    const fetchNotification = async () => {
+      try {
+        const res = await apiService.get('/prescriptions/patient/has-new-allocations')
+        if (res?.success) {
+          setHasPharmacyNotification(res.hasNew)
+        }
+      } catch (e) {
+        // silent fail — notification is non-critical
+      }
+    }
+    fetchNotification()
+    const interval = setInterval(fetchNotification, 30000)
+    return () => clearInterval(interval)
+  }, [isAuthenticated])
+
+  const handleSetActiveTab = (tab) => {
+    setActiveTab(tab)
+  }
 
   // Handle Google OAuth token from URL
   useEffect(() => {
@@ -133,7 +156,7 @@ const PatientDashboard = () => {
   const renderActiveComponent = () => {
     switch (activeTab) {
       case 'overview':
-        return <DashboardOverview user={user} setActiveTab={setActiveTab} />
+        return <DashboardOverview user={user} setActiveTab={handleSetActiveTab} />
       case 'profile':
         return <ProfileManagement user={user} />
       case 'doctors':
@@ -145,7 +168,7 @@ const PatientDashboard = () => {
       case 'pharmacy':
         return <PharmacyOrders user={user} />
       default:
-        return <DashboardOverview user={user} setActiveTab={setActiveTab} />
+        return <DashboardOverview user={user} setActiveTab={handleSetActiveTab} />
     }
   }
 
@@ -164,11 +187,12 @@ const PatientDashboard = () => {
       {/* Sidebar */}
       <PatientSidebar
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={handleSetActiveTab}
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
         user={user}
         onOpenChatbot={() => setChatbotOpen(true)}
+        hasPharmacyNotification={hasPharmacyNotification}
       />
 
       <PatientChatbot isOpen={chatbotOpen} onClose={() => setChatbotOpen(false)} />

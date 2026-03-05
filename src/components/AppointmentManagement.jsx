@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
+import { Calendar, Clock, User, Stethoscope, FileText, X, Activity, MapPin, Tag } from 'lucide-react';
 import appointmentService from '../services/appointmentService';
 import DoctorSearch from './DoctorSearch';
 
@@ -273,7 +275,7 @@ const AppointmentManagement = ({ user }) => {
       scheduled: { color: 'bg-blue-100 text-blue-800', text: 'Scheduled' },
       confirmed: { color: 'bg-green-100 text-green-800', text: 'Confirmed' },
       cancelled: { color: 'bg-red-100 text-red-800', text: 'Cancelled' },
-      completed: { color: 'bg-gray-100 text-gray-800', text: 'Completed' }
+      completed: { color: 'bg-green-100 text-green-800', text: 'Completed' }
     };
     
     const config = statusConfig[status] || statusConfig.scheduled;
@@ -653,46 +655,121 @@ const AppointmentManagement = ({ user }) => {
         </div>
       )}
 
-      {showDetailsModal && selectedAppointment && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-6 border w-full max-w-md shadow-lg rounded-xl bg-white">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-medium text-gray-900">Appointment Details</h3>
-              <button onClick={closeModals} className="text-gray-400 hover:text-gray-600">
-                <span className="sr-only">Close</span>
-                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Appointment Type</label>
-                <p className="text-base text-gray-900">{selectedAppointment.slotType}</p>
+      {showDetailsModal && selectedAppointment && ReactDOM.createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[9999] flex items-center justify-center p-4">
+          <div className="relative w-full max-w-md shadow-2xl rounded-2xl bg-white overflow-hidden max-h-[90vh] flex flex-col">
+            {/* Gradient Header */}
+            <div className="bg-gradient-to-r from-blue-600 to-blue-400 px-6 py-5">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-blue-100 text-xs font-semibold uppercase tracking-widest mb-1">Appointment Details</p>
+                  <h3 className="text-xl font-bold text-white leading-tight">
+                    {selectedAppointment.slotType || 'Appointment'}
+                  </h3>
+                </div>
+                <button
+                  onClick={closeModals}
+                  className="ml-4 mt-1 text-blue-200 hover:text-white transition-colors flex-shrink-0"
+                >
+                  <X className="h-6 w-6" />
+                </button>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Doctor</label>
-                <p className="text-base text-gray-900">{selectedAppointment.doctorName}</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Date & Time</label>
-                <p className="text-base text-gray-900">
-                  {formatDate(selectedAppointment.appointmentDate)} at {selectedAppointment.timeRange}
-                </p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                <div>{getStatusBadge(selectedAppointment.status)}</div>
+              {/* Status badge in header */}
+              <div className="mt-3">
+                {getStatusBadge(selectedAppointment.status)}
               </div>
             </div>
-            <div className="mt-8 flex justify-end">
-              <button onClick={closeModals} className="px-6 py-3 bg-gray-300 text-gray-700 rounded-lg text-base font-medium hover:bg-gray-400">
+
+            {/* Body */}
+            <div className="px-6 py-5 space-y-4 overflow-y-auto flex-1">
+              {/* Doctor */}
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center">
+                  <User className="w-4 h-4 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Doctor</p>
+                  <p className="text-sm font-medium text-gray-900 mt-0.5">{selectedAppointment.doctorName}</p>
+                </div>
+              </div>
+
+              {/* Date & Time */}
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-9 h-9 rounded-full bg-purple-50 flex items-center justify-center">
+                  <Calendar className="w-4 h-4 text-purple-600" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Date & Time</p>
+                  <p className="text-sm font-medium text-gray-900 mt-0.5">
+                    {formatDate(selectedAppointment.appointmentDate)}
+                  </p>
+                  <p className="text-sm text-gray-600 flex items-center gap-1 mt-0.5">
+                    <Clock className="w-3.5 h-3.5" />
+                    {selectedAppointment.timeRange}
+                  </p>
+                </div>
+              </div>
+
+              {/* Appointment Type */}
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-9 h-9 rounded-full bg-teal-50 flex items-center justify-center">
+                  <Stethoscope className="w-4 h-4 text-teal-600" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Appointment Type</p>
+                  <p className="text-sm font-medium text-gray-900 mt-0.5">{selectedAppointment.slotType || '—'}</p>
+                </div>
+              </div>
+
+              {/* Symptoms */}
+              {selectedAppointment.symptoms ? (
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-9 h-9 rounded-full bg-orange-50 flex items-center justify-center">
+                    <Activity className="w-4 h-4 text-orange-500" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Symptoms / Reason</p>
+                    <p className="text-sm text-gray-800 mt-0.5 leading-relaxed">{selectedAppointment.symptoms}</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-9 h-9 rounded-full bg-orange-50 flex items-center justify-center">
+                    <Activity className="w-4 h-4 text-orange-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Symptoms / Reason</p>
+                    <p className="text-sm text-gray-400 italic mt-0.5">Not specified</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Notes (if any) */}
+              {selectedAppointment.notes && (
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
+                    <FileText className="w-4 h-4 text-gray-500" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Notes</p>
+                    <p className="text-sm text-gray-800 mt-0.5 leading-relaxed">{selectedAppointment.notes}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end">
+              <button
+                onClick={closeModals}
+                className="px-6 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+              >
                 Close
               </button>
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
     </div>
   );
 };

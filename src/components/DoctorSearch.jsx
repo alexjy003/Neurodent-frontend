@@ -514,12 +514,12 @@ const DoctorSearch = () => {
                   )}
                 </div>
 
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-y-3">
                   <div>
                     <p className="text-sm text-gray-600">Next available</p>
                     <p className="text-sm font-medium text-gray-900">{doctor.nextSlot}</p>
                   </div>
-                  <div className="flex space-x-3">
+                  <div className="flex flex-wrap gap-2">
                     <button
                       onClick={() => openRatingModal(doctor)}
                       className="px-3 py-2 border-2 border-yellow-400 text-yellow-600 rounded-lg text-sm font-medium hover:bg-yellow-50 transition-all duration-200 flex items-center space-x-1"

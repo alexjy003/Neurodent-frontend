@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import patientIcon from '../assets/images/p.png'
 
-const PatientSidebar = ({ activeTab, setActiveTab, sidebarOpen, setSidebarOpen, user, onOpenChatbot }) => {
+const PatientSidebar = ({ activeTab, setActiveTab, sidebarOpen, setSidebarOpen, user, onOpenChatbot, hasPharmacyNotification }) => {
   const navigate = useNavigate()
   const { logout } = useAuth()
 
@@ -123,6 +123,9 @@ const PatientSidebar = ({ activeTab, setActiveTab, sidebarOpen, setSidebarOpen, 
                 {item.icon}
               </div>
               <span className="text-left flex-1 min-w-0">{item.name}</span>
+              {item.id === 'pharmacy' && hasPharmacyNotification && activeTab !== 'pharmacy' && (
+                <span className="ml-2 w-2.5 h-2.5 rounded-full bg-red-500 flex-shrink-0 shadow-sm animate-pulse" />
+              )}
             </button>
           ))}
         </div>

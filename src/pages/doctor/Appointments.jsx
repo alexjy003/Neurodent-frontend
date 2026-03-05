@@ -97,6 +97,40 @@ const Appointments = () => {
     }
   }
 
+  // Returns true if today's appointment has gone past its scheduled end time
+  const isAppointmentEndTimePassed = (appointment) => {
+    const now = new Date()
+
+    // appointmentDate comes back as "YYYY-MM-DD" string — compare directly to today's date string
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    if (appointment.appointmentDate !== todayStr) return false
+
+    const endTimeStr = appointment.endTime  // stored as 24-hr "HH:MM"
+    if (!endTimeStr) return false
+
+    // Support both "15:30" (24-hr) and "3:30 PM" (12-hr) formats
+    let hours, minutes
+    const ampmMatch = endTimeStr.match(/^(\d+):(\d+)\s*(AM|PM)$/i)
+    const h24Match = endTimeStr.match(/^(\d{1,2}):(\d{2})$/)
+
+    if (ampmMatch) {
+      hours = parseInt(ampmMatch[1])
+      minutes = parseInt(ampmMatch[2])
+      const meridiem = ampmMatch[3].toUpperCase()
+      if (meridiem === 'PM' && hours !== 12) hours += 12
+      if (meridiem === 'AM' && hours === 12) hours = 0
+    } else if (h24Match) {
+      hours = parseInt(h24Match[1])
+      minutes = parseInt(h24Match[2])
+    } else {
+      return false
+    }
+
+    const endDateTime = new Date()
+    endDateTime.setHours(hours, minutes, 0, 0)
+    return now > endDateTime
+  }
+
   const fetchAppointments = async () => {
     try {
       setLoading(true)
@@ -193,7 +227,15 @@ const Appointments = () => {
             return (b.startTime || '').localeCompare(a.startTime || '')
           })
         }
-        setAppointments(raw)
+
+        // For pending tab: pull out any today-appointments whose end time has already passed
+        let todayEndedAppointments = []
+        let upcomingAppointments = raw
+        if (activeTab === 'pending') {
+          todayEndedAppointments = raw.filter(apt => isAppointmentEndTimePassed(apt))
+          upcomingAppointments = raw.filter(apt => !isAppointmentEndTimePassed(apt))
+        }
+        setAppointments(upcomingAppointments)
         
         // If it's pending tab, also fetch past pending appointments
         if (activeTab === 'pending') {
@@ -207,13 +249,17 @@ const Appointments = () => {
           const pastResponse = await apiService.get(`/appointments/doctor/my-appointments?${pastParams}`)
           
           if (pastResponse.success) {
-            const sorted = (pastResponse.appointments || []).sort((a, b) =>
+            const merged = [...(pastResponse.appointments || []), ...todayEndedAppointments]
+            const sorted = merged.sort((a, b) =>
               new Date(b.appointmentDate) - new Date(a.appointmentDate)
             )
             setPastPendingAppointments(sorted)
-            console.log('📡 Past pending appointments:', pastResponse.appointments)
+            console.log('📡 Past pending appointments:', sorted)
           } else {
-            setPastPendingAppointments([])
+            const sorted = todayEndedAppointments.sort((a, b) =>
+              new Date(b.appointmentDate) - new Date(a.appointmentDate)
+            )
+            setPastPendingAppointments(sorted)
             console.log('❌ Failed to fetch past pending appointments:', pastResponse.message)
           }
         } else {
@@ -1094,13 +1140,27 @@ const Appointments = () => {
                       <CheckCircle className="w-3 h-3 mr-1" />
                       Complete
                     </button>
-                    <button
-                      onClick={() => handleReschedule(appointment)}
-                      className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 transition-colors"
-                    >
-                      <RotateCcw className="w-3 h-3 mr-1" />
-                      Reschedule
-                    </button>
+                    {(() => {
+                      const oneMonthAgo = new Date()
+                      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1)
+                      const bookedOn = new Date(appointment.bookingDate || appointment.appointmentDate)
+                      const tooOld = bookedOn < oneMonthAgo
+                      return (
+                        <button
+                          onClick={() => !tooOld && handleReschedule(appointment)}
+                          disabled={tooOld}
+                          title={tooOld ? 'Rescheduling is not available for appointments older than 1 month' : 'Reschedule appointment'}
+                          className={`inline-flex items-center px-3 py-1.5 border text-xs font-medium rounded transition-colors ${
+                            tooOld
+                              ? 'border-transparent text-gray-400 bg-gray-200 cursor-not-allowed opacity-60'
+                              : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50 cursor-pointer'
+                          }`}
+                        >
+                          <RotateCcw className="w-3 h-3 mr-1" />
+                          Reschedule
+                        </button>
+                      )
+                    })()}
                   </div>
                 </div>
               </div>
