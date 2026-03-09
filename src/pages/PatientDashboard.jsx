@@ -9,6 +9,7 @@ import DoctorSearch from '../components/DoctorSearch'
 import AppointmentManagement from '../components/AppointmentManagement'
 import MedicalRecords from '../components/MedicalRecords'
 import PharmacyOrders from '../components/PharmacyOrders'
+import XRayAnalysis from '../components/XRayAnalysis'
 import usePreventBackNavigation from '../hooks/usePreventBackNavigation'
 import { getUserType, redirectToCorrectDashboard, validateUserAccess } from '../utils/navigationGuard'
 import apiService from '../services/api'
@@ -167,6 +168,8 @@ const PatientDashboard = () => {
         return <MedicalRecords user={user} />
       case 'pharmacy':
         return <PharmacyOrders user={user} />
+      case 'xray':
+        return <XRayAnalysis />
       default:
         return <DashboardOverview user={user} setActiveTab={handleSetActiveTab} />
     }
