@@ -201,7 +201,6 @@ const DoctorsManagement = () => {
     })
     setSelectedImage(null)
     setImagePreview(null)
-    setShowPassword(false)
     setEditingDoctor(null)
   }
 

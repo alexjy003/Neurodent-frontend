@@ -54,44 +54,72 @@ const toDataURL = (file) =>
     reader.readAsDataURL(file)
   })
 
-const DENTAL_PROMPT = `You are an expert dental radiologist and oral diagnostician.
-Analyze the provided dental image (X-ray, periapical, panoramic, or intraoral photograph) carefully.
+const DENTAL_PROMPT = `You are a highly experienced dental radiologist performing a comprehensive diagnostic report.
+Your task is EXHAUSTIVE detection — you MUST find and report EVERY pathology visible in the image, no matter how minor.
+Do NOT summarize or group findings. Report each affected tooth individually.
+
+SCANNING PROTOCOL (follow this order):
+1. Upper right quadrant (UR8 → UR1): inspect each tooth for caries, deep caries, periapical lesions, bone loss, impaction, fracture, calculus.
+2. Upper left quadrant (UL1 → UL8): same inspection.
+3. Lower right quadrant (LR8 → LR1): same inspection.
+4. Lower left quadrant (LL1 → LL8): same inspection.
+5. Overall bone levels, sinus, TMJ, and any other visible structures.
+
 Return ONLY a valid JSON object with no markdown, no extra text, in exactly this shape:
 
 {
   "overallRisk": "low" | "medium" | "high",
-  "summary": "2-3 sentence overall clinical assessment",
+  "summary": "3-4 sentence comprehensive clinical assessment covering all quadrants",
+  "diagnoses": [
+    {
+      "name": "Clinical diagnosis name (e.g. Rampant Caries, Chronic Periodontitis, Periapical Abscess, Dentigerous Cyst)",
+      "likelihood": 87,
+      "basis": "1-2 sentences: which specific findings and radiographic features support this diagnosis",
+      "urgency": "routine" | "soon" | "urgent",
+      "specialist": "Who should treat this (e.g. General Dentist, Periodontist, Oral Surgeon, Endodontist, Orthodontist)"
+    }
+  ],
   "findings": [
     {
-      "label": "Short finding name (e.g. Caries, Deep Caries, Impacted, Bone Loss)",
+      "label": "Condition + tooth (e.g. Caries UR6, Deep Caries LR4, Impacted UL8, Bone Loss Lower Anterior)",
       "confidence": 88,
       "severity": "low" | "mild" | "moderate" | "severe",
-      "description": "Detailed clinical observation of what is seen in the image",
-      "recommendation": "Specific treatment or action recommendation for this finding",
-      "bbox": { "x": 10, "y": 20, "w": 15, "h": 12 }
+      "description": "Precise clinical observation — location, extent, surrounding structures affected",
+      "recommendation": "Specific treatment recommendation for this exact tooth/region",
+      "bbox": { "x": 10, "y": 20, "w": 8, "h": 10 }
     }
   ]
 }
 
+DIAGNOSES instructions:
+- Provide 2-5 probable clinical diagnoses derived from the COMBINATION of all findings above.
+- likelihood = probability as integer 50-99 based on the radiographic evidence.
+- urgency: routine = can wait for regular checkup, soon = within 2-4 weeks, urgent = immediate care needed.
+- Order diagnoses from highest to lowest likelihood.
+- Be clinically precise — use proper dental diagnostic terminology.
+
 BBOX instructions:
-- bbox x, y are the top-left corner as a percentage (0-100) of image width and height.
-- bbox w, h are the width and height as a percentage (0-100) of image width and height.
-- For panoramic X-rays with multiple affected teeth, add ONE separate finding entry PER affected tooth with its own bbox.
-- confidence = your certainty as an integer from 50 to 99.
-- If a finding has no specific locatable region (e.g. overall bone health), set bbox to null.
+- x, y = top-left corner as % of image width/height (0–100).
+- w, h = width/height of box as % of image width/height (0–100).
+- Make boxes TIGHT around the individual tooth or lesion — do not draw one large box for the whole arch.
+- confidence = your certainty as integer 50–99.
+- Set bbox to null ONLY for non-localizable findings (e.g. generalised bone pattern).
 
 Severity guide:
-- low:      Normal/healthy, no action needed
-- mild:     Minor issue, monitor or preventive care
+- low:      Normal/healthy
+- mild:     Monitor / preventive care
 - moderate: Needs dental attention within weeks
-- severe:   Urgent dental care required
+- severe:   Urgent care required
 
-Rules:
-1. For pathological findings (Caries, Deep Caries, Impacted, Abscess, Fracture), ALWAYS include a bbox.
-2. Multiple caries on different teeth = multiple separate finding objects, one per tooth.
-3. If NOT a dental image, return single finding label "Invalid Image" severity "mild" bbox null.
-4. Be specific about tooth numbers/regions when identifiable.
-5. Return ONLY the JSON object, nothing else.`
+CRITICAL RULES — violating these is an error:
+1. EVERY carious tooth = its own finding entry with bbox. Never group multiple teeth into one entry.
+2. EVERY impacted or partially erupted tooth = its own entry with bbox.
+3. EVERY periapical lesion, abscess, or radiolucency = its own entry with bbox.
+4. Bone loss at different regions (anterior vs posterior vs left vs right) = separate entries.
+5. Do NOT skip teeth just because the finding is mild — mild caries still needs reporting.
+6. Aim for completeness: if you see 8 carious teeth, return 8 separate caries findings.
+7. If NOT a dental image → single finding label "Invalid Image" severity "mild" bbox null.
+8. Return ONLY the JSON object, nothing else.`
 
 const parseGroqText = (text) => {
   const fenced = text.match(/` + '```' + `(?:json)?\s*([\s\S]*?)` + '```' + `/)
@@ -216,8 +244,8 @@ const XRayAnalysis = () => {
               { type: 'image_url', image_url: { url: dataURL } },
             ],
           }],
-          max_tokens: 2048,
-          temperature: 0.3,
+          max_tokens: 8192,
+          temperature: 0.5,
         }),
       })
 
@@ -262,11 +290,17 @@ const XRayAnalysis = () => {
 
       const overallRisk = ['low','medium','high'].includes(parsed.overallRisk) ? parsed.overallRisk : 'medium'
 
+      const diagnoses = (parsed.diagnoses || []).map((d, i) => ({
+        ...d, id: `d_${i}`,
+        likelihood: typeof d.likelihood === 'number' ? Math.min(99, Math.max(1, d.likelihood)) : 70,
+        urgency: ['routine','soon','urgent'].includes(d.urgency) ? d.urgency : 'routine',
+      }))
+
       setProgress(95)
       const annotated = await drawAnnotatedCanvas(image.dataURL, findings)
       setAnnotatedImageURL(annotated)
       setProgress(100)
-      setResults({ findings, overallRisk, summary: parsed.summary || '', analyzedAt: new Date() })
+      setResults({ findings, diagnoses, overallRisk, summary: parsed.summary || '', analyzedAt: new Date() })
     } catch (err) {
       console.error('X-ray analysis error:', err)
       setError(err.message || 'Analysis failed. Please check your connection and try again.')
@@ -391,6 +425,46 @@ const XRayAnalysis = () => {
               ))}
             </ul>
           </div>
+
+          {results && results.diagnoses && results.diagnoses.length > 0 && (
+            <div className="bg-white rounded-2xl shadow-lg border border-indigo-100 overflow-hidden">
+              <div className="px-5 py-4 bg-gradient-to-r from-indigo-50 to-blue-50 border-b border-indigo-100 flex items-center space-x-2">
+                <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                <h4 className="text-base font-bold text-gray-900">Diagnosis Prediction</h4>
+                <span className="ml-auto text-xs text-indigo-500 font-medium bg-indigo-100 px-2 py-0.5 rounded-full">AI Predicted</span>
+              </div>
+              <div className="divide-y divide-gray-100">
+                {results.diagnoses.map((dx) => {
+                  const urgencyStyle = dx.urgency === 'urgent'
+                    ? { badge: 'bg-red-100 text-red-700',    bar: 'bg-red-500',    dot: 'bg-red-500',    label: '🚨 Urgent' }
+                    : dx.urgency === 'soon'
+                    ? { badge: 'bg-orange-100 text-orange-700', bar: 'bg-orange-400', dot: 'bg-orange-400', label: '⚡ See Soon' }
+                    : { badge: 'bg-green-100 text-green-700',  bar: 'bg-green-500',  dot: 'bg-green-500',  label: '✅ Routine' }
+                  return (
+                    <div key={dx.id} className="p-4 hover:bg-gray-50 transition-colors">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center space-x-2 flex-1 min-w-0">
+                          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${urgencyStyle.dot}`} />
+                          <span className="font-bold text-gray-900 text-sm">{dx.name}</span>
+                        </div>
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ml-3 ${urgencyStyle.badge}`}>{urgencyStyle.label}</span>
+                      </div>
+                      <div className="mb-2">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs text-gray-500">Likelihood</span>
+                          <span className="text-xs font-bold text-gray-700">{dx.likelihood}%</span>
+                        </div>
+                        <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div className={`h-2 rounded-full transition-all ${urgencyStyle.bar}`} style={{width:`${dx.likelihood}%`}} />
+                        </div>
+                      </div>
+                      {dx.basis && <p className="text-xs text-gray-600 leading-relaxed">{dx.basis}</p>}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Results Panel */}
