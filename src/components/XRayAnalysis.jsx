@@ -1,4 +1,5 @@
 ﻿import React, { useState, useRef, useCallback } from 'react'
+import { API_BASE_URL } from '../utils/config'
 
 const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY
 const GROQ_MODEL   = 'meta-llama/llama-4-scout-17b-16e-instruct'
@@ -6,12 +7,28 @@ const GROQ_URL     = 'https://api.groq.com/openai/v1/chat/completions'
 
 const ANALYSIS_STEPS = [
   'Preparing image data...',
-  'Connecting to AI diagnostic model...',
-  'Analyzing dental structures...',
-  'Scanning for caries & lesions...',
-  'Evaluating bone & periodontal health...',
+  'Validating image is a dental X-ray...',
+  'Running YOLOv8 fault detection...',
+  'Classifying detected lesions...',
+  'Generating AI diagnosis predictions...',
   'Compiling diagnostic report...',
 ]
+
+const DENTAL_IMAGE_GUARD_PROMPT = `You are validating uploads for a dental X-ray analyzer.
+Decide whether the image is a valid dental radiograph or intraoral dental image.
+
+Return ONLY valid JSON:
+{
+  "isDentalXray": true,
+  "confidence": 92,
+  "reason": "Brief reason"
+}
+
+Rules:
+- isDentalXray = true only for dental panoramic/periapical/bitewing/CBCT slice/intraoral dental photos.
+- isDentalXray = false for products, people portraits, landscapes, documents, screenshots, or unrelated medical images.
+- confidence must be 0-100 integer.
+`
 
 const severityConfig = {
   low:      { label: 'Normal',   bg: 'bg-green-50',  border: 'border-green-200',  badge: 'bg-green-100 text-green-800' },
@@ -54,72 +71,41 @@ const toDataURL = (file) =>
     reader.readAsDataURL(file)
   })
 
-const DENTAL_PROMPT = `You are a highly experienced dental radiologist performing a comprehensive diagnostic report.
-Your task is EXHAUSTIVE detection — you MUST find and report EVERY pathology visible in the image, no matter how minor.
-Do NOT summarize or group findings. Report each affected tooth individually.
+const buildDiagnosisPrompt = (findings) => `You are an expert dental radiologist and oral diagnostician.
+You are given YOLOv8 detection findings from a dental X-ray. Do not re-detect objects.
+Use only the provided findings to produce diagnosis prediction output.
 
-SCANNING PROTOCOL (follow this order):
-1. Upper right quadrant (UR8 → UR1): inspect each tooth for caries, deep caries, periapical lesions, bone loss, impaction, fracture, calculus.
-2. Upper left quadrant (UL1 → UL8): same inspection.
-3. Lower right quadrant (LR8 → LR1): same inspection.
-4. Lower left quadrant (LL1 → LL8): same inspection.
-5. Overall bone levels, sinus, TMJ, and any other visible structures.
-
-Return ONLY a valid JSON object with no markdown, no extra text, in exactly this shape:
-
+Return ONLY valid JSON in this exact shape:
 {
   "overallRisk": "low" | "medium" | "high",
-  "summary": "3-4 sentence comprehensive clinical assessment covering all quadrants",
+  "summary": "3-4 sentence clinical synthesis",
   "diagnoses": [
     {
-      "name": "Clinical diagnosis name (e.g. Rampant Caries, Chronic Periodontitis, Periapical Abscess, Dentigerous Cyst)",
+      "name": "Clinical diagnosis name",
       "likelihood": 87,
-      "basis": "1-2 sentences: which specific findings and radiographic features support this diagnosis",
+      "basis": "1-2 sentence basis using the findings",
       "urgency": "routine" | "soon" | "urgent",
-      "specialist": "Who should treat this (e.g. General Dentist, Periodontist, Oral Surgeon, Endodontist, Orthodontist)"
-    }
-  ],
-  "findings": [
-    {
-      "label": "Condition + tooth (e.g. Caries UR6, Deep Caries LR4, Impacted UL8, Bone Loss Lower Anterior)",
-      "confidence": 88,
-      "severity": "low" | "mild" | "moderate" | "severe",
-      "description": "Precise clinical observation — location, extent, surrounding structures affected",
-      "recommendation": "Specific treatment recommendation for this exact tooth/region",
-      "bbox": { "x": 10, "y": 20, "w": 8, "h": 10 }
+      "specialist": "General Dentist | Endodontist | Periodontist | Oral Surgeon | Orthodontist"
     }
   ]
 }
 
-DIAGNOSES instructions:
-- Provide 2-5 probable clinical diagnoses derived from the COMBINATION of all findings above.
-- likelihood = probability as integer 50-99 based on the radiographic evidence.
-- urgency: routine = can wait for regular checkup, soon = within 2-4 weeks, urgent = immediate care needed.
-- Order diagnoses from highest to lowest likelihood.
-- Be clinically precise — use proper dental diagnostic terminology.
+Rules:
+- Infer 2-5 likely diagnoses from combined findings.
+- likelihood must be integer 50-99.
+- urgency mapping: routine (regular follow-up), soon (2-4 weeks), urgent (immediate care).
+- If findings are minimal/uncertain, keep overallRisk low and provide preventive diagnosis.
 
-BBOX instructions:
-- x, y = top-left corner as % of image width/height (0–100).
-- w, h = width/height of box as % of image width/height (0–100).
-- Make boxes TIGHT around the individual tooth or lesion — do not draw one large box for the whole arch.
-- confidence = your certainty as integer 50–99.
-- Set bbox to null ONLY for non-localizable findings (e.g. generalised bone pattern).
+YOLO findings input:
+${JSON.stringify(findings, null, 2)}`
 
-Severity guide:
-- low:      Normal/healthy
-- mild:     Monitor / preventive care
-- moderate: Needs dental attention within weeks
-- severe:   Urgent care required
-
-CRITICAL RULES — violating these is an error:
-1. EVERY carious tooth = its own finding entry with bbox. Never group multiple teeth into one entry.
-2. EVERY impacted or partially erupted tooth = its own entry with bbox.
-3. EVERY periapical lesion, abscess, or radiolucency = its own entry with bbox.
-4. Bone loss at different regions (anterior vs posterior vs left vs right) = separate entries.
-5. Do NOT skip teeth just because the finding is mild — mild caries still needs reporting.
-6. Aim for completeness: if you see 8 carious teeth, return 8 separate caries findings.
-7. If NOT a dental image → single finding label "Invalid Image" severity "mild" bbox null.
-8. Return ONLY the JSON object, nothing else.`
+const deriveOverallRisk = (findings = []) => {
+  if (!findings.length) return 'low'
+  const severities = findings.map((f) => f.severity)
+  if (severities.includes('severe')) return 'high'
+  if (severities.includes('moderate')) return 'medium'
+  return 'low'
+}
 
 const parseGroqText = (text) => {
   const fenced = text.match(/` + '```' + `(?:json)?\s*([\s\S]*?)` + '```' + `/)
@@ -129,11 +115,19 @@ const parseGroqText = (text) => {
   return JSON.parse(objMatch[0])
 }
 
+const parseGuardResult = (text) => {
+  const parsed = parseGroqText(text)
+  const isDentalXray = Boolean(parsed?.isDentalXray)
+  const confidence = typeof parsed?.confidence === 'number' ? Math.min(100, Math.max(0, parsed.confidence)) : 0
+  const reason = typeof parsed?.reason === 'string' ? parsed.reason : ''
+  return { isDentalXray, confidence, reason }
+}
+
 const getBboxColor = (label = '') => {
   const l = label.toLowerCase()
   if (l.includes('deep cari') || l.includes('deep cav'))                       return { stroke: '#CC44FF', fill: 'rgba(204,68,255,0.18)' }
   if (l.includes('cari') || l.includes('cavity') || l.includes('decay'))       return { stroke: '#CCFF00', fill: 'rgba(204,255,0,0.18)'  }
-  if (l.includes('impacted') || l.includes('impact'))                           return { stroke: '#FF3399', fill: 'rgba(255,51,153,0.18)' }
+  if (l.includes('impacted') || l.includes('impact'))                           return { stroke: '#3B82F6', fill: 'rgba(59,130,246,0.20)' }
   if (l.includes('abscess') || l.includes('periap') || l.includes('necros'))   return { stroke: '#FF4444', fill: 'rgba(255,68,68,0.18)'  }
   if (l.includes('bone') || l.includes('alveol'))                               return { stroke: '#FF9900', fill: 'rgba(255,153,0,0.18)'  }
   if (l.includes('fractur') || l.includes('crack'))                             return { stroke: '#FF6600', fill: 'rgba(255,102,0,0.18)'  }
@@ -227,12 +221,11 @@ const XRayAnalysis = () => {
     setAnalyzing(true); setResults(null); setError(''); setStepIndex(0); setProgress(0); setAnnotatedImageURL(null); setShowOriginal(false)
     try {
       setStepIndex(0); setProgress(8)
-      const dataURL = image.dataURL
       await delay(300)
 
       setStepIndex(1); setProgress(18)
 
-      const apiPromise = fetch(GROQ_URL, {
+      const guardRes = await fetch(GROQ_URL, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -240,59 +233,121 @@ const XRayAnalysis = () => {
           messages: [{
             role: 'user',
             content: [
-              { type: 'text',      text: DENTAL_PROMPT },
-              { type: 'image_url', image_url: { url: dataURL } },
+              { type: 'text', text: DENTAL_IMAGE_GUARD_PROMPT },
+              { type: 'image_url', image_url: { url: image.dataURL } },
             ],
           }],
-          max_tokens: 8192,
-          temperature: 0.5,
+          max_tokens: 400,
+          temperature: 0,
         }),
       })
 
-      await delay(900);  setStepIndex(2); setProgress(35)
-      await delay(1100); setStepIndex(3); setProgress(55)
-      await delay(1100); setStepIndex(4); setProgress(72)
-
-      const httpRes = await apiPromise
-      if (!httpRes.ok) {
-        const errBody = await httpRes.json().catch(() => ({}))
-        throw new Error(errBody?.error?.message || `Groq API error ${httpRes.status}`)
+      if (!guardRes.ok) {
+        const errBody = await guardRes.json().catch(() => ({}))
+        throw new Error(errBody?.error?.message || `Image validation API error ${guardRes.status}`)
       }
-      const json    = await httpRes.json()
+
+      const guardJson = await guardRes.json()
+      const guardRawText = guardJson?.choices?.[0]?.message?.content || ''
+
+      let guard
+      try {
+        guard = parseGuardResult(guardRawText)
+      } catch {
+        guard = { isDentalXray: false, confidence: 0, reason: 'Image validation could not confirm a dental radiograph.' }
+      }
+
+      if (!guard.isDentalXray || guard.confidence < 55) {
+        setProgress(100)
+        setError(
+          `This upload does not appear to be a dental X-ray/intraoral image. ${guard.reason || 'Please upload a clear dental radiograph.'}`
+        )
+        return
+      }
+
+      setStepIndex(2); setProgress(28)
+
+      const formData = new FormData()
+      formData.append('image', image.file)
+
+      const yoloRes = await fetch(`${API_BASE_URL}/xray-ml/analyze`, {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!yoloRes.ok) {
+        const errBody = await yoloRes.json().catch(() => ({}))
+        throw new Error(errBody?.message || `YOLO API error ${yoloRes.status}`)
+      }
+
+      const yoloJson = await yoloRes.json()
+      const rawFindings = Array.isArray(yoloJson?.findings) ? yoloJson.findings : []
+
+      if (yoloJson?.inconclusive && rawFindings.length === 0) {
+        setProgress(100)
+        setError(yoloJson?.message || 'ML analysis was inconclusive for this image. Please verify model configuration and image quality.')
+        return
+      }
+
+      const findings = rawFindings.map((f, i) => ({
+        ...f,
+        id: f.id || `f_${i}`,
+        severity: ['low','mild','moderate','severe'].includes(f.severity) ? f.severity : 'mild',
+        icon: getFindingIcon(f.label, f.severity),
+      }))
+
+      await delay(600);  setStepIndex(3); setProgress(48)
+      await delay(500);  setStepIndex(4); setProgress(68)
+
+      const diagnosisPrompt = buildDiagnosisPrompt(
+        findings.map(({ label, confidence, severity, description }) => ({ label, confidence, severity, description }))
+      )
+
+      const groqRes = await fetch(GROQ_URL, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: GROQ_MODEL,
+          messages: [{
+            role: 'user',
+            content: diagnosisPrompt,
+          }],
+          max_tokens: 2048,
+          temperature: 0.4,
+        }),
+      })
+
+      await delay(600);  setStepIndex(5); setProgress(88)
+
+      if (!groqRes.ok) {
+        const errBody = await groqRes.json().catch(() => ({}))
+        throw new Error(errBody?.error?.message || `Groq API error ${groqRes.status}`)
+      }
+      const json    = await groqRes.json()
       const rawText = json?.choices?.[0]?.message?.content || ''
 
-      setStepIndex(5); setProgress(90)
+      setStepIndex(5); setProgress(92)
       await delay(300)
 
       let parsed
       try { parsed = parseGroqText(rawText) }
       catch {
         parsed = {
-          overallRisk: 'medium',
-          summary: 'The AI returned an analysis. See below for details.',
-          findings: [{ label: 'AI Diagnostic Result', severity: 'mild', description: rawText.substring(0, 700), recommendation: 'Share this analysis with your dentist for professional evaluation.' }],
+          overallRisk: deriveOverallRisk(findings),
+          summary: findings.length
+            ? `YOLOv8 detected ${findings.length} potential finding${findings.length === 1 ? '' : 's'}. Share this report with your dentist for clinical confirmation.`
+            : 'YOLOv8 did not detect major visible abnormalities. Continue routine dental follow-up.',
+          diagnoses: [],
         }
       }
 
-      const findings = (parsed.findings || []).map((f, i) => ({
-        ...f, id: `f_${i}`,
-        severity: ['low','mild','moderate','severe'].includes(f.severity) ? f.severity : 'mild',
-        icon: getFindingIcon(f.label, f.severity),
-      }))
-
-      // If the AI flagged this as a non-dental image, show an error instead of results
-      const isInvalidImage = findings.length > 0 && findings.every(f => f.label.toLowerCase() === 'invalid image')
-      if (isInvalidImage) {
-        setProgress(100)
-        setError('This does not appear to be a dental X-ray or intra-oral image. Please upload a periapical, panoramic, or intraoral dental image.')
-        return
-      }
-
-      const overallRisk = ['low','medium','high'].includes(parsed.overallRisk) ? parsed.overallRisk : 'medium'
+      const overallRisk = ['low','medium','high'].includes(parsed.overallRisk)
+        ? parsed.overallRisk
+        : deriveOverallRisk(findings)
 
       const diagnoses = (parsed.diagnoses || []).map((d, i) => ({
         ...d, id: `d_${i}`,
-        likelihood: typeof d.likelihood === 'number' ? Math.min(99, Math.max(1, d.likelihood)) : 70,
+        likelihood: typeof d.likelihood === 'number' ? Math.min(99, Math.max(50, d.likelihood)) : 70,
         urgency: ['routine','soon','urgent'].includes(d.urgency) ? d.urgency : 'routine',
       }))
 
@@ -300,7 +355,15 @@ const XRayAnalysis = () => {
       const annotated = await drawAnnotatedCanvas(image.dataURL, findings)
       setAnnotatedImageURL(annotated)
       setProgress(100)
-      setResults({ findings, diagnoses, overallRisk, summary: parsed.summary || '', analyzedAt: new Date() })
+      setResults({
+        findings,
+        diagnoses,
+        overallRisk,
+        summary: parsed.summary || (findings.length
+          ? `YOLOv8 identified ${findings.length} potential finding${findings.length === 1 ? '' : 's'} for clinical review.`
+          : 'No major visible findings detected by YOLOv8.'),
+        analyzedAt: new Date(),
+      })
     } catch (err) {
       console.error('X-ray analysis error:', err)
       setError(err.message || 'Analysis failed. Please check your connection and try again.')
@@ -379,7 +442,7 @@ const XRayAnalysis = () => {
                 </div>
                 {results && annotatedImageURL && !showOriginal && (
                   <div className="flex flex-wrap gap-x-3 gap-y-1.5 px-1">
-                    {[{c:'#CCFF00',l:'Caries'},{c:'#CC44FF',l:'Deep Caries'},{c:'#FF3399',l:'Impacted'},{c:'#FF9900',l:'Bone Loss'},{c:'#FF4444',l:'Abscess/Periapical'},{c:'#00BFFF',l:'Other'}].map(({c,l}) => (
+                    {[{c:'#CCFF00',l:'Caries'},{c:'#CC44FF',l:'Deep Caries'},{c:'#3B82F6',l:'Impacted'},{c:'#FF9900',l:'Bone Loss'},{c:'#FF4444',l:'Abscess/Periapical'},{c:'#00BFFF',l:'Other'}].map(({c,l}) => (
                       <div key={l} className="flex items-center space-x-1.5"><span className="w-3.5 h-3 rounded-sm flex-shrink-0 border border-black/10" style={{backgroundColor:c}}/><span className="text-xs text-gray-600">{l}</span></div>
                     ))}
                   </div>
@@ -481,7 +544,7 @@ const XRayAnalysis = () => {
               </div>
               <div className="text-center">
                 <p className="text-base font-semibold text-gray-800 mb-1">{ANALYSIS_STEPS[stepIndex]}</p>
-                <p className="text-sm text-gray-500">Powered by Groq · Llama 4 Vision</p>
+                <p className="text-sm text-gray-500">Powered by YOLOv8 + Groq Llama</p>
               </div>
               <div className="w-full max-w-xs space-y-2">
                 {ANALYSIS_STEPS.map((step,i) => (
