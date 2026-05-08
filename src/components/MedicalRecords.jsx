@@ -8,8 +8,7 @@ const MedicalRecords = ({ user }) => {
   const [loading, setLoading] = useState(true)
   const [medicalData, setMedicalData] = useState({
     treatments: [],
-    prescriptions: [],
-    images: []
+    prescriptions: []
   })
 
   useEffect(() => {
@@ -86,12 +85,9 @@ const MedicalRecords = ({ user }) => {
         console.log("Processed treatments:", treatments.length)
       }
 
-      const images = []
-
       setMedicalData({
         treatments,
-        prescriptions,
-        images
+        prescriptions
       })
 
     } catch (error) {
@@ -168,8 +164,7 @@ const MedicalRecords = ({ user }) => {
 
   const tabs = [
     { id: "treatments", name: "Treatment History", icon: "", count: medicalData.treatments.length },
-    { id: "prescriptions", name: "Prescriptions", icon: "", count: medicalData.prescriptions.length },
-    { id: "images", name: "X-rays & Images", icon: "", count: medicalData.images.length }
+    { id: "prescriptions", name: "Prescriptions", icon: "", count: medicalData.prescriptions.length }
   ]
 
   return React.createElement("div", {className: "space-y-6"}, 
@@ -320,10 +315,7 @@ const MedicalRecords = ({ user }) => {
                     )
                   )
               ) :
-              React.createElement("div", {className: "text-center py-12"}, 
-                React.createElement("h3", {className: "text-lg font-medium text-gray-900 mb-2"}, "No Images Available"),
-                React.createElement("p", {className: "text-gray-600"}, "X-rays and dental images will appear here.")
-              )
+              null
       )
     )
   )
